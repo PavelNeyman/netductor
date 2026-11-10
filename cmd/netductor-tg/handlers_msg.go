@@ -277,7 +277,6 @@ func handleMessage(token string, m *message, admin int64) {
 	}
 	if strings.HasPrefix(st, "wait_quota:") {
 		name := strings.TrimPrefix(st, "wait_quota:")
-		setState(chat, "", "")
 		gb, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
 		if err != nil || gb < 0 {
 			completeInput(token, chat, uid, "❌ Число GiB, например 100", backKeyboard())
@@ -285,6 +284,7 @@ func handleMessage(token string, m *message, admin int64) {
 		}
 		_ = vpn.SetSoftLimitGB(name, gb)
 		completeInput(token, chat, uid, formatUserHubHTML(name), userHubKeyboard(name))
+		setState(chat, "", "")
 		return
 	}
 	if st == "wait_backup_keep" {
@@ -329,19 +329,18 @@ func handleMessage(token string, m *message, admin int64) {
 	if strings.HasPrefix(st, "wait_rename_new:") {
 		old := strings.TrimPrefix(st, "wait_rename_new:")
 		newName := strings.Fields(text)
-		setState(chat, "", "")
-		if len(newName) < 1 {
+				if len(newName) < 1 {
 			completeInput(token, chat, uid, Tf("rename_new_hint", old), userHubKeyboard(old))
 			return
 		}
 		out := runVPN("rename", old, newName[0])
 		completeInput(token, chat, uid, "✏️ <pre>"+esc(out)+"</pre>"+string([]byte{10, 10})+formatUserHubHTML(newName[0]), userHubKeyboard(newName[0]))
+		setState(chat, "", "")
 		return
 	}
 	if st == "wait_vpn_rename" {
 		fields := strings.Fields(text)
-		setState(chat, "", "")
-		if len(fields) < 2 {
+				if len(fields) < 2 {
 			completeInput(token, chat, uid, T("vpn_rename_hint"), usersListKeyboard())
 			return
 		}
@@ -357,8 +356,7 @@ func handleMessage(token string, m *message, admin int64) {
 		}
 		name := fields[0]
 		out := runVPN("add", name)
-		setState(chat, "", "")
-		sub := runVPN("link", name)
+				sub := runVPN("link", name)
 		body := "✅ <pre>" + esc(out) + "</pre>\n\n<pre>" + esc(sub) + "</pre>\n\n" + formatUserHubHTML(name)
 		completeInput(token, chat, uid, body, userHubKeyboard(name))
 		return

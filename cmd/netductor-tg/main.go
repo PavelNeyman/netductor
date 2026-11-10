@@ -499,10 +499,59 @@ func reply(token string, chat int64, msgID int, text string, kb map[string]any) 
 // completeInput finishes a text wait: delete the user's reply if possible, then edit the singleton hub.
 // Avoids orphan "prompt" hub + user text + new menu stack.
 func completeInput(token string, chat int64, userMsgID int, text string, kb map[string]any) {
+	// Delete the user's reply and the bot prompt (prompt msg id in chatExtra).
+	// Do not clear chatState here — multi-step flows (relay enroll) chain states.
+	_, extra := getState(chat)
 	if userMsgID > 0 {
 		_ = deleteMessage(token, chat, userMsgID)
 	}
-	reply(token, chat, 0, text, kb)
+	if pid, err := strconv.Atoi(strings.TrimSpace(extra)); err == nil && pid > 0 {
+		_ = deleteMessage(token, chat, pid)
+		// drop only the prompt id; keep state if caller already advanced it
+		if st, _ := getState(chat); st != "" {
+			chatExtra[chat] = ""
+		}
+	}
+	if text == "" {
+		return
+	}
+	// Short ack, auto-delete — SPA stays primary UI
+	mid := sendPlainHTML(token, chat, text)
+	if mid > 0 {
+		go scheduleDelete(token, chat, mid, 45)
+	}
+}
+
+// sendPlainHTML sends a non-hub HTML message and returns message_id (0 on failure).
+func sendPlainHTML(token string, chat int64, text string) int {
+	payload := map[string]any{"chat_id": chat, "text": text, "parse_mode": "HTML"}
+	body, err := apiPost(token, "sendMessage", payload)
+	if err != nil {
+		return 0
+	}
+	return messageIDFromTG(body)
+}
+
+// beginTextInput posts a prompt, stores its message_id in chatExtra for later delete.
+func beginTextInput(token string, chat int64, state, prompt string) {
+	mid := sendPlainHTML(token, chat, prompt)
+	setState(chat, state, strconv.Itoa(mid))
+}
+
+// sendEphemeralPhoto sends a photo and deletes it after ttlSec (default 60).
+func sendEphemeralPhoto(token string, chat int64, path, caption string, ttlSec int) {
+	if ttlSec <= 0 {
+		ttlSec = 60
+	}
+	mid, err := sendPhotoFileID(token, chat, path, caption, nil)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "sendEphemeralPhoto:", err)
+		// fallback: link only
+		mid = sendPlainHTML(token, chat, caption)
+	}
+	if mid > 0 {
+		go scheduleDelete(token, chat, mid, ttlSec)
+	}
 }
 
 // forceHub clears singleton state, tries to delete the old hub message, and always sends a new menu.
@@ -620,6 +669,63 @@ func sendPhotoFile(token string, chat int64, path, caption string, kb map[string
 		return fmt.Errorf("sendPhoto: %s", wr.Description)
 	}
 	return nil
+}
+
+
+func sendPhotoFileID(token string, chat int64, path, caption string, kb map[string]any) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	if len(caption) > 1000 {
+		caption = caption[:1000] + "…"
+	}
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	_ = w.WriteField("chat_id", strconv.FormatInt(chat, 10))
+	if caption != "" {
+		_ = w.WriteField("caption", caption)
+		_ = w.WriteField("parse_mode", "HTML")
+	}
+	if kb != nil {
+		if jb, err := json.Marshal(kb); err == nil {
+			_ = w.WriteField("reply_markup", string(jb))
+		}
+	}
+	part, err := w.CreateFormFile("photo", filepath.Base(path))
+	if err != nil {
+		return 0, err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return 0, err
+	}
+	if err := w.Close(); err != nil {
+		return 0, err
+	}
+	req, err := http.NewRequest(http.MethodPost, "https://api.telegram.org/bot"+token+"/sendPhoto", &buf)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	var wr struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+		Result      struct {
+			MessageID int `json:"message_id"`
+		} `json:"result"`
+	}
+	_ = json.Unmarshal(body, &wr)
+	if !wr.OK {
+		return 0, fmt.Errorf("sendPhoto: %s", wr.Description)
+	}
+	return wr.Result.MessageID, nil
 }
 
 func sendPhotoBytes(token string, chat int64, data []byte, caption string) error {

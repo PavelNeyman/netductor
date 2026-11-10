@@ -1,34 +1,22 @@
 # TG SPA menu parity
 
-Official widget profile (**core.telegram.org/bots/widgets**): **no keyboard / no input/textarea/select** — only `<button>`. Free text is impossible inside the widget.
+Widget profile: **no free-text input**. Workarounds:
 
-## Input alternative: on-screen pad
+## Text input via chat message
 
-Compose draft in bot state; pad keys send `p:<char>|p:bs|p:cl|p:ok` (≤64 bytes).
+1. SPA button → `beginTextInput` (prompt message, id in `chatExtra`)
+2. User sends value
+3. `completeInput` **deletes user message + prompt**; short ack auto-deletes ~45s
+4. State cleared when flow finishes
 
-| Mode | Entry | OK does |
-|------|-------|---------|
-| quota | User card → Custom GiB | `SetSoftLimitGB` |
-| rename | User card → Rename | `vpn rename` |
-| add | Users → Add | `vpn add` |
+Used for: rename, add user, custom quota GiB.
 
-Hybrid chat message still works if pad is awkward on small screens.
+On-screen pad remains available as alternate for short values.
 
-## Wizards in SPA
+## QR
 
-| Area | Coverage |
-|------|----------|
-| Alerts | status, **# pick known chat**, test, clear |
-| Git | project list, **# → sync/ship** |
-| Edge guest | list, **# → grant/revoke** |
-| Edge LuCI | status, **on 4h / off** |
-| Stack | heal, rollback confirm, watchdog |
-| Reboot | pick + challenge codes |
-| Backup | # → restore confirm |
-| User | enable/disable/link/sub/quota presets+custom/rename/revoke |
+Not embedded in widget. User card **QR** → photo (or link) in chat → **deleted after 60s**.
 
-## Still out of widget (by platform)
+## Other SPA actions
 
-- QR **photo** (img data: possible but base64 blows 1 KiB state; link/sub text stays; photo = classic send)
-- Git add project / migrate (needs long URLs — pad or classic)
-- Edge guest multi-step facts/enroll beyond grant/revoke
+Alerts pick, git sync/ship, edge guest/luci, stack, reboot challenge, backup restore, quota presets, link/sub.

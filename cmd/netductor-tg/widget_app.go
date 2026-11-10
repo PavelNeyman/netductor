@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"os/exec"
 	"strings"
 	"sync"
@@ -49,7 +51,7 @@ en:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ quota",rn:"Rename",add:"Add user",
   heal:"Heal",rbk:"Rollback",y_rbk:"Confirm rollback",wd:"Watchdog",
   y_rst:"Confirm restore",al_test:"Test alert",al_clr:"Clear alerts chat",
-  qn:"Custom GiB",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
+  qn:"Custom GiB",qr:"QR",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
   gsync:"Sync",gship:"Ship",eg_gr:"Grant",eg_rv:"Revoke guest",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
@@ -71,7 +73,7 @@ ru:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ квота",rn:"Имя",add:"Добавить",
   heal:"Heal",rbk:"Откат",y_rbk:"Подтвердить откат",wd:"Watchdog",
   y_rst:"Подтвердить restore",al_test:"Тест алерта",al_clr:"Сбросить alerts chat",
-  qn:"Своя GiB",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
+  qn:"Своя GiB",qr:"QR",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
   gsync:"Sync",gship:"Ship",eg_gr:"Выдать",eg_rv:"Отозвать",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
@@ -717,7 +719,7 @@ func buildAppUserCard(name string) (string, error) {
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
 		H:    appTitle("actions below", "действия ниже"),
-		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
+		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
 	})
 }
 
@@ -1143,19 +1145,17 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appPushState(token, q, cd)
 		return true
 	case "qn":
-		if focus == "" {
+		if focus == "" || q.Chat == nil {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		appMu.Lock()
-		appComposeMode = "quota"
-		appCompose = ""
-		appFocus = focus
-		appMu.Unlock()
+		beginTextInput(token, q.Chat.ID, "wait_quota:"+focus,
+			appTitle("Send soft limit in GiB (number, 0 = unlimited) for ", "Пришлите лимит GiB (число, 0 = ∞) для ")+"<code>"+esc(focus)+"</code>:")
 		cd, _ := appMarshal(appState{
-			S: "ucard", T: focus, Pad: true, Draft: "_",
-			H: appTitle("type GiB on pad, OK to apply", "наберите GiB на панели, OK"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
+			S: "ucard", T: focus,
+			B: appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
+			H: appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1181,13 +1181,12 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		setState(q.Chat.ID, "wait_rename_new:"+focus, "")
-		hint := Tf("rename_new_hint", focus)
-		sendHTML(token, q.Chat.ID, hint, userHubKeyboard(focus))
+		beginTextInput(token, q.Chat.ID, "wait_rename_new:"+focus, Tf("rename_new_hint", focus))
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: focus,
-			B: appTitle("send new name as next message", "отправьте новое имя следующим сообщением"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
+			B: appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
+			H: appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1196,11 +1195,11 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			answerWidgetQuery(token, q.ID, `{"err":"nochat"}`)
 			return true
 		}
-		setState(q.Chat.ID, "wait_vpn_add_name", "")
-		sendHTML(token, q.Chat.ID, T("add_prompt"), backTo("users"))
+		beginTextInput(token, q.Chat.ID, "wait_vpn_add_name", T("add_prompt"))
 		cd, _ := appMarshal(appState{
 			S: "users", T: appTitle("Users", "Пользователи"),
-			B: appTitle("send new username as next message", "отправьте имя пользователя сообщением"),
+			B: appTitle("waiting for name in chat…", "ждём имя в чате…"),
+			H: appTitle("message will be deleted after add", "сообщение удалится после добавления"),
 			Nav: []string{"ulist", "devices"}, Acts: "add",
 		})
 		appPushState(token, q, cd)
@@ -1329,6 +1328,33 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := buildAppUserCard(focus)
 		appPushState(token, q, cd)
 		return true
+	case "qr":
+		if focus == "" || q.Chat == nil {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		uri := strings.TrimSpace(accessPayload(focus, "vless"))
+		if uri == "" {
+			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv"})
+			appPushState(token, q, cd)
+			return true
+		}
+		dir := filepath.Join("/etc/netductor/clients", focus)
+		_ = os.MkdirAll(dir, 0o700)
+		qrPath := filepath.Join(dir, "qr-vless.png")
+		p := ensureQRFile(qrPath, uri)
+		cap := "📱 QR <code>" + esc(focus) + "</code> · " + appTitle("auto-delete 60s", "удалится через 60с")
+		if p != "" {
+			sendEphemeralPhoto(token, q.Chat.ID, p, cap, 60)
+		} else {
+			mid := sendPlainHTML(token, q.Chat.ID, cap+"\n<pre>"+esc(widgetTruncate(uri, 500))+"</pre>")
+			if mid > 0 {
+				go scheduleDelete(token, q.Chat.ID, mid, 60)
+			}
+		}
+		cd, _ := buildAppUserCard(focus)
+		appPushState(token, q, cd)
+		return true
 	case "lk", "sb":
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
@@ -1350,7 +1376,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			Rows:  [][2]string{{"mode", mode}},
 			Lines: link,
 			H:    appTitle("link / sub URI", "ссылка / sub"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1527,7 +1553,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: screen, T: title, Pad: true, Draft: show,
 			H: appTitle("pad · OK to apply", "панель · OK"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,rv",
 		})
 		appPushState(token, q, cd)
 		return true
