@@ -181,6 +181,7 @@ var spaContentScreens = map[string]bool{
 	"ulist": true, "incident": true, "reboot": true, "dns": true, "git": true,
 	"certs": true, "fw": true, "doctor": true, "cleanup": true, "admin": true,
 	"session": true, "alerts": true, "nvr": true,
+	"edgeguest": true, "edgeluci": true,
 }
 
 func openAppScreen(token string, chat int64, screenID string) bool {
@@ -249,8 +250,10 @@ func parseWidgetAct(data string) (screen, act string) {
 		data == "api_tg" || data == "usp_tg" || data == "vpnref" ||
 		data == "q50" || data == "q200" || data == "q0" || data == "rn" || data == "add" ||
 		data == "heal" || data == "rbk" || data == "y_rbk" || data == "wd" || data == "y_rst" ||
-		data == "al_test" || data == "al_clr" ||
-		strings.HasPrefix(data, "rc:") ||
+		data == "al_test" || data == "al_clr" || data == "qn" ||
+		data == "gsync" || data == "gship" || data == "eg_gr" || data == "eg_rv" ||
+		data == "el_on" || data == "el_off" ||
+		strings.HasPrefix(data, "rc:") || strings.HasPrefix(data, "p:") ||
 		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") || strings.HasPrefix(data, "L:") {
 		return "app", data
 	}

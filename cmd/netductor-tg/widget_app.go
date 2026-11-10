@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
+	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -24,6 +25,8 @@ var (
 	appFocus   string // current user name or node id for card actions
 	appRebootTarget string
 	appBackupName   string
+	appCompose      string
+	appComposeMode  string // quota|rename|add
 )
 
 const appWidgetBoot = `(function(){
@@ -46,6 +49,9 @@ en:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ quota",rn:"Rename",add:"Add user",
   heal:"Heal",rbk:"Rollback",y_rbk:"Confirm rollback",wd:"Watchdog",
   y_rst:"Confirm restore",al_test:"Test alert",al_clr:"Clear alerts chat",
+  qn:"Custom GiB",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
+  gsync:"Sync",gship:"Ship",eg_gr:"Grant",eg_rv:"Revoke guest",el_on:"LuCI on",el_off:"LuCI off",
+  edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
 },
 ru:{
@@ -65,6 +71,9 @@ ru:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ квота",rn:"Имя",add:"Добавить",
   heal:"Heal",rbk:"Откат",y_rbk:"Подтвердить откат",wd:"Watchdog",
   y_rst:"Подтвердить restore",al_test:"Тест алерта",al_clr:"Сбросить alerts chat",
+  qn:"Своя GiB",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
+  gsync:"Sync",gship:"Ship",eg_gr:"Выдать",eg_rv:"Отозвать",el_on:"LuCI on",el_off:"LuCI off",
+  edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
 }
 };
@@ -139,6 +148,38 @@ function paint(d){
         add(String(pair[0]),String(pair[1]||pair[0]),"");
       }
     }
+    if(d.pad){
+      var draft=document.getElementById("draft");
+      if(draft){draft.style.display="block";draft.textContent=d.draft||"_";}
+      var pad=document.getElementById("pad");
+      if(pad){
+        pad.style.display="flex";
+        if(!pad.dataset.ready){
+          pad.dataset.ready="1";
+          var keys="1234567890abcdefghijklmnopqrstuvwxyz_-";
+          for(var i=0;i<keys.length;i++){
+            (function(ch){
+              var b=document.createElement("button");
+              b.textContent=ch;
+              b.style.minWidth="28px";
+              b.addEventListener("click",function(){send("p:"+ch);});
+              pad.appendChild(b);
+            })(keys.charAt(i));
+          }
+          var bs=document.createElement("button");bs.textContent="⌫";bs.className="danger";
+          bs.addEventListener("click",function(){send("p:bs");});pad.appendChild(bs);
+          var cl=document.createElement("button");cl.textContent="CLR";
+          cl.addEventListener("click",function(){send("p:cl");});pad.appendChild(cl);
+          var ok=document.createElement("button");ok.textContent="OK";ok.className="primary";
+          ok.addEventListener("click",function(){send("p:ok");});pad.appendChild(ok);
+        }
+      }
+    }else{
+      var pad2=document.getElementById("pad");
+      if(pad2)pad2.style.display="none";
+      var draft2=document.getElementById("draft");
+      if(draft2)draft2.style.display="none";
+    }
     if(d.s!=="home")add("g:home",tr(d,"menu"));
     if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}
   }
@@ -173,6 +214,8 @@ button.danger{background:var(--tg-theme-destructive-text-color,#e53935);color:#f
 </style></head><body>
 <h1 id="t">Netductor</h1>
 <div id="b"><div class="pre">—</div></div>
+<div id="draft" style="display:none;margin:6px 0;font:14px ui-monospace,monospace"></div>
+<div id="pad" style="display:none;flex-wrap:wrap;gap:4px;margin-top:6px"></div>
 <div id="n"></div>
 <div id="h"></div>
 <script>` + appWidgetBoot + `</script></body></html>`
@@ -190,6 +233,8 @@ type appState struct {
 	Nav   []string    `json:"nav,omitempty"`
 	Acts  string      `json:"acts,omitempty"` // comma-separated act codes for buttons
 	Btns  [][2]string `json:"btns,omitempty"` // dynamic [{act,label},...] for challenge codes etc.
+	Draft string      `json:"draft,omitempty"`
+	Pad   bool        `json:"pad,omitempty"` // show on-screen key pad (no free-text in widget profile)
 	TS    int64       `json:"ts"`
 }
 
@@ -377,7 +422,7 @@ func buildAppEdgeHub() (string, error) {
 	return appMarshal(appState{
 		S: "edge", T: appTitle("Edge", "Edge"),
 		B: appTitle("routers · sites · pending", "роутеры · сайты · pending"),
-		Nav: []string{"routers", "sites", "pending"},
+		Nav: []string{"routers", "sites", "pending", "edgeguest", "edgeluci"},
 	})
 }
 
@@ -478,6 +523,115 @@ func buildAppRebootChallenge(target, display string) (string, error) {
 	})
 }
 
+
+func buildAppGit() (string, error) {
+	list, err := gitstore.LoadProjects()
+	if err != nil {
+		return appMarshal(appState{S: "git", T: "Git", B: err.Error()})
+	}
+	var lines []string
+	var ids []string
+	for i, pr := range list {
+		if i >= 10 {
+			break
+		}
+		lines = append(lines, fmt.Sprintf("%d %s", i+1, pr.Name))
+		ids = append(ids, pr.Name)
+	}
+	appMu.Lock()
+	appListIDs = ids
+	appMu.Unlock()
+	st := appState{
+		S: "git", T: "Git",
+		H: appTitle("# card · sync-all / ship via acts on card", "# карточка · sync/ship"),
+		Acts: "gsync,gship",
+	}
+	if len(lines) == 0 {
+		st.B = appTitle("no projects", "нет проектов")
+	} else {
+		st.Lines = strings.Join(lines, "\n")
+		st.IDs = strings.Join(ids, ",")
+	}
+	return appMarshal(st)
+}
+
+
+func buildAppAlerts() (string, error) {
+	st := notify.GetAlertsRoutingStatus()
+	known := notify.ListKnownChats()
+	var lines []string
+	var ids []string
+	cur := st.AlertsChatID
+	if cur == "" {
+		cur = appTitle("(none)", "(нет)")
+	}
+	for i, k := range known {
+		if i >= 8 {
+			break
+		}
+		lab := k.Title
+		if lab == "" {
+			lab = fmt.Sprintf("%d", k.ID)
+		}
+		lines = append(lines, fmt.Sprintf("%d %s", i+1, lab))
+		ids = append(ids, fmt.Sprintf("%d", k.ID))
+	}
+	appMu.Lock()
+	appListIDs = ids
+	appMu.Unlock()
+	return appMarshal(appState{
+		S: "alerts", T: appTitle("Alerts", "Алерты"),
+		Rows:  [][2]string{{"chat", cur}},
+		Lines: strings.Join(lines, "\n"),
+		IDs:   strings.Join(ids, ","),
+		Acts:  "al_test,al_clr",
+		H:     appTitle("# pick known chat", "# выбрать известный чат"),
+	})
+}
+
+func buildAppEdgeGuest() (string, error) {
+	out := strings.TrimSpace(runND("edge", "guest", "list"))
+	// parse simple names if tab/lines
+	var lines, ids []string
+	for i, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || i >= 10 {
+			continue
+		}
+		name := strings.Fields(line)
+		if len(name) == 0 {
+			continue
+		}
+		id := name[0]
+		lines = append(lines, fmt.Sprintf("%d %s", len(ids)+1, line))
+		ids = append(ids, id)
+	}
+	appMu.Lock()
+	appListIDs = ids
+	appMu.Unlock()
+	st := appState{S: "edgeguest", T: "Edge guest", H: appTitle("# device actions", "# устройство")}
+	if len(lines) == 0 {
+		st.Lines = widgetTruncate(out, 400)
+		if st.Lines == "" {
+			st.B = appTitle("empty", "пусто")
+		}
+	} else {
+		st.Lines = strings.Join(lines, "\n")
+		st.IDs = strings.Join(ids, ",")
+	}
+	return appMarshal(st)
+}
+
+func buildAppEdgeLuci() (string, error) {
+	out := strings.TrimSpace(runND("edge", "luci", "status"))
+	return appMarshal(appState{
+		S: "edgeluci", T: "Edge LuCI",
+		Lines: widgetTruncate(out, 450),
+		Acts:  "el_on,el_off",
+		H:     appTitle("temp LuCI access", "временный доступ LuCI"),
+	})
+}
+
 func buildAppHelp() (string, error) {
 	h := helpText()
 	r := strings.NewReplacer("<b>", "", "</b>", "", "<i>", "", "</i>", "",
@@ -563,7 +717,7 @@ func buildAppUserCard(name string) (string, error) {
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
 		H:    appTitle("actions below", "действия ниже"),
-		Acts: "en,di,lk,sb,q50,q200,q0,rn,rv",
+		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
 	})
 }
 
@@ -695,7 +849,7 @@ func buildAppScreen(screen string) (string, error) {
 	case "dns":
 		return buildAppND("dns", "DNS", "DNS", "dns", "status")
 	case "git":
-		return buildAppND("git", "Git", "Git", "git", "status")
+		return buildAppGit()
 	case "certs":
 		return buildAppND("certs", "Certs", "Серты", "certs", "status")
 	case "fw":
@@ -709,16 +863,11 @@ func buildAppScreen(screen string) (string, error) {
 	case "session":
 		return buildAppND("session", "Session", "Сессия", "session", "status")
 	case "alerts":
-		out := strings.TrimSpace(runND("alerts", "status"))
-		if out == "" {
-			out = appTitle("alerts channel status", "статус alerts-chat")
-		}
-		return appMarshal(appState{
-			S: "alerts", T: appTitle("Alerts", "Алерты"),
-			Lines: widgetTruncate(out, 400),
-			Acts:  "al_test,al_clr",
-			H:     appTitle("test / clear channel binding", "тест / сброс привязки канала"),
-		})
+		return buildAppAlerts()
+	case "edgeguest":
+		return buildAppEdgeGuest()
+	case "edgeluci":
+		return buildAppEdgeLuci()
 	case "nvr":
 		return buildAppND("nvr", "NVR", "NVR", "nvr", "status")
 	case "devices":
@@ -843,7 +992,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			parent = "status"
 		case "nodes", "secondary", "addons", "seclist":
 			parent = "fleet"
-		case "routers", "sites", "pending":
+		case "routers", "sites", "pending", "edgeguest", "edgeluci":
 			parent = "edge"
 		case "lampac", "canary", "nvr":
 			parent = "media"
@@ -915,6 +1064,36 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 				B: id, Acts: "y_rst",
 				H: appTitle("confirm restore from backup", "подтвердите восстановление"),
 			})
+		case "git":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "git", T: id,
+				B: appTitle("project actions", "действия проекта"),
+				Acts: "gsync,gship",
+				H: id,
+			})
+		case "alerts":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			// pick known chat by index id stored as chat id string
+			_ = notify.SetAlertsChatID(id)
+			cd, err = appMarshal(appState{
+				S: "alerts", T: appTitle("Alerts", "Алерты"),
+				B: appTitle("bound to", "привязано") + " " + id,
+				Acts: "al_test,al_clr,al_pick",
+			})
+		case "edgeguest":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "edgeguest", T: id,
+				B: appTitle("guest device", "guest устройство"),
+				Acts: "eg_gr,eg_rv",
+			})
 		default:
 			cd, err = buildAppScreen(screen)
 		}
@@ -963,6 +1142,24 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		})
 		appPushState(token, q, cd)
 		return true
+	case "qn":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		appMu.Lock()
+		appComposeMode = "quota"
+		appCompose = ""
+		appFocus = focus
+		appMu.Unlock()
+		cd, _ := appMarshal(appState{
+			S: "ucard", T: focus, Pad: true, Draft: "_",
+			H: appTitle("type GiB on pad, OK to apply", "наберите GiB на панели, OK"),
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
+		})
+		appPushState(token, q, cd)
+		return true
+
 	case "q50", "q200", "q0":
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
@@ -990,7 +1187,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: focus,
 			B: appTitle("send new name as next message", "отправьте новое имя следующим сообщением"),
-			Acts: "en,di,lk,sb,q50,q200,q0,rn,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1008,6 +1205,61 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		})
 		appPushState(token, q, cd)
 		return true
+	case "gsync":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out, err := gitstore.SyncProject(focus)
+		msg := out
+		if err != nil {
+			msg = err.Error()
+		}
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship"})
+		appPushState(token, q, cd)
+		return true
+	case "gship":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		_, logOut, err := gitstore.ShipProject(gitstore.ShipOpts{Project: focus})
+		msg := logOut
+		if err != nil {
+			msg = err.Error() + "\n" + logOut
+		}
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship"})
+		appPushState(token, q, cd)
+		return true
+	case "eg_gr":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := runND("edge", "guest", "grant", focus)
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: widgetTruncate(out, 400), Acts: "eg_gr,eg_rv"})
+		appPushState(token, q, cd)
+		return true
+	case "eg_rv":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := runND("edge", "guest", "revoke", focus)
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: widgetTruncate(out, 400), Acts: "eg_gr,eg_rv"})
+		appPushState(token, q, cd)
+		return true
+	case "el_on":
+		out := runND("edge", "luci", "on", "4h")
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: widgetTruncate(out, 400), Acts: "el_on,el_off"})
+		appPushState(token, q, cd)
+		return true
+	case "el_off":
+		out := runND("edge", "luci", "off")
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: widgetTruncate(out, 400), Acts: "el_on,el_off"})
+		appPushState(token, q, cd)
+		return true
+
 	case "heal":
 		out := runND("stack", "heal")
 		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: widgetTruncate(out, 450), Acts: "heal,rbk,wd"})
@@ -1055,8 +1307,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appPushState(token, q, cd)
 		return true
 	case "al_clr":
-		out := runND("alerts", "clear")
-		cd, _ := appMarshal(appState{S: "alerts", T: appTitle("Alerts", "Алерты"), Lines: widgetTruncate(out, 400), Acts: "al_test,al_clr"})
+		_ = notify.ClearAlertsChatID()
+		cd, _ := buildAppAlerts()
 		appPushState(token, q, cd)
 		return true
 	case "en":
@@ -1098,7 +1350,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			Rows:  [][2]string{{"mode", mode}},
 			Lines: link,
 			H:    appTitle("link / sub URI", "ссылка / sub"),
-			Acts: "en,di,lk,sb,q50,q200,q0,rn,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1188,6 +1440,94 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: "ncard", T: focus, Lines: widgetTruncate(out, 450),
 			Acts: "up,rb,jn",
+		})
+		appPushState(token, q, cd)
+		return true
+	}
+
+
+	// on-screen pad (widget profile has no text input)
+	if strings.HasPrefix(act, "p:") {
+		key := strings.TrimPrefix(act, "p:")
+		appMu.Lock()
+		mode := appComposeMode
+		draft := appCompose
+		focus := appFocus
+		appMu.Unlock()
+		if mode == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nopad"}`)
+			return true
+		}
+		switch key {
+		case "bs":
+			if len(draft) > 0 {
+				draft = draft[:len(draft)-1]
+			}
+		case "cl":
+			draft = ""
+		case "ok":
+			appMu.Lock()
+			appCompose = draft
+			appComposeMode = ""
+			appMu.Unlock()
+			switch mode {
+			case "quota":
+				gb := 0.0
+				fmt.Sscanf(draft, "%f", &gb)
+				if focus != "" {
+					_ = vpn.SetSoftLimitGB(focus, gb)
+				}
+				cd, _ := buildAppUserCard(focus)
+				appPushState(token, q, cd)
+				return true
+			case "rename":
+				if focus != "" && draft != "" {
+					_ = runVPN("rename", focus, draft)
+					focus = draft
+				}
+				cd, _ := buildAppUserCard(focus)
+				appPushState(token, q, cd)
+				return true
+			case "add":
+				if draft != "" {
+					_ = runVPN("add", draft)
+					cd, _ := buildAppUserCard(draft)
+					appPushState(token, q, cd)
+					return true
+				}
+				cd, _ := buildAppUsersHub()
+				appPushState(token, q, cd)
+				return true
+			}
+			cd, _ := buildAppScreen("home")
+			appPushState(token, q, cd)
+			return true
+		default:
+			if len(key) == 1 {
+				if len(draft) < 24 {
+					draft += key
+				}
+			}
+		}
+		appMu.Lock()
+		appCompose = draft
+		appMu.Unlock()
+		show := draft
+		if show == "" {
+			show = "_"
+		}
+		title := focus
+		if title == "" {
+			title = appTitle("compose", "ввод")
+		}
+		screen := "ucard"
+		if mode == "add" {
+			screen = "users"
+		}
+		cd, _ := appMarshal(appState{
+			S: screen, T: title, Pad: true, Draft: show,
+			H: appTitle("pad · OK to apply", "панель · OK"),
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,rv",
 		})
 		appPushState(token, q, cd)
 		return true

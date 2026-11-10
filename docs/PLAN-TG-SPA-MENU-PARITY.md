@@ -1,57 +1,34 @@
-# TG SPA menu parity (classic hubs)
+# TG SPA menu parity
 
-Flag: `NETDUCTOR_TG_WIDGETS=1`. Entry: `/start`, `/menu`, `m:menu`.
+Official widget profile (**core.telegram.org/bots/widgets**): **no keyboard / no input/textarea/select** — only `<button>`. Free text is impossible inside the widget.
 
-## Top level (= mainKeyboard)
+## Input alternative: on-screen pad
 
-| Classic | SPA screen |
-|---------|------------|
-| Status | `status` |
-| Users | `users` → `ulist` / `devices` / **Add** |
-| Fleet | `fleet` |
-| Tools | `tools` |
-| Operator | `operator` |
-| Lang | `L:ru` / `L:en` |
-| Help | `help` |
+Compose draft in bot state; pad keys send `p:<char>|p:bs|p:cl|p:ok` (≤64 bytes).
 
-## Status
+| Mode | Entry | OK does |
+|------|-------|---------|
+| quota | User card → Custom GiB | `SetSoftLimitGB` |
+| rename | User card → Rename | `vpn rename` |
+| add | Users → Add | `vpn add` |
 
-channel, netmap, actions, sessions, digest, incident, **reboot** (pick → challenge codes)
+Hybrid chat message still works if pad is awkward on small screens.
 
-## Fleet
+## Wizards in SPA
 
-nodes, routers, sites, secondary, addons
+| Area | Coverage |
+|------|----------|
+| Alerts | status, **# pick known chat**, test, clear |
+| Git | project list, **# → sync/ship** |
+| Edge guest | list, **# → grant/revoke** |
+| Edge LuCI | status, **on 4h / off** |
+| Stack | heal, rollback confirm, watchdog |
+| Reboot | pick + challenge codes |
+| Backup | # → restore confirm |
+| User | enable/disable/link/sub/quota presets+custom/rename/revoke |
 
-## Tools (Day2)
+## Still out of widget (by platform)
 
-edge / media / data / adv + versions, logs, ssh, git
-
-## Operator
-
-session, alerts (**test/clear**), sessions, audit, svcpaths, stack (**heal / rollback confirm / watchdog**), admin  
-Acts: API WAN, Users→SP, VPN refresh links
-
-## User card
-
-enable, disable, link, sub, **quota 50/200/∞**, **rename** (hybrid: next text message), revoke+confirm
-
-## Node card
-
-upgrade, **reboot challenge**, journal
-
-## Backup
-
-list `#` → restore confirm
-
-## Hybrid text input (classic message state)
-
-- Rename: SPA sets `wait_rename_new:` → user sends name in chat  
-- Add user: SPA sets `wait_vpn_add_name` → user sends name  
-
-## Still limited / deep wizards
-
-- QR as photo (link text in SPA; photo stays classic)  
-- Git project multi-step ship/migrate  
-- Edge luci/guest multi-step wizards  
-- Alerts-chat pick from list of known chats (test/clear done)  
-- Custom quota N (preset 50/200/∞ in SPA; custom still classic text)
+- QR **photo** (img data: possible but base64 blows 1 KiB state; link/sub text stays; photo = classic send)
+- Git add project / migrate (needs long URLs — pad or classic)
+- Edge guest multi-step facts/enroll beyond grant/revoke
