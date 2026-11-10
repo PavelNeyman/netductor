@@ -3,45 +3,51 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
-// Single in-message SPA: one HTML, navigation via chat_data.s.
-// Acts (≤64 bytes): r | b | m | g:<screen> | o:<n> | L:ru | L:en
+// SPA menu with parity to classic hubs (Status / Users / Fleet / Tools / Operator).
+// Acts ≤64 bytes: r | b | m | g:<screen> | o:<n> | a:<code> | y:<code> | L:ru | L:en
 
 var (
 	appMu      sync.Mutex
 	appScreen  = "home"
 	appListIDs []string
+	appFocus   string // current user name or node id for card actions
 )
 
-// Labels live in HTML (not chat_data) so bilingual UI does not burn the 1 KiB budget.
 const appWidgetBoot = `(function(){
 var W=window.TelegramWidget;
 var LAB={
 en:{
-  home:"Menu",status:"Status",channel:"Channel",versions:"Versions",secondary:"Secondary",
-  probes:"Probes",fleet:"Fleet",users:"Users",nodes:"Nodes",devices:"Devices",sites:"Sites",
-  pending:"Pending",ssh:"SSH",backup:"Backups",seclist:"Sec list",netmap:"Netmap",
-  digest:"Digest",operator:"Operator",addons:"Addons",svcpaths:"Svc paths",
-  lampac:"Lampac",canary:"Canary",sessions:"Sessions",audit:"Audit",actions:"Actions",
-  routers:"Routers",menu:"Menu",back:"←",refresh:"↻",hint_home:"tap a section",
-  hint_list:"# opens detail",nodata:"no data",err:"error",on:"on",off:"off",
-  update:"update",primary:"primary",secondaries:"secondaries",uptodate:"up to date"
+  home:"Menu",status:"Status",users:"Users",fleet:"Fleet",tools:"Tools",operator:"Operator",
+  channel:"Channel",versions:"Versions",secondary:"Secondary",probes:"Probes",netmap:"Netmap",
+  digest:"Digest",addons:"Addons",svcpaths:"Svc paths",lampac:"Lampac",canary:"Canary",
+  sessions:"Sessions",audit:"Audit",actions:"Actions",routers:"Routers",nodes:"Nodes",
+  devices:"Devices",sites:"Sites",pending:"Pending",ssh:"SSH",backup:"Backups",seclist:"Secondaries",
+  ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",hint_home:"choose a section",
+  nodata:"no data",empty:"empty",
+  en:"Enable",di:"Disable",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"Confirm revoke",
+  up:"Upgrade",rb:"Reboot",jn:"Journal",y_rb:"Confirm reboot",
+  st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
 },
 ru:{
-  home:"Меню",status:"Статус",channel:"Канал",versions:"Версии",secondary:"Secondary",
-  probes:"Probes",fleet:"Флот",users:"Пользователи",nodes:"Ноды",devices:"Устройства",sites:"Сайты",
-  pending:"Pending",ssh:"SSH",backup:"Бэкапы",seclist:"Secondary",netmap:"Карта",
-  digest:"Дайджест",operator:"Оператор",addons:"Аддоны",svcpaths:"Svc paths",
-  lampac:"Lampac",canary:"Canary",sessions:"Сессии",audit:"Аудит",actions:"Действия",
-  routers:"Роутеры",menu:"Меню",back:"←",refresh:"↻",hint_home:"выберите раздел",
-  hint_list:"# — карточка",nodata:"нет данных",err:"ошибка",on:"вкл",off:"выкл",
-  update:"обновление",primary:"primary",secondaries:"secondary",uptodate:"актуально"
+  home:"Меню",status:"Статус",users:"Пользователи",fleet:"Флот",tools:"Инструменты",operator:"Оператор",
+  channel:"Канал",versions:"Версии",secondary:"Secondary",probes:"Probes",netmap:"Карта",
+  digest:"Дайджест",addons:"Аддоны",svcpaths:"Svc paths",lampac:"Lampac",canary:"Canary",
+  sessions:"Сессии",audit:"Аудит",actions:"Действия",routers:"Роутеры",nodes:"Ноды",
+  devices:"Устройства",sites:"Сайты",pending:"Pending",ssh:"SSH",backup:"Бэкапы",seclist:"Secondary",
+  ucard:"Пользователь",ncard:"Нода",menu:"Меню",back:"←",refresh:"↻",hint_home:"выберите раздел",
+  nodata:"нет данных",empty:"пусто",
+  en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Удалить",y_rv:"Подтвердить удаление",
+  up:"Upgrade",rb:"Reboot",jn:"Journal",y_rb:"Подтвердить reboot",
+  st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
 }
 };
 function L(d){return (d&&d.L==="en")?"en":"ru";}
@@ -65,7 +71,9 @@ function paint(d){
         var r=d.rows[i];
         html+='<div class="row"><span class="k">'+(r[0]||"")+'</span><span class="v">'+(r[1]||"—")+'</span></div>';
       }
+      if(d.lines){html+='<div class="pre"></div>';}
       body.innerHTML=html;
+      if(d.lines){body.querySelector(".pre").textContent=d.lines;}
     }else if(d.lines){
       body.innerHTML='<div class="pre"></div>';
       body.firstChild.textContent=d.lines;
@@ -86,21 +94,28 @@ function paint(d){
     add("r",tr(d,"refresh"),"primary");
     if(d.s&&d.s!=="home")add("b",tr(d,"back"));
     if(d.s==="home"&&d.nav){
-      for(var j=0;j<d.nav.length;j++){
-        var id=d.nav[j];
-        add("g:"+id,tr(d,id));
-      }
-    }else if(d.ids){
+      for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));
+    }
+    if(d.nav&&d.s!=="home"&&(d.s==="status"||d.s==="fleet"||d.s==="tools"||d.s==="operator")){
+      for(var j2=0;j2<d.nav.length;j2++)add("g:"+d.nav[j2],tr(d,d.nav[j2]));
+    }
+    if(d.ids){
       var ids=String(d.ids).split(",");
-      for(var k=0;k<ids.length&&k<12;k++){
-        if(ids[k])add("o:"+(k+1),String(k+1));
+      for(var k=0;k<ids.length&&k<12;k++){if(ids[k])add("o:"+(k+1),String(k+1));}
+    }
+    if(d.acts){
+      var acts=String(d.acts).split(",");
+      for(var a=0;a<acts.length;a++){
+        if(!acts[a])continue;
+        var lab=tr(d,acts[a]);
+        if(acts[a].indexOf("y_")==0)lab=tr(d,acts[a]);
+        var cls="";
+        if(acts[a]==="rv"||acts[a]==="y_rv"||acts[a]==="rb"||acts[a]==="y_rb")cls="danger";
+        add(acts[a],lab,cls);
       }
     }
     if(d.s!=="home")add("g:home",tr(d,"menu"));
-    if(d.s==="home"){
-      add("L:ru","RU");
-      add("L:en","EN");
-    }
+    if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}
   }
 }
 function send(act){
@@ -108,9 +123,7 @@ function send(act){
   if(act.length>64)act=act.slice(0,64);
   if(!(W&&W.request))return;
   W.request(act).then(function(ans){
-    if(ans&&ans.result){
-      try{paint(JSON.parse(ans.result));}catch(e){}
-    }
+    if(ans&&ans.result){try{paint(JSON.parse(ans.result));}catch(e){}}
   },function(){});
 }
 function run(){paint(read());}
@@ -126,10 +139,11 @@ h1{margin:0 0 8px;font-size:15px}
 .row{display:flex;justify-content:space-between;gap:8px;margin:3px 0}
 .k{color:var(--tg-theme-hint-color,#8b98a5);flex-shrink:0}
 .v{font-weight:600;text-align:right;word-break:break-word}
-.pre{margin:6px 0;padding:8px;background:var(--tg-theme-secondary-bg-color,#1c2733);border-radius:8px;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;max-height:280px;overflow:hidden}
+.pre{margin:6px 0;padding:8px;background:var(--tg-theme-secondary-bg-color,#1c2733);border-radius:8px;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;max-height:240px;overflow:hidden}
 #n{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 button{border:0;border-radius:8px;padding:7px 10px;font:12px system-ui;background:var(--tg-theme-secondary-bg-color,#1c2733);color:inherit}
 button.primary{background:var(--tg-theme-button-color,#2a6df4);color:var(--tg-theme-button-text-color,#fff)}
+button.danger{background:var(--tg-theme-destructive-text-color,#e53935);color:#fff}
 #h{margin-top:8px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}
 </style></head><body>
 <h1 id="t">Netductor</h1>
@@ -149,6 +163,7 @@ type appState struct {
 	Lines string      `json:"lines,omitempty"`
 	IDs   string      `json:"ids,omitempty"`
 	Nav   []string    `json:"nav,omitempty"`
+	Acts  string      `json:"acts,omitempty"` // comma-separated act codes for buttons
 	TS    int64       `json:"ts"`
 }
 
@@ -179,18 +194,18 @@ func appMarshal(st appState) (string, error) {
 		return string(b), nil
 	}
 	st.H = ""
-	st.B = widgetTruncate(st.B, 180)
-	st.Lines = widgetTruncate(st.Lines, 360)
-	if len(st.Rows) > 8 {
-		st.Rows = st.Rows[:8]
+	st.B = widgetTruncate(st.B, 160)
+	st.Lines = widgetTruncate(st.Lines, 280)
+	if len(st.Rows) > 6 {
+		st.Rows = st.Rows[:6]
 	}
 	b, err = json.Marshal(st)
 	if err != nil {
 		return "", err
 	}
 	if len(b) > widgetChatDataMax {
-		st.Lines = widgetTruncate(st.Lines, 200)
-		st.Rows = nil
+		st.Lines = widgetTruncate(st.Lines, 120)
+		st.Rows = st.Rows[:appMin(4, len(st.Rows))]
 		b, err = json.Marshal(st)
 		if err != nil {
 			return "", err
@@ -202,38 +217,28 @@ func appMarshal(st appState) (string, error) {
 	return string(b), nil
 }
 
-func appErr(screen, msg string) (string, error) {
-	return appMarshal(appState{
-		S: screen,
-		T: appTitle("Error", "Ошибка"),
-		B: widgetTruncate(msg, 400),
-		H: screen,
-	})
+func appMin(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
-// appFromLegacyWidget reuses existing *WidgetChatDataJSON builders (title/body/rows-ish).
 func appFromLegacyWidget(screen string, titleEN, titleRU string, build func() (string, error)) (string, error) {
 	cd, err := build()
 	if err != nil {
-		// Prefer a readable short error over a hard fail (size overflows on busy hosts).
 		msg := err.Error()
 		if len(msg) > 180 {
 			msg = msg[:180]
 		}
-		return appMarshal(appState{
-			S: screen, T: appTitle(titleEN, titleRU),
-			B: msg, H: appTitle("open classic menu if needed", "при необходимости — classic меню"),
-		})
+		return appMarshal(appState{S: screen, T: appTitle(titleEN, titleRU), B: msg})
 	}
 	var m map[string]any
 	if err := json.Unmarshal([]byte(cd), &m); err != nil {
-		return appMarshal(appState{S: screen, T: appTitle(titleEN, titleRU), B: widgetTruncate(cd, 500)})
+		return appMarshal(appState{S: screen, T: appTitle(titleEN, titleRU), B: widgetTruncate(cd, 400)})
 	}
 	title := appTitle(titleEN, titleRU)
 	if t, ok := m["title"].(string); ok && t != "" {
-		title = t
-	}
-	if t, ok := m["Title"].(string); ok && t != "" {
 		title = t
 	}
 	body, _ := m["body"].(string)
@@ -241,13 +246,12 @@ func appFromLegacyWidget(screen string, titleEN, titleRU string, build func() (s
 		body, _ = m["Body"].(string)
 	}
 	rows := [][2]string{}
-	// common short keys from various builders
-	for _, k := range []string{"pri", "sec", "up", "face", "path", "cur", "tgt", "floor", "mig", "ver", "host", "nodes", "svc", "cpu", "mem"} {
+	for _, k := range []string{"pri", "sec", "up", "face", "path", "cur", "tgt", "floor", "mig", "name", "online", "ver", "sb", "ip"} {
 		if v, ok := m[k]; ok && v != nil && fmt.Sprint(v) != "" {
 			rows = append(rows, [2]string{k, fmt.Sprint(v)})
 		}
 	}
-	st := appState{S: screen, T: title, Rows: rows, Lines: widgetTruncate(body, 500)}
+	st := appState{S: screen, T: title, Rows: rows, Lines: widgetTruncate(body, 450)}
 	if hint, ok := m["hint"].(string); ok {
 		st.H = hint
 	}
@@ -261,38 +265,38 @@ func appListFromItems(screen, titleEN, titleRU string, items []listWidgetItem) (
 		if len(ids) >= 12 {
 			break
 		}
-		st := it.S
-		lines = append(lines, fmt.Sprintf("%d %s %s", it.I, it.N, st))
+		lines = append(lines, fmt.Sprintf("%d %s %s", it.I, it.N, it.S))
 		ids = append(ids, it.N)
 	}
 	appMu.Lock()
 	appListIDs = ids
 	appMu.Unlock()
-	return appMarshal(appState{
+	st := appState{
 		S: screen, T: appTitle(titleEN, titleRU),
-		Lines: strings.Join(lines, "\n"),
-		IDs:   strings.Join(ids, ","),
-		H:     appTitle("# opens detail", "# — карточка"),
-	})
+		IDs: strings.Join(ids, ","),
+		H:   appTitle("# opens card", "# — карточка"),
+	}
+	if len(lines) == 0 {
+		st.B = appTitle("empty", "пусто")
+		st.H = ""
+	} else {
+		st.Lines = strings.Join(lines, "\n")
+	}
+	return appMarshal(st)
 }
 
 func buildAppHome() (string, error) {
+	// Parity with mainKeyboard: Status, Users, Fleet, Tools, Operator
 	return appMarshal(appState{
 		S: "home",
-		T: appTitle("Netductor", "Netductor"),
-		H: appTitle("tap a section", "выберите раздел"),
+		T: "Netductor",
+		H: appTitle("choose a section", "выберите раздел"),
 		B: " ",
-		Nav: []string{
-			"status", "channel", "fleet", "digest", "versions",
-			"users", "nodes", "devices", "sites",
-			"secondary", "probes", "netmap",
-			"operator", "addons", "backup", "ssh",
-			"lampac", "sessions", "audit",
-		},
+		Nav: []string{"status", "users", "fleet", "tools", "operator"},
 	})
 }
 
-func buildAppStatus() (string, error) {
+func buildAppStatusHub() (string, error) {
 	d := buildStatusWidgetData()
 	rows := [][2]string{
 		{appTitle("version", "версия"), d.Ver},
@@ -303,10 +307,13 @@ func buildAppStatus() (string, error) {
 		{appTitle("secondary", "secondary"), d.Sec},
 		{appTitle("migrate", "миграции"), d.Mig},
 	}
-	return appMarshal(appState{S: "status", T: d.Title, Rows: rows, H: d.Hint})
+	return appMarshal(appState{
+		S: "status", T: d.Title, Rows: rows, H: d.Hint,
+		Nav: []string{"channel", "netmap", "digest", "versions", "actions", "sessions", "probes"},
+	})
 }
 
-func buildAppFleet() (string, error) {
+func buildAppFleetHub() (string, error) {
 	d := fleet.Build()
 	upd := appTitle("up to date", "актуально")
 	if d.UpdateAvailable {
@@ -323,7 +330,102 @@ func buildAppFleet() (string, error) {
 		{appTitle("update", "обновление"), upd},
 		{appTitle("secondaries", "secondary"), fmt.Sprintf("%d/%d on", on, len(d.Secondaries))},
 	}
-	return appMarshal(appState{S: "fleet", T: appTitle("Fleet", "Флот"), Rows: rows})
+	return appMarshal(appState{
+		S: "fleet", T: appTitle("Fleet", "Флот"), Rows: rows,
+		Nav: []string{"nodes", "routers", "sites", "secondary", "addons", "seclist"},
+	})
+}
+
+func buildAppToolsHub() (string, error) {
+	return appMarshal(appState{
+		S: "tools", T: appTitle("Tools", "Инструменты"),
+		B: appTitle("backup · ssh · lampac · audit", "бэкапы · ssh · lampac · аудит"),
+		Nav: []string{"backup", "ssh", "lampac", "audit", "canary", "pending", "devices"},
+	})
+}
+
+func buildAppOperatorHub() (string, error) {
+	return appFromLegacyWidget("operator", "Operator", "Оператор", operatorWidgetChatDataJSON)
+}
+
+func buildAppUserCard(name string) (string, error) {
+	if name == "" {
+		return appMarshal(appState{S: "ucard", T: "?", B: appTitle("no user", "нет пользователя")})
+	}
+	appMu.Lock()
+	appFocus = name
+	appMu.Unlock()
+	en := "?"
+	raw := runVPN("list")
+	for _, line := range strings.Split(raw, "\n") {
+		parts := strings.Split(strings.TrimSpace(line), "\t")
+		if len(parts) == 0 {
+			parts = strings.Fields(line)
+		}
+		if len(parts) > 0 && parts[0] == name {
+			if len(parts) > 1 {
+				en = parts[1]
+			}
+			break
+		}
+	}
+	lim := vpn.SoftLimitGB(name)
+	prof := vpn.SubProfileOf(name)
+	kind := "user"
+	if vpn.IsDeviceProfile(name) {
+		kind = "device"
+	}
+	rows := [][2]string{
+		{"status", en},
+		{"limit", fmt.Sprintf("%.0f GiB", lim)},
+		{"sub", prof},
+		{"kind", kind},
+	}
+	return appMarshal(appState{
+		S: "ucard", T: name, Rows: rows,
+		H:    appTitle("actions below", "действия ниже"),
+		Acts: "en,di,lk,sb,rv",
+	})
+}
+
+func buildAppNodeCard(id string) (string, error) {
+	if id == "" {
+		return appMarshal(appState{S: "ncard", T: "?", B: appTitle("no node", "нет ноды")})
+	}
+	appMu.Lock()
+	appFocus = id
+	appMu.Unlock()
+	rows := parseNodesList()
+	host, role, st, ver := id, "", "", ""
+	for _, r := range rows {
+		if r.ID == id || r.Host == id {
+			if r.Host != "" {
+				host = r.Host
+			}
+			role = r.Role
+			st = r.Status
+			ver = r.Version
+			if id == r.Host && r.ID != "" {
+				id = r.ID
+				appMu.Lock()
+				appFocus = id
+				appMu.Unlock()
+			}
+			break
+		}
+	}
+	rs := [][2]string{
+		{"id", id},
+		{"host", host},
+		{"role", displayRole(role)},
+		{"status", st},
+		{"version", ver},
+	}
+	return appMarshal(appState{
+		S: "ncard", T: host, Rows: rs,
+		H:    appTitle("node actions", "действия ноды"),
+		Acts: "up,rb,jn",
+	})
 }
 
 func buildAppUsers() (string, error) {
@@ -340,10 +442,8 @@ func buildAppNodes() (string, error) {
 			break
 		}
 		id := it.N
-		if it.I-1 < len(rows) {
-			if rows[it.I-1].ID != "" {
-				id = rows[it.I-1].ID
-			}
+		if it.I-1 < len(rows) && rows[it.I-1].ID != "" {
+			id = rows[it.I-1].ID
 		}
 		lines = append(lines, fmt.Sprintf("%d %s %s", it.I, it.N, it.S))
 		ids = append(ids, id)
@@ -351,35 +451,14 @@ func buildAppNodes() (string, error) {
 	appMu.Lock()
 	appListIDs = ids
 	appMu.Unlock()
-	return appMarshal(appState{
-		S: "nodes", T: appTitle("Nodes", "Ноды"),
-		Lines: strings.Join(lines, "\n"), IDs: strings.Join(ids, ","),
-		H: appTitle("# opens node", "# — нода"),
-	})
-}
-
-func buildAppDevices() (string, error) {
-	return appListFromItems("devices", "Devices", "Устройства", collectDevicesListItems())
-}
-
-func buildAppSites() (string, error) {
-	return appListFromItems("sites", "Sites", "Сайты", collectSitesListItems())
-}
-
-func buildAppPending() (string, error) {
-	return appListFromItems("pending", "Pending", "Pending", collectPendingListItems())
-}
-
-func buildAppSSH() (string, error) {
-	return appListFromItems("ssh", "SSH hosts", "SSH хосты", collectSSHHostsItems())
-}
-
-func buildAppBackup() (string, error) {
-	return appListFromItems("backup", "Backups", "Бэкапы", collectBackupListItems())
-}
-
-func buildAppSecondaryList() (string, error) {
-	return appListFromItems("seclist", "Secondaries", "Secondary", collectSecondaryListItems())
+	st := appState{S: "nodes", T: appTitle("Nodes", "Ноды"), IDs: strings.Join(ids, ","), H: appTitle("# opens node", "# — нода")}
+	if len(lines) == 0 {
+		st.B = appTitle("empty", "пусто")
+		st.H = ""
+	} else {
+		st.Lines = strings.Join(lines, "\n")
+	}
+	return appMarshal(st)
 }
 
 func buildAppScreen(screen string) (string, error) {
@@ -393,7 +472,29 @@ func buildAppScreen(screen string) (string, error) {
 		appMu.Unlock()
 		return buildAppHome()
 	case "status":
-		return buildAppStatus()
+		return buildAppStatusHub()
+	case "fleet":
+		return buildAppFleetHub()
+	case "tools":
+		return buildAppToolsHub()
+	case "operator":
+		return buildAppOperatorHub()
+	case "users":
+		return buildAppUsers()
+	case "nodes":
+		return buildAppNodes()
+	case "devices":
+		return appListFromItems("devices", "Devices", "Устройства", collectDevicesListItems())
+	case "sites":
+		return appListFromItems("sites", "Sites", "Сайты", collectSitesListItems())
+	case "pending":
+		return appListFromItems("pending", "Pending", "Pending", collectPendingListItems())
+	case "ssh":
+		return appListFromItems("ssh", "SSH hosts", "SSH хосты", collectSSHHostsItems())
+	case "backup":
+		return appListFromItems("backup", "Backups", "Бэкапы", collectBackupListItems())
+	case "seclist":
+		return appListFromItems("seclist", "Secondaries", "Secondary", collectSecondaryListItems())
 	case "channel":
 		return appFromLegacyWidget("channel", "Channel", "Канал", channelWidgetChatDataJSON)
 	case "versions":
@@ -406,26 +507,6 @@ func buildAppScreen(screen string) (string, error) {
 		return appFromLegacyWidget("netmap", "Netmap", "Карта сети", netmapWidgetChatDataJSON)
 	case "digest":
 		return appFromLegacyWidget("digest", "Digest", "Дайджест", digestWidgetChatDataJSON)
-	case "fleet":
-		return buildAppFleet()
-	case "users":
-		return buildAppUsers()
-	case "nodes":
-		return buildAppNodes()
-	case "devices":
-		return buildAppDevices()
-	case "sites":
-		return buildAppSites()
-	case "pending":
-		return buildAppPending()
-	case "ssh":
-		return buildAppSSH()
-	case "backup":
-		return buildAppBackup()
-	case "seclist":
-		return buildAppSecondaryList()
-	case "operator":
-		return appFromLegacyWidget("operator", "Operator", "Оператор", operatorWidgetChatDataJSON)
 	case "addons":
 		return appFromLegacyWidget("addons", "Addons", "Аддоны", addonsWidgetChatDataJSON)
 	case "svcpaths":
@@ -442,6 +523,16 @@ func buildAppScreen(screen string) (string, error) {
 		return appFromLegacyWidget("actions", "Actions", "Действия", actionsWidgetChatDataJSON)
 	case "routers":
 		return appFromLegacyWidget("routers", "Routers", "Роутеры", routersWidgetChatDataJSON)
+	case "ucard":
+		appMu.Lock()
+		n := appFocus
+		appMu.Unlock()
+		return buildAppUserCard(n)
+	case "ncard":
+		appMu.Lock()
+		n := appFocus
+		appMu.Unlock()
+		return buildAppNodeCard(n)
 	default:
 		return buildAppHome()
 	}
@@ -471,27 +562,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	if act == "" {
 		act = "r"
 	}
-	switch {
-	case act == "r" || act == "refresh":
-		appMu.Lock()
-		s := appScreen
-		appMu.Unlock()
-		cd, err := buildAppScreen(s)
-		if err != nil {
-			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
-			return true
-		}
-		appPushState(token, q, cd)
-		return true
-	case act == "b" || act == "back" || act == "m" || act == "menu":
-		cd, err := buildAppScreen("home")
-		if err != nil {
-			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
-			return true
-		}
-		appPushState(token, q, cd)
-		return true
-	case strings.HasPrefix(act, "L:"):
+
+	// language
+	if strings.HasPrefix(act, "L:") {
 		lang := strings.TrimPrefix(act, "L:")
 		if lang == "en" || lang == "ru" {
 			setLang(lang)
@@ -503,8 +576,53 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		appPushState(token, q, cd)
 		return true
-	case strings.HasPrefix(act, "g:"):
-		screen := strings.TrimPrefix(act, "g:")
+	}
+
+	// navigation
+	if act == "r" || act == "refresh" {
+		appMu.Lock()
+		s := appScreen
+		appMu.Unlock()
+		cd, err := buildAppScreen(s)
+		if err != nil {
+			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+			return true
+		}
+		appPushState(token, q, cd)
+		return true
+	}
+	if act == "b" || act == "back" {
+		appMu.Lock()
+		s := appScreen
+		appMu.Unlock()
+		parent := "home"
+		switch s {
+		case "ucard":
+			parent = "users"
+		case "ncard":
+			parent = "nodes"
+		case "channel", "netmap", "digest", "versions", "actions", "sessions", "probes":
+			parent = "status"
+		case "nodes", "routers", "sites", "secondary", "addons", "seclist":
+			parent = "fleet"
+		case "backup", "ssh", "lampac", "audit", "canary", "pending", "devices":
+			parent = "tools"
+		case "users", "status", "fleet", "tools", "operator":
+			parent = "home"
+		}
+		cd, err := buildAppScreen(parent)
+		if err != nil {
+			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+			return true
+		}
+		appPushState(token, q, cd)
+		return true
+	}
+	if act == "m" || act == "menu" || strings.HasPrefix(act, "g:") {
+		screen := "home"
+		if strings.HasPrefix(act, "g:") {
+			screen = strings.TrimPrefix(act, "g:")
+		}
 		cd, err := buildAppScreen(screen)
 		if err != nil {
 			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
@@ -512,7 +630,10 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		appPushState(token, q, cd)
 		return true
-	case strings.HasPrefix(act, "o:"):
+	}
+
+	// open list item
+	if strings.HasPrefix(act, "o:") {
 		var n int
 		fmt.Sscanf(strings.TrimPrefix(act, "o:"), "%d", &n)
 		appMu.Lock()
@@ -524,30 +645,173 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		id := ids[n-1]
-		chat := admin
-		if q.Chat != nil {
-			chat = q.Chat.ID
-		}
-		answerWidgetQuery(token, q.ID, `{"ok":true}`)
+		var cd string
+		var err error
 		switch screen {
-		case "users":
-			reply(token, chat, q.MessageID, formatUserHubHTML(id), userHubKeyboard(id))
+		case "users", "devices":
+			cd, err = buildAppUserCard(id)
 		case "nodes":
-			reply(token, chat, q.MessageID, formatNodeDetailHTML(id), nodeCardKeyboard(id))
-		case "devices":
-			reply(token, chat, q.MessageID, formatUserHubHTML(id), userHubKeyboard(id))
-		case "sites":
-			// best-effort classic sites list / detail
-			reply(token, chat, q.MessageID, formatSitesHTML(), sitesListKeyboard())
-		case "ssh":
-			reply(token, chat, q.MessageID, formatSSHHostsHTML(), sshHostsKeyboard())
+			cd, err = buildAppNodeCard(id)
 		default:
-			// stay in widget; no classic card
+			// no card — stay
+			cd, err = buildAppScreen(screen)
 		}
+		if err != nil {
+			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+			return true
+		}
+		appPushState(token, q, cd)
 		return true
-	default:
-		return false
 	}
+
+	// user/node actions
+	appMu.Lock()
+	focus := appFocus
+	appMu.Unlock()
+
+	switch act {
+	case "en":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		_ = runVPN("enable", focus)
+		cd, _ := buildAppUserCard(focus)
+		appPushState(token, q, cd)
+		return true
+	case "di":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		_ = runVPN("disable", focus)
+		cd, _ := buildAppUserCard(focus)
+		appPushState(token, q, cd)
+		return true
+	case "lk", "sb":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		mode := "vless"
+		if act == "sb" {
+			mode = "sub"
+		}
+		link := strings.TrimSpace(accessPayload(focus, mode))
+		if link == "" {
+			link = appTitle("(empty link)", "(пустая ссылка)")
+		}
+		if len(link) > 400 {
+			link = link[:400] + "…"
+		}
+		cd, _ := appMarshal(appState{
+			S: "ucard", T: focus,
+			Rows:  [][2]string{{"mode", mode}},
+			Lines: link,
+			H:    appTitle("link / sub URI", "ссылка / sub"),
+			Acts: "en,di,lk,sb,rv",
+		})
+		appPushState(token, q, cd)
+		return true
+	case "rv":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		cd, _ := appMarshal(appState{
+			S: "ucard", T: appTitle("Revoke?", "Удалить?"),
+			B:    focus,
+			H:    appTitle("confirm destructive action", "подтвердите удаление"),
+			Acts: "y_rv",
+		})
+		appPushState(token, q, cd)
+		return true
+	case "y_rv":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := runVPN("revoke", focus)
+		appMu.Lock()
+		appFocus = ""
+		appMu.Unlock()
+		cd, _ := appMarshal(appState{
+			S: "users", T: appTitle("Users", "Пользователи"),
+			B: widgetTruncate(out, 300),
+			H: appTitle("revoked — refresh list", "удалён — обновите список"),
+		})
+		// rebuild list
+		if listCD, err := buildAppUsers(); err == nil {
+			cd = listCD
+		}
+		appPushState(token, q, cd)
+		return true
+	case "up":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := enqueueNodeCmd(focus, "upgrade")
+		cd, _ := appMarshal(appState{
+			S: "ncard", T: focus, Lines: widgetTruncate(out, 400),
+			Acts: "up,rb,jn", H: appTitle("upgrade queued/result", "upgrade"),
+		})
+		appPushState(token, q, cd)
+		return true
+	case "rb":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		cd, _ := appMarshal(appState{
+			S: "ncard", T: appTitle("Reboot?", "Reboot?"),
+			B: focus, Acts: "y_rb",
+			H: appTitle("confirm reboot", "подтвердите reboot"),
+		})
+		appPushState(token, q, cd)
+		return true
+	case "y_rb":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := enqueueNodeCmd(focus, "reboot")
+		cd, _ := appMarshal(appState{
+			S: "ncard", T: focus, Lines: widgetTruncate(out, 400),
+			Acts: "up,rb,jn",
+		})
+		appPushState(token, q, cd)
+		return true
+	case "jn":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		// plain text journal (same sources as formatJournalHTML)
+		var out string
+		role := nodeRole(focus)
+		if role == "secondary" || strings.HasPrefix(focus, "secondary-") {
+			out = runND("secondary", "cmd", focus, "metrics")
+		} else {
+			out = enqueueNodeCmd(focus, "metrics")
+			if b, err := execJournalSingBox(); err == nil {
+				out = b
+			}
+		}
+		cd, _ := appMarshal(appState{
+			S: "ncard", T: focus, Lines: widgetTruncate(out, 450),
+			Acts: "up,rb,jn",
+		})
+		appPushState(token, q, cd)
+		return true
+	}
+
+	return false
+}
+
+func execJournalSingBox() (string, error) {
+	b, err := exec.Command("journalctl", "-u", "sing-box", "-n", "30", "--no-pager", "-o", "short-iso").CombinedOutput()
+	return string(b), err
 }
 
 func tryReplyAppWidget(token string, chat int64, msgID int) bool {
