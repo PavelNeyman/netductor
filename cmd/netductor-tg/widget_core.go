@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"sync"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,10 @@ type widgetScreen struct {
 }
 
 var widgetRegistry = map[string]*widgetScreen{}
+
+// lastAppMsgID remembers the SPA widget message per chat to edit in-place.
+var lastAppMsgID = map[int64]int{}
+var lastAppMu sync.Mutex
 
 func registerWidget(s *widgetScreen) {
 	if s == nil || s.ID == "" {
@@ -99,12 +104,24 @@ func sendWidgetScreen(token string, chat int64, screenID string) bool {
 		fmt.Fprintln(os.Stderr, "widget chat_data:", screenID, err)
 		return false
 	}
-	_, err = apiPostWidget(token, "sendWidget", map[string]any{
+	raw, err := apiPostWidget(token, "sendWidget", map[string]any{
 		"chat_id": chat, "html": s.HTML, "chat_data": cd, "allow_queries": true,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sendWidget:", screenID, err)
 		return false
+	}
+	if screenID == "app" {
+		var wr struct {
+			Result struct {
+				MessageID int `json:"message_id"`
+			} `json:"result"`
+		}
+		if json.Unmarshal(raw, &wr) == nil && wr.Result.MessageID > 0 {
+			lastAppMu.Lock()
+			lastAppMsgID[chat] = wr.Result.MessageID
+			lastAppMu.Unlock()
+		}
 	}
 	return true
 }
@@ -136,11 +153,70 @@ func editWidgetScreenData(token string, chat int64, msgID int, screenID string) 
 	return true
 }
 
-// tryReplyWidget: edit existing widget message data, else send new widget.
+// spaScreenAlias maps legacy per-screen widget ids → app SPA screen ids.
+var spaScreenAlias = map[string]string{
+	"sshhosts": "ssh",
+	"menu":     "home",
+}
+
+// spaContentScreens are shown inside the single app shell (same HTML).
+// Routing classic m:* callbacks here avoids empty UI from editing chat_data
+// of a different HTML document.
+var spaContentScreens = map[string]bool{
+	"home": true, "status": true, "channel": true, "versions": true,
+	"secondary": true, "probes": true, "netmap": true, "digest": true,
+	"fleet": true, "users": true, "nodes": true, "devices": true,
+	"sites": true, "pending": true, "ssh": true, "backup": true,
+	"seclist": true, "operator": true, "addons": true, "svcpaths": true,
+	"lampac": true, "canary": true, "sessions": true, "audit": true,
+	"actions": true, "routers": true,
+}
+
+func openAppScreen(token string, chat int64, screenID string) bool {
+	if !widgetsEnabled() {
+		return false
+	}
+	if alt, ok := spaScreenAlias[screenID]; ok {
+		screenID = alt
+	}
+	if screenID == "" {
+		screenID = "home"
+	}
+	appMu.Lock()
+	appScreen = screenID
+	appMu.Unlock()
+	// Prefer in-place edit of the last SPA message in this chat.
+	lastAppMu.Lock()
+	mid := lastAppMsgID[chat]
+	lastAppMu.Unlock()
+	if mid > 0 {
+		cd, err := buildAppScreen(screenID)
+		if err == nil {
+			if cd2, err2 := clipWidgetChatData(cd); err2 == nil {
+				cd = cd2
+				if _, err := apiPostWidget(token, "editMessageWidgetData", map[string]any{
+					"chat_id": chat, "message_id": mid, "chat_data": cd,
+				}); err == nil {
+					return true
+				}
+			}
+		}
+	}
+	return sendWidgetScreen(token, chat, "app")
+}
+
+// tryReplyWidget: prefer SPA app shell for content screens; else legacy per-screen widget.
 func tryReplyWidget(token string, chat int64, msgID int, screenID string) bool {
 	if !widgetsEnabled() {
 		return false
 	}
+	if alt, ok := spaScreenAlias[screenID]; ok {
+		screenID = alt
+	}
+	if spaContentScreens[screenID] || screenID == "app" {
+		return openAppScreen(token, chat, screenID)
+	}
+	// Cards / one-off screens: edit if possible, else send that HTML.
 	if msgID > 0 && editWidgetScreenData(token, chat, msgID, screenID) {
 		return true
 	}

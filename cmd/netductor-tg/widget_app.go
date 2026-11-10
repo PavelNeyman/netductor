@@ -215,7 +215,15 @@ func appErr(screen, msg string) (string, error) {
 func appFromLegacyWidget(screen string, titleEN, titleRU string, build func() (string, error)) (string, error) {
 	cd, err := build()
 	if err != nil {
-		return appErr(screen, err.Error())
+		// Prefer a readable short error over a hard fail (size overflows on busy hosts).
+		msg := err.Error()
+		if len(msg) > 180 {
+			msg = msg[:180]
+		}
+		return appMarshal(appState{
+			S: screen, T: appTitle(titleEN, titleRU),
+			B: msg, H: appTitle("open classic menu if needed", "при необходимости — classic меню"),
+		})
 	}
 	var m map[string]any
 	if err := json.Unmarshal([]byte(cd), &m); err != nil {
@@ -449,6 +457,9 @@ func appBuildData() (string, error) {
 func appPushState(token string, q *widgetQuery, cd string) {
 	answerWidgetQuery(token, q.ID, cd)
 	if q.MessageID != 0 && q.Chat != nil {
+		lastAppMu.Lock()
+		lastAppMsgID[q.Chat.ID] = q.MessageID
+		lastAppMu.Unlock()
 		_, _ = apiPostWidget(token, "editMessageWidgetData", map[string]any{
 			"chat_id": q.Chat.ID, "message_id": q.MessageID, "chat_data": cd,
 		})
@@ -540,13 +551,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 }
 
 func tryReplyAppWidget(token string, chat int64, msgID int) bool {
-	if !widgetsEnabled() {
-		return false
-	}
-	appMu.Lock()
-	appScreen = "home"
-	appMu.Unlock()
-	return sendWidgetScreen(token, chat, "app")
+	return openAppScreen(token, chat, "home")
 }
 
 func init() {
