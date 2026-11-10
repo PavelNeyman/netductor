@@ -416,6 +416,47 @@ func handleMessage(token string, m *message, admin int64) {
 		}
 		return
 	}
+
+	if st == "wait_git_add" {
+		fields := strings.Fields(text)
+		setState(chat, "", "")
+		if len(fields) < 2 {
+			completeInput(token, chat, uid, appTitle("need: name url", "нужно: name url"), nil)
+			return
+		}
+		name, url := fields[0], fields[1]
+		err := gitstore.AddProject(gitstore.Project{Name: name, Upstream: url}, true)
+		msg := "✅ " + name
+		if err != nil {
+			msg = "❌ " + err.Error()
+		}
+		completeInput(token, chat, uid, msg, nil)
+		return
+	}
+	if st == "wait_git_migrate" {
+		owner := strings.TrimSpace(text)
+		setState(chat, "", "")
+		added, skipped, err := gitstore.MigrateFromGitHub(gitstore.MigrateOpts{Owner: owner, Sync: true})
+		msg := fmt.Sprintf("added=%d skipped=%d", len(added), len(skipped))
+		if err != nil {
+			msg = "❌ " + err.Error()
+		}
+		completeInput(token, chat, uid, msg, nil)
+		return
+	}
+	if strings.HasPrefix(st, "wait_node_rename:") {
+		id := strings.TrimPrefix(st, "wait_node_rename:")
+		newName := strings.Fields(text)
+		setState(chat, "", "")
+		if len(newName) < 1 {
+			completeInput(token, chat, uid, "name required", nil)
+			return
+		}
+		out := runND("secondary", "rename", id, newName[0])
+		completeInput(token, chat, uid, "✏️ <pre>"+esc(out)+"</pre>", nil)
+		return
+	}
+
 	if st == "wait_session_hours" {
 		h := text
 		if h == "" {

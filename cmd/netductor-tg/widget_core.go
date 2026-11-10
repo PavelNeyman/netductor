@@ -181,7 +181,7 @@ var spaContentScreens = map[string]bool{
 	"ulist": true, "incident": true, "reboot": true, "dns": true, "git": true,
 	"certs": true, "fw": true, "doctor": true, "cleanup": true, "admin": true,
 	"session": true, "alerts": true, "nvr": true,
-	"edgeguest": true, "edgeluci": true, "sshkeys": true,
+	"edgeguest": true, "edgeluci": true, "sshkeys": true, "edgetpl": true, "edgepol": true, "edgestor": true, "aptguard": true,
 }
 
 func openAppScreen(token string, chat int64, screenID string) bool {
@@ -250,7 +250,7 @@ func parseWidgetAct(data string) (screen, act string) {
 		data == "api_tg" || data == "usp_tg" || data == "vpnref" ||
 		data == "q50" || data == "q200" || data == "q0" || data == "rn" || data == "add" ||
 		data == "heal" || data == "rbk" || data == "y_rbk" || data == "wd" || data == "y_rst" ||
-		data == "al_test" || data == "al_clr" || data == "qn" || data == "qr" || data == "kd" || data == "ku" || data == "sp" || data == "rs" || data == "gsall" || data == "inc1h" ||
+		data == "al_test" || data == "al_clr" || data == "qn" || data == "qr" || data == "sess1" || data == "sess4" || data == "sess24" || data == "sess72" || data == "sessx" || data == "srev" || data == "cy" || data == "sk_on" || data == "sk_off" || data == "sk_scan" || data == "cert_ren" || data == "fw_apply" || data == "ag_st" || data == "ag_prev" || data == "ag_scan" || data == "nrn" || data == "mx" || data == "gbuild" || data == "gmirror" || data == "gjobs" || data == "gadd" || data == "gmig" || data == "gpause" || data == "gresume" || data == "grm" || data == "el_1" || data == "el_4" || data == "el_24" || data == "el_72" || data == "el_ext" || data == "es_st" || data == "ep_st" || data == "et_st" || data == "eg_facts" || data == "kd" || data == "ku" || data == "sp" || data == "rs" || data == "gsall" || data == "inc1h" ||
 		data == "gsync" || data == "gship" || data == "eg_gr" || data == "eg_rv" ||
 		data == "el_on" || data == "el_off" ||
 		strings.HasPrefix(data, "rc:") || strings.HasPrefix(data, "p:") ||

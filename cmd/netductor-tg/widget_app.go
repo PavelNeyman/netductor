@@ -52,7 +52,7 @@ en:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ quota",rn:"Rename",add:"Add user",
   heal:"Heal",rbk:"Rollback",y_rbk:"Confirm rollback",wd:"Watchdog",
   y_rst:"Confirm restore",al_test:"Test alert",al_clr:"Clear alerts chat",
-  qn:"Custom GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
+  qn:"Custom GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours…",srev:"Revoke all",cy:"Canary",sk_on:"Protect ON",sk_off:"Protect OFF",sk_scan:"Scan keys",cert_ren:"Renew",fw_apply:"Apply FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Rename node",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Remove job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
   gsync:"Sync",gship:"Ship",eg_gr:"Grant",eg_rv:"Revoke guest",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
@@ -74,7 +74,7 @@ ru:{
   q50:"50 GiB",q200:"200 GiB",q0:"∞ квота",rn:"Имя",add:"Добавить",
   heal:"Heal",rbk:"Откат",y_rbk:"Подтвердить откат",wd:"Watchdog",
   y_rst:"Подтвердить restore",al_test:"Тест алерта",al_clr:"Сбросить alerts chat",
-  qn:"Своя GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
+  qn:"Своя GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Часы…",srev:"Отозвать все",cy:"Canary",sk_on:"Защита ON",sk_off:"Защита OFF",sk_scan:"Скан ключей",cert_ren:"Продлить",fw_apply:"Применить FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Имя ноды",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Удалить job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
   gsync:"Sync",gship:"Ship",eg_gr:"Выдать",eg_rv:"Отозвать",el_on:"LuCI on",el_off:"LuCI off",
   edgeguest:"Guest",edgeluci:"LuCI",
   st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
@@ -151,38 +151,7 @@ function paint(d){
         add(String(pair[0]),String(pair[1]||pair[0]),"");
       }
     }
-    if(d.pad){
-      var draft=document.getElementById("draft");
-      if(draft){draft.style.display="block";draft.textContent=d.draft||"_";}
-      var pad=document.getElementById("pad");
-      if(pad){
-        pad.style.display="flex";
-        if(!pad.dataset.ready){
-          pad.dataset.ready="1";
-          var keys="1234567890abcdefghijklmnopqrstuvwxyz_-";
-          for(var i=0;i<keys.length;i++){
-            (function(ch){
-              var b=document.createElement("button");
-              b.textContent=ch;
-              b.style.minWidth="28px";
-              b.addEventListener("click",function(){send("p:"+ch);});
-              pad.appendChild(b);
-            })(keys.charAt(i));
-          }
-          var bs=document.createElement("button");bs.textContent="⌫";bs.className="danger";
-          bs.addEventListener("click",function(){send("p:bs");});pad.appendChild(bs);
-          var cl=document.createElement("button");cl.textContent="CLR";
-          cl.addEventListener("click",function(){send("p:cl");});pad.appendChild(cl);
-          var ok=document.createElement("button");ok.textContent="OK";ok.className="primary";
-          ok.addEventListener("click",function(){send("p:ok");});pad.appendChild(ok);
-        }
-      }
-    }else{
-      var pad2=document.getElementById("pad");
-      if(pad2)pad2.style.display="none";
-      var draft2=document.getElementById("draft");
-      if(draft2)draft2.style.display="none";
-    }
+    // pad removed: free text via chat message
     if(d.s!=="home")add("g:home",tr(d,"menu"));
     if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}
   }
@@ -217,8 +186,6 @@ button.danger{background:var(--tg-theme-destructive-text-color,#e53935);color:#f
 </style></head><body>
 <h1 id="t">Netductor</h1>
 <div id="b"><div class="pre">—</div></div>
-<div id="draft" style="display:none;margin:6px 0;font:14px ui-monospace,monospace"></div>
-<div id="pad" style="display:none;flex-wrap:wrap;gap:4px;margin-top:6px"></div>
 <div id="n"></div>
 <div id="h"></div>
 <script>` + appWidgetBoot + `</script></body></html>`
@@ -425,7 +392,7 @@ func buildAppEdgeHub() (string, error) {
 	return appMarshal(appState{
 		S: "edge", T: appTitle("Edge", "Edge"),
 		B: appTitle("routers · sites · pending", "роутеры · сайты · pending"),
-		Nav: []string{"routers", "sites", "pending", "edgeguest", "edgeluci"},
+		Nav: []string{"routers", "sites", "pending", "edgeguest", "edgeluci", "edgestor", "edgepol", "edgetpl"},
 	})
 }
 
@@ -433,7 +400,7 @@ func buildAppMediaHub() (string, error) {
 	return appMarshal(appState{
 		S: "media", T: appTitle("Media", "Медиа"),
 		B: appTitle("lampac · canary", "lampac · canary"),
-		Nav: []string{"lampac", "canary", "nvr"},
+		Nav: []string{"lampac", "canary", "nvr", "aptguard"},
 	})
 }
 
@@ -547,7 +514,7 @@ func buildAppGit() (string, error) {
 	st := appState{
 		S: "git", T: "Git",
 		H: appTitle("# card · sync-all / ship via acts on card", "# карточка · sync/ship"),
-		Acts: "gsync,gship,gsall",
+		Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig",
 	}
 	if len(lines) == 0 {
 		st.B = appTitle("no projects", "нет проектов")
@@ -743,7 +710,7 @@ func buildAppUserCard(name string) (string, error) {
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
 		H:    appTitle("actions below", "действия ниже"),
-		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
+		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
 	})
 }
 
@@ -783,7 +750,7 @@ func buildAppNodeCard(id string) (string, error) {
 	return appMarshal(appState{
 		S: "ncard", T: host, Rows: rs,
 		H:    appTitle("node actions", "действия ноды"),
-		Acts: "up,rb,jn,rs",
+		Acts: "up,rb,jn,rs,nrn,mx",
 	})
 }
 
@@ -871,7 +838,7 @@ func buildAppScreen(screen string) (string, error) {
 	case "incident":
 		return buildAppIncident()
 	case "sshkeys":
-		return buildAppND("sshkeys", "SSH keys", "SSH ключи", "ssh-keys", "status")
+		return buildAppSSHKeys()
 	case "reboot":
 		return buildAppRebootPick()
 	case "dns":
@@ -879,9 +846,9 @@ func buildAppScreen(screen string) (string, error) {
 	case "git":
 		return buildAppGit()
 	case "certs":
-		return buildAppND("certs", "Certs", "Серты", "certs", "status")
+		return buildAppCerts()
 	case "fw":
-		return buildAppND("fw", "Firewall", "Firewall", "firewall", "status")
+		return buildAppFW()
 	case "doctor":
 		return buildAppND("doctor", "Doctor", "Doctor", "doctor")
 	case "cleanup":
@@ -889,13 +856,19 @@ func buildAppScreen(screen string) (string, error) {
 	case "admin":
 		return buildAppND("admin", "Admin", "Админ", "status")
 	case "session":
-		return buildAppND("session", "Session", "Сессия", "session", "status")
+		return buildAppSession()
 	case "alerts":
 		return buildAppAlerts()
+	case "edgestor":
+		return appMarshal(appState{S: "edgestor", T: "Edge storage", Acts: "es_st", H: appTitle("status", "статус")})
+	case "edgepol":
+		return appMarshal(appState{S: "edgepol", T: "Edge policy", Acts: "ep_st", H: appTitle("status", "статус")})
+	case "edgetpl":
+		return appMarshal(appState{S: "edgetpl", T: "Edge templates", Acts: "et_st", H: appTitle("list", "список")})
 	case "edgeguest":
 		return buildAppEdgeGuest()
 	case "edgeluci":
-		return buildAppEdgeLuci()
+		return buildAppEdgeLuciFull()
 	case "nvr":
 		return buildAppND("nvr", "NVR", "NVR", "nvr", "status")
 	case "devices":
@@ -928,10 +901,16 @@ func buildAppScreen(screen string) (string, error) {
 		return appFromLegacyWidget("svcpaths", "Svc paths", "Svc paths", svcpathsWidgetChatDataJSON)
 	case "lampac":
 		return appFromLegacyWidget("lampac", "Lampac", "Lampac", lampacWidgetChatDataJSON)
+	case "aptguard":
+		return buildAppAptguard()
 	case "canary":
-		return appFromLegacyWidget("canary", "Canary", "Canary", canaryWidgetChatDataJSON)
+		return buildAppCanary()
 	case "sessions":
-		return appFromLegacyWidget("sessions", "Sessions", "Сессии", sessionsWidgetChatDataJSON)
+		out := strings.TrimSpace(runND("session", "list"))
+		if out == "" {
+			out = runVPN("session", "list")
+		}
+		return appMarshal(appState{S: "sessions", T: appTitle("Sessions", "Сессии"), Lines: widgetTruncate(out, 400), Acts: "srev"})
 	case "audit":
 		return appFromLegacyWidget("audit", "Audit", "Аудит", auditWidgetChatDataJSON)
 	case "actions":
@@ -1020,9 +999,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			parent = "status"
 		case "nodes", "secondary", "addons", "seclist":
 			parent = "fleet"
-		case "routers", "sites", "pending", "edgeguest", "edgeluci":
+		case "routers", "sites", "pending", "edgeguest", "edgeluci", "edgestor", "edgepol", "edgetpl":
 			parent = "edge"
-		case "lampac", "canary", "nvr":
+		case "lampac", "canary", "nvr", "aptguard":
 			parent = "media"
 		case "backup", "logs", "dns":
 			parent = "data"
@@ -1099,7 +1078,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "git", T: id,
 				B: appTitle("project actions", "действия проекта"),
-				Acts: "gsync,gship",
+				Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig",
 				H: id,
 			})
 		case "alerts":
@@ -1120,7 +1099,22 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "edgeguest", T: id,
 				B: appTitle("guest device", "guest устройство"),
-				Acts: "eg_gr,eg_rv",
+				Acts: "eg_gr,eg_rv,eg_facts",
+			})
+		case "canary":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			_, _ = vpn.ToggleCanary(id)
+			cd, err = buildAppCanary()
+		case "gjobs":
+			appMu.Lock()
+			appFocus = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "gjobs", T: id,
+				Acts: "gpause,gresume,grm",
+				H: id,
 			})
 		default:
 			cd, err = buildAppScreen(screen)
@@ -1181,7 +1175,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B: appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
 			H: appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1212,7 +1206,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B: appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
 			H: appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1240,7 +1234,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship"})
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
 		appPushState(token, q, cd)
 		return true
 	case "gship":
@@ -1253,7 +1247,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if err != nil {
 			msg = err.Error() + "\n" + logOut
 		}
-		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship"})
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
 		appPushState(token, q, cd)
 		return true
 	case "eg_gr":
@@ -1366,7 +1360,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: focus, B: "sub → " + msg,
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1376,7 +1370,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := restartSingBox(focus)
-		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: widgetTruncate(out, 400), Acts: "up,rb,jn,rs"})
+		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: widgetTruncate(out, 400), Acts: "up,rb,jn,rs,nrn,mx"})
 		appPushState(token, q, cd)
 		return true
 	case "gsall":
@@ -1395,7 +1389,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 				_ = out
 			}
 		}
-		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: widgetTruncate(b.String(), 450), Acts: "gsync,gship,gsall"})
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: widgetTruncate(b.String(), 450), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
 		appPushState(token, q, cd)
 		return true
 	case "inc1h":
@@ -1461,7 +1455,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		uri := strings.TrimSpace(accessPayload(focus, "vless"))
 		if uri == "" {
-			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv"})
+			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv"})
 			appPushState(token, q, cd)
 			return true
 		}
@@ -1502,7 +1496,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			Rows:  [][2]string{{"mode", mode}},
 			Lines: link,
 			H:    appTitle("link / sub URI", "ссылка / sub"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1547,7 +1541,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		out := enqueueNodeCmd(focus, "upgrade")
 		cd, _ := appMarshal(appState{
 			S: "ncard", T: focus, Lines: widgetTruncate(out, 400),
-			Acts: "up,rb,jn,rs", H: appTitle("upgrade queued/result", "upgrade"),
+			Acts: "up,rb,jn,rs,nrn,mx", H: appTitle("upgrade queued/result", "upgrade"),
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1679,7 +1673,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: screen, T: title, Pad: true, Draft: show,
 			H: appTitle("pad · OK to apply", "панель · OK"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,rv",
+			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1723,6 +1717,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		return true
 	}
 
+	if handleAppOpsAct(token, q, act, focus) {
+		return true
+	}
 	return false
 }
 
