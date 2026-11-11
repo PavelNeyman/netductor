@@ -55,6 +55,9 @@ func forgetDual(chat int64) {
 func closeDualPair(token string, chat int64) {
 	p, ok := getDual(chat)
 	forgetDual(chat)
+	lastAppMu.Lock()
+	delete(lastAppMsgID, chat)
+	lastAppMu.Unlock()
 	if !ok {
 		return
 	}

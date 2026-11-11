@@ -529,8 +529,9 @@ func handleMessage(token string, m *message, admin int64) {
 		// SPA menu: always send a NEW widget on /start|/menu (chat clear leaves stale message_id).
 		// Send first, then delete the command — never leave the chat empty.
 		if widgetsEnabled() && strings.TrimSpace(arg1) == "" {
-			forgetAppMsg(chat)
+			// closeDualPair needs ids — must run before forgetAppMsg/forgetDual
 			closeDualPair(token, chat)
+			forgetAppMsg(chat)
 			appMu.Lock()
 			appScreen = "home"
 			appMu.Unlock()
@@ -538,7 +539,7 @@ func handleMessage(token string, m *message, admin int64) {
 				infoCD, err1 := buildInfoData("home")
 				navCD, err2 := buildAppHome()
 				if err1 == nil && err2 == nil {
-					err := openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTMLHub(), navCD, infoShellForScreen("home"), shellHub)
+					err := openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTML(), navCD, infoShellForScreen("home"), shellHub)
 					if uid > 0 {
 						_ = deleteMessage(token, chat, uid)
 					}

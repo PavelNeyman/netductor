@@ -101,3 +101,12 @@ Dual **supersedes** SPA multi-shell for the interactive surface:
 - Single-mode `appPushStateSmart` remains for `NETDUCTOR_TG_DUAL!=1` only.
 
 Do not reintroduce status→spark swaps on the nav message while dual is enabled.
+
+## Known remaining (post D5)
+
+1. **D6 operator smoke** — not done in CI; needs primary with both flags.
+2. **Release** — tip has dual; VERSION may lag until explicit release.
+3. **Info fidelity** — many screens share generic status rows; deep edge/git metrics optional.
+4. **Orphan recovery** — if process restarts, in-memory pair ids are lost (messages may remain until /start).
+5. **Dead aliases** — `appWidgetHTMLHub/Spark`, `appInfoHTMLSpark` are thin wrappers (harmless).
+6. **zlib SPA** — ~4020/4096; headroom thin if boot grows.
