@@ -1332,15 +1332,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			}
 			answerWidgetQuery(token, q.ID, infoCD)
 			infoShell := infoShellForScreen(s)
-			html := appInfoHTML()
-			if infoShell == shellSpark {
-				html = appInfoHTMLSpark()
-			}
-			if p.InfoShell != infoShell {
-				swapDualSlot(token, q.Chat.ID, "info", html, infoCD, infoShell)
-			} else {
-				editDualSlot(token, q.Chat.ID, "info", html, infoCD, infoShell)
-			}
+			editDualSlot(token, q.Chat.ID, "info", appInfoHTML(), infoCD, infoShell)
 			return true
 		}
 	}

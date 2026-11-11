@@ -91,3 +91,13 @@ lastDual[chat] dualPair
 ## Rollout
 
 No release until D3–D5 green and operator smoke on primary with flag.
+
+## Multi-shell relationship
+
+Dual **supersedes** SPA multi-shell for the interactive surface:
+
+- **Nav** = always `hub` HTML (tabs/acts).
+- **Info** = metrics HTML (rows/bars/canvas data in chat_data).
+- Single-mode `appPushStateSmart` remains for `NETDUCTOR_TG_DUAL!=1` only.
+
+Do not reintroduce status→spark swaps on the nav message while dual is enabled.

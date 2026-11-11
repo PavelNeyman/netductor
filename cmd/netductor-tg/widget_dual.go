@@ -11,6 +11,12 @@ import (
 )
 
 // Dual info+nav pair (NETDUCTOR_TG_DUAL=1). Rules: docs/AI-RULES-TG-WIDGETS.md
+//
+// Multi-shell vs dual:
+//   - Dual OFF: one SPA message; appPushStateSmart may hub↔spark swap (status canvas).
+//   - Dual ON: two messages — info owns metrics/spark; nav stays hub only.
+//     SPA multi-shell is not used (appPushState returns before appPushStateSmart).
+//
 
 type dualPair struct {
 	InfoID    int
@@ -190,29 +196,23 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	p, ok := getDual(chat)
 	if !ok {
 		// recover: open pair from scratch
-		infoHTML := appInfoHTML()
-		if infoShell == shellSpark {
-			infoHTML = appInfoHTMLSpark()
-		}
-		_ = openDualPair(token, chat, infoHTML, infoCD, appWidgetHTMLHub(), navCD, infoShell, navShell)
+		_ = openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTMLHub(), navCD, infoShell, shellHub)
 		return
 	}
 
-	// nav shell
-	if p.NavShell != navShell && navShell != "" {
-		swapDualSlot(token, chat, "nav", appWidgetHTMLHub(), navCD, navShell)
-	} else {
-		editDualSlot(token, chat, "nav", appWidgetHTMLHub(), navCD, navShell)
-	}
+	// Nav is always hub HTML in dual mode (no SPA multi-shell here).
+	navShell = shellHub
+	editDualSlot(token, chat, "nav", appWidgetHTMLHub(), navCD, navShell)
 
-	// info shell (spark vs hub-style info)
+	// Info: one metrics shell; "spark" kind only marks that series may be present.
 	infoHTML := appInfoHTML()
-	if infoShell == shellSpark {
-		infoHTML = appInfoHTMLSpark()
-	}
 	p, _ = getDual(chat)
-	if p.InfoShell != infoShell && infoShell != "" {
-		swapDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
+	if p.InfoShell != infoShell && infoShell != "" && p.InfoID > 0 {
+		// Prefer edit; swap only if we ever introduce a second info HTML.
+		editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
+		p, _ = getDual(chat)
+		p.InfoShell = infoShell
+		setDual(chat, p)
 	} else {
 		editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
 	}
@@ -312,13 +312,31 @@ func buildInfoData(screen string) (string, error) {
 			{appTitle("host", "хост"), d.Host},
 			{appTitle("services", "сервисы"), d.Svc},
 		}
-	case "tools", "edge", "media", "data", "adv", "git", "logs", "versions":
+	case "tools", "edge", "media", "data", "adv", "git", "logs", "versions",
+		"routers", "sites", "pending", "lampac", "canary", "ssh", "backup", "dns", "certs", "fw":
 		st.T = appTitle("Tools", "Инструменты")
+		if screen == "git" {
+			st.T = "Git"
+		}
+		if screen == "edge" || screen == "routers" || screen == "sites" {
+			st.T = "Edge"
+		}
 		st.Rows = [][2]string{
 			{appTitle("version", "версия"), d.Ver},
 			{appTitle("screen", "экран"), screen},
 			{appTitle("host", "хост"), d.Host},
 			{appTitle("cpu/mem", "cpu/mem"), d.Res},
+		}
+		if screen == "git" {
+			rows, lines := formatGitHubLines()
+			if len(rows) > 0 {
+				st.Rows = append(st.Rows[:1], rows...)
+				if len(st.Rows) > 6 {
+					st.Rows = st.Rows[:6]
+				}
+			} else if lines != "" {
+				st.Lines = widgetTruncate(lines, 200)
+			}
 		}
 	case "ncard":
 		st.T = appTitle("Node", "Нода")

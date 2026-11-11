@@ -72,6 +72,15 @@ When `NETDUCTOR_TG_DUAL` is not `1`, **do not** apply dual pair logic. Existing 
 
 ---
 
+## 2b. Dual vs multi-shell
+
+| Mode | Messages | Where is spark/canvas? | Multi-shell swap |
+|------|----------|------------------------|------------------|
+| Dual **off** | 1 SPA | SPA spark shell on status | `appPushStateSmart` hub↔spark |
+| Dual **on** | 2 (info+nav) | **info only** | **Do not** spark-swap nav; nav stays hub |
+
+When dual is on, treating the pair like single-SPA multi-shell (swapping nav HTML for status) is wrong.
+
 ## 2. Single SPA / multi-shell (dual off)
 
 1. Prefer **one** live app message per chat (`lastAppMsgID`).
