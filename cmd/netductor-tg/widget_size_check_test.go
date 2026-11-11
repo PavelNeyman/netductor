@@ -117,3 +117,35 @@ func TestSPAMenuParityScreensBuild(t *testing.T) {
 		}
 	}
 }
+
+func TestAppInfoHTMLSize(t *testing.T) {
+	for _, tc := range []struct{ name, html string }{
+		{"info", appInfoHTML()},
+		{"info-spark", appInfoHTMLSpark()},
+	} {
+		var buf bytes.Buffer
+		w, _ := zlib.NewWriterLevel(&buf, 9)
+		_, _ = w.Write([]byte(tc.html))
+		_ = w.Close()
+		if len(tc.html) > 32768 || buf.Len() > 4096 {
+			t.Fatalf("%s raw=%d zlib=%d", tc.name, len(tc.html), buf.Len())
+		}
+		t.Logf("%s raw=%d zlib=%d", tc.name, len(tc.html), buf.Len())
+	}
+}
+
+func TestDualFlagOffByDefault(t *testing.T) {
+	if dualEnabled() {
+		t.Fatal("dual must default off without NETDUCTOR_TG_DUAL=1")
+	}
+}
+
+func TestBuildInfoDataSize(t *testing.T) {
+	cd, err := buildInfoData("home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cd) > 1024 {
+		t.Fatalf("info chat_data %d", len(cd))
+	}
+}

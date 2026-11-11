@@ -19,3 +19,7 @@ Transition: `appPushStateSmart` — same shell → `editMessageWidgetData`; diff
 ## Limits
 - zlib ≤ 4096 per shell (tested hub + spark)
 - chat_data ≤ 1024
+
+## Dual pair (next)
+
+See `docs/PLAN-TG-DUAL-WIDGET.md` and binding rules `docs/AI-RULES-TG-WIDGETS.md`.

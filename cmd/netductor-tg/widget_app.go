@@ -1301,6 +1301,18 @@ func appBuildData() (string, error) {
 
 func appPushState(token string, q *widgetQuery, cd string) {
 	screen := parseScreenFromChatData(cd)
+	if dualEnabled() && q != nil && q.Chat != nil {
+		infoShell := shellHub
+		if screen == "status" || screen == "home" {
+			infoShell = shellSpark
+		}
+		infoCD, err := buildInfoData(screen)
+		if err != nil {
+			infoCD = cd
+		}
+		pushDualPair(token, q, infoCD, cd, infoShell, shellHub)
+		return
+	}
 	appPushStateSmart(token, q, screen, cd)
 }
 

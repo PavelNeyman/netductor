@@ -1,0 +1,93 @@
+# Plan: Dual Telegram HTML Widgets (info + nav)
+
+**Status:** planned → implement behind `NETDUCTOR_TG_DUAL=1` (default off)  
+**Depends on:** SPA app shell, multi-shell hub/spark (`docs/PLAN-TG-WIDGET-UI-V2.md`)  
+**Non-goals:** replacing classic keyboard; single-message mode remains default until dual is stable.
+
+## Goal
+
+Two coordinated messages per admin chat:
+
+| Slot | Message | Content | Interaction |
+|------|---------|---------|-------------|
+| **info** | upper | status, metrics, bars, sparkline, context summary | refresh only (optional) |
+| **nav** | lower | tabs, segments, lists, toggles, destructive confirms | full widget queries |
+
+Both share one logical “session”; navigation in **nav** drives what **info** shows.
+
+## Why
+
+- Separate zlib budgets (2 × ≤4 KiB compressed HTML).
+- Separate chat_data budgets (2 × ≤1024 B).
+- Metrics stay visible while operator walks menus.
+- Heavier info shell (canvas) without bloating nav shell.
+
+## Lifecycle (strict)
+
+See **`docs/AI-RULES-TG-WIDGETS.md`** — binding for all agents.
+
+Summary:
+
+1. **Pair identity:** `(chat_id → {infoMsgID, navMsgID, infoShell, navShell})`.
+2. **Open:** create **both** or neither; never leave a half-pair without recovery.
+3. **Update:** prefer `editMessageWidgetData` on each slot; shell change → swap that slot only (send + delete old for that slot).
+4. **Close /start /clear:** delete **both** messages; forget both IDs and shells.
+5. **Failure:** if one edit fails, retry once; if still fail, recreate that slot only, then re-sync the other.
+
+## Flag matrix
+
+| Env | Effect |
+|-----|--------|
+| `NETDUCTOR_TG_WIDGETS=1` | widgets on (existing) |
+| `NETDUCTOR_TG_DUAL=1` | dual pair mode |
+| dual off | single SPA message (current behaviour) |
+
+## Data model
+
+```text
+type dualPair struct {
+  InfoID, NavID int
+  InfoShell, NavShell string // hub|spark|...
+}
+lastDual[chat] dualPair
+```
+
+**info chat_data (sketch):** `{s,t,rows,pct,spk,h,L,ts}` — no nav/acts/ids (or only `r`).  
+**nav chat_data:** current appState without heavy `spk` (spark lives on info).
+
+## Navigation flow
+
+1. User taps act on **nav** → `widget_query` with nav `message_id`.
+2. Handler builds `navCD` + `infoCD` for new screen.
+3. `answerWidgetQuery` with **nav** payload (required).
+4. `editMessageWidgetData` nav; `editMessageWidgetData` info (order: answer → nav → info).
+5. If screen needs spark shell on info and current info shell is hub → **swap info only**.
+
+## /start behaviour
+
+1. Forget previous pair (delete messages if IDs known).
+2. Send info widget (status summary).
+3. Send nav widget (home).
+4. Store both IDs.
+
+## Implementation phases
+
+| Phase | Deliverable |
+|-------|-------------|
+| **D0** | This plan + `AI-RULES-TG-WIDGETS.md` |
+| **D1** | `dualPair` state, flag, open/close helpers, no UX change if flag off |
+| **D2** | Split builders: `buildInfoData(screen)` / `buildNavData(screen)` |
+| **D3** | Wire `handleAppAct` + `/start` to dual path |
+| **D4** | Info shell HTML (metrics-only); nav keeps hub |
+| **D5** | Swap-per-slot; tests for pair lifecycle |
+| **D6** | Manual QA; then default-on consideration |
+
+## Tests
+
+- Dual flag off → existing SPA tests green.
+- Dual on (unit): open records two IDs; forget clears both; shell swap updates one slot.
+- chat_data size ≤1024 for info and nav samples.
+
+## Rollout
+
+No release until D3–D5 green and operator smoke on primary with flag.

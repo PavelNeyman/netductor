@@ -530,9 +530,24 @@ func handleMessage(token string, m *message, admin int64) {
 		// Send first, then delete the command — never leave the chat empty.
 		if widgetsEnabled() && strings.TrimSpace(arg1) == "" {
 			forgetAppMsg(chat)
+			closeDualPair(token, chat)
 			appMu.Lock()
 			appScreen = "home"
 			appMu.Unlock()
+			if dualEnabled() {
+				infoCD, err1 := buildInfoData("home")
+				navCD, err2 := buildAppHome()
+				if err1 == nil && err2 == nil {
+					err := openDualPair(token, chat, appInfoHTMLSpark(), infoCD, appWidgetHTMLHub(), navCD, shellSpark, shellHub)
+					if uid > 0 {
+						_ = deleteMessage(token, chat, uid)
+					}
+					if err == nil {
+						return
+					}
+					fmt.Fprintln(os.Stderr, "dual open:", err)
+				}
+			}
 			ok := sendWidgetScreen(token, chat, "app")
 			if uid > 0 {
 				_ = deleteMessage(token, chat, uid)
