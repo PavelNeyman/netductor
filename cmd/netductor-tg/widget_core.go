@@ -169,7 +169,7 @@ var spaScreenAlias = map[string]string{
 // Routing classic m:* callbacks here avoids empty UI from editing chat_data
 // of a different HTML document.
 var spaContentScreens = map[string]bool{
-	"home": true, "status": true, "channel": true, "versions": true,
+	"home": true, "status": true, "channel": true, "versions": true, "updates": true,
 	"secondary": true, "probes": true, "netmap": true, "digest": true,
 	"fleet": true, "users": true, "nodes": true, "devices": true,
 	"sites": true, "pending": true, "ssh": true, "backup": true,
@@ -254,7 +254,7 @@ func parseWidgetAct(data string) (screen, act string) {
 		data == "gsync" || data == "gship" || data == "eg_gr" || data == "eg_rv" ||
 		data == "el_on" || data == "el_off" ||
 		strings.HasPrefix(data, "rc:") || strings.HasPrefix(data, "p:") || strings.HasPrefix(data, "ps:") || strings.HasPrefix(data, "us:") ||
-		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") || strings.HasPrefix(data, "L:") {
+		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") || strings.HasPrefix(data, "L:") || strings.HasPrefix(data, "sg:") {
 		return "app", data
 	}
 	if i := strings.IndexByte(data, ':'); i > 0 {

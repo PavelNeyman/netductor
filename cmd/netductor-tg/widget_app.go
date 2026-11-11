@@ -37,48 +37,34 @@ const appWidgetBoot = `(function(){
 var W=window.TelegramWidget;
 var LAB={
 en:{
-  home:"Menu",status:"Status",users:"Users",fleet:"Fleet",tools:"Tools",operator:"Operator",
-  channel:"Channel",versions:"Versions",secondary:"Secondary",probes:"Probes",netmap:"Netmap",
-  digest:"Digest",addons:"Addons",svcpaths:"Svc paths",lampac:"Lampac",canary:"Canary",
-  sessions:"Sessions",audit:"Audit",actions:"Actions",routers:"Routers",nodes:"Nodes",
-  devices:"Devices",sites:"Sites",pending:"Pending",ssh:"SSH",backup:"Backups",seclist:"Secondaries",
-  edge:"Edge",media:"Media",data:"Data",adv:"Advanced",logs:"Logs",stack:"Stack",help:"Help",
-  ulist:"List",incident:"Incident",reboot:"Reboot",dns:"DNS",git:"Git",certs:"Certs",fw:"Firewall",
-  doctor:"Doctor",admin:"Admin",session:"Session",alerts:"Alerts",nvr:"NVR",cleanup:"Cleanup",
-  api_tg:"API WAN",usp_tg:"Users→SP",vpnref:"Refresh links",
-  ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",hint_home:"choose a section",
-  nodata:"no data",empty:"empty",
-  en:"Enable",di:"Disable",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"Confirm revoke",
-  up:"Upgrade",rb:"Reboot",jn:"Journal",y_rb:"Confirm reboot",
-  q50:"50 GiB",q200:"200 GiB",q0:"∞ quota",rn:"Rename",add:"Add user",
-  heal:"Heal",rbk:"Rollback",y_rbk:"Confirm rollback",wd:"Watchdog",
-  y_rst:"Confirm restore",al_test:"Test alert",al_clr:"Clear alerts chat",
-  qn:"Custom GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours…",srev:"Revoke all",cy:"Canary",sk_on:"Protect ON",sk_off:"Protect OFF",sk_scan:"Scan keys",cert_ren:"Renew",fw_apply:"Apply FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Rename node",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Remove job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",es_bak:"Backup",es_rst:"Restore",es_list:"List USB",es_mute:"Mute",et_on:"Tpl on",et_off:"Tpl off",et_dns:"DNS blocky",et_mode:"Mode full",glog:"Job log",eg_code:"Grant code",es_bak:"Backup",es_rst:"Restore",es_list:"List USB",es_mute:"Mute",et_on:"Tpl on",et_off:"Tpl off",et_dns:"DNS blocky",et_mode:"Mode full",glog:"Job log",eg_code:"Grant code",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Clear",
-  gsync:"Sync",gship:"Ship",eg_gr:"Grant",eg_rv:"Revoke guest",el_on:"LuCI on",el_off:"LuCI off",
-  edgeguest:"Guest",edgeluci:"LuCI",
-  st_hub:"Status hub",fl_hub:"Fleet hub",tl_hub:"Tools hub"
+home:"Menu",status:"Status",users:"Users",fleet:"Fleet",tools:"Tools",operator:"Operator",
+updates:"Updates",primary:"Primary",secondary:"Sec",edge_a:"Edge",
+channel:"Channel",versions:"Ver",nodes:"Nodes",devices:"Dev",sites:"Sites",
+edge:"Edge",media:"Media",data:"Data",adv:"More",logs:"Logs",stack:"Stack",help:"Help",
+git:"Git",backup:"Backup",alerts:"Alerts",incident:"Incident",reboot:"Reboot",
+session:"Session",sessions:"Sessions",sshkeys:"SSH",presets:"Presets",mtls:"mTLS",
+secops:"Sec ops",routers:"Routers",pending:"Pending",addons:"Addons",seclist:"Sec",
+doctor:"Doctor",admin:"Admin",certs:"Certs",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Clean",
+ulist:"List",ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",nodata:"—",empty:"∅",
+en:"On",di:"Off",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"OK?",up:"Upgrade",rb:"Reboot",jn:"Log",
+y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Rename",add:"Add",qr:"QR",heal:"Heal",
+al_test:"Test",al_clr:"Clear",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",
+api_tg:"API",usp_tg:"SP",vpnref:"Refresh",upol:"Policy",pr_new:"New",pr_draft:"Draft"
 },
 ru:{
-  home:"Меню",status:"Статус",users:"Пользователи",fleet:"Флот",tools:"Инструменты",operator:"Оператор",
-  channel:"Канал",versions:"Версии",secondary:"Secondary",probes:"Probes",netmap:"Карта",
-  digest:"Дайджест",addons:"Аддоны",svcpaths:"Svc paths",lampac:"Lampac",canary:"Canary",
-  sessions:"Сессии",audit:"Аудит",actions:"Действия",routers:"Роутеры",nodes:"Ноды",
-  devices:"Устройства",sites:"Сайты",pending:"Pending",ssh:"SSH",backup:"Бэкапы",seclist:"Secondary",
-  edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",
-  ulist:"Список",incident:"Инцидент",reboot:"Reboot",dns:"DNS",git:"Git",certs:"Серты",fw:"Firewall",
-  doctor:"Doctor",admin:"Админ",session:"Сессия",alerts:"Алерты",nvr:"NVR",cleanup:"Очистка",
-  api_tg:"API WAN",usp_tg:"Users→SP",vpnref:"Обновить ссылки",
-  ucard:"Пользователь",ncard:"Нода",menu:"Меню",back:"←",refresh:"↻",hint_home:"выберите раздел",
-  nodata:"нет данных",empty:"пусто",
-  en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Удалить",y_rv:"Подтвердить удаление",
-  up:"Upgrade",rb:"Reboot",jn:"Journal",y_rb:"Подтвердить reboot",
-  q50:"50 GiB",q200:"200 GiB",q0:"∞ квота",rn:"Имя",add:"Добавить",
-  heal:"Heal",rbk:"Откат",y_rbk:"Подтвердить откат",wd:"Watchdog",
-  y_rst:"Подтвердить restore",al_test:"Тест алерта",al_clr:"Сбросить alerts chat",
-  qn:"Своя GiB",qr:"QR",kd:"→device",ku:"→user",sp:"Sub profile",rs:"Restart SB",gsall:"Sync all",sshkeys:"SSH keys",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Часы…",srev:"Отозвать все",cy:"Canary",sk_on:"Защита ON",sk_off:"Защита OFF",sk_scan:"Скан ключей",cert_ren:"Продлить",fw_apply:"Применить FW",ag_st:"Status",ag_prev:"Preview",ag_scan:"Scan",nrn:"Имя ноды",mx:"Metrics",gbuild:"Build all",gmirror:"Mirror all",gjobs:"Ship jobs",gadd:"Add project",gmig:"Migrate",gpause:"Pause",gresume:"Resume",grm:"Удалить job",el_1:"1h",el_4:"4h",el_24:"24h",el_72:"72h",el_ext:"+24h",es_st:"Storage",ep_st:"Policy",et_st:"Templates",eg_facts:"Facts",es_bak:"Backup",es_rst:"Restore",es_list:"List USB",es_mute:"Mute",et_on:"Tpl on",et_off:"Tpl off",et_dns:"DNS blocky",et_mode:"Mode full",glog:"Job log",eg_code:"Grant code",pad_ok:"OK",pad_bs:"⌫",pad_cl:"Сброс",
-  gsync:"Sync",gship:"Ship",eg_gr:"Выдать",eg_rv:"Отозвать",el_on:"LuCI on",el_off:"LuCI off",
-  edgeguest:"Guest",edgeluci:"LuCI",
-  st_hub:"Статус",fl_hub:"Флот",tl_hub:"Инструменты"
+home:"Меню",status:"Статус",users:"Юзеры",fleet:"Флот",tools:"Tools",operator:"Оператор",
+updates:"Обновления",primary:"Primary",secondary:"Sec",edge_a:"Edge",
+channel:"Канал",versions:"Версии",nodes:"Ноды",devices:"Устр.",sites:"Сайты",
+edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",
+git:"Git",backup:"Бэкап",alerts:"Алерты",incident:"Инцидент",reboot:"Ребут",
+session:"Сессия",sessions:"Сессии",sshkeys:"SSH",presets:"Пресеты",mtls:"mTLS",
+secops:"Sec ops",routers:"Роутеры",pending:"Pending",addons:"Аддоны",seclist:"Sec",
+doctor:"Doctor",admin:"Админ",certs:"Серты",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Очистка",
+ulist:"Список",ucard:"User",ncard:"Node",menu:"Меню",back:"←",refresh:"↻",nodata:"—",empty:"∅",
+en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Отозвать",y_rv:"OK?",up:"Upgrade",rb:"Ребут",jn:"Журнал",
+y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Имя",add:"Добавить",qr:"QR",heal:"Heal",
+al_test:"Тест",al_clr:"Сброс",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",
+api_tg:"API",usp_tg:"SP",vpnref:"Обновить",upol:"Policy",pr_new:"Новый",pr_draft:"Черновик"
 }
 };
 function L(d){return (d&&d.L==="en")?"en":"ru";}
@@ -93,14 +79,44 @@ function paint(d){
   var body=document.getElementById("b");
   var hint=document.getElementById("h");
   var nav=document.getElementById("n");
+  var tabs=document.getElementById("tabs");
+  var seg=document.getElementById("seg");
   if(title)title.textContent=d.t||tr(d,d.s)||"Netductor";
   if(hint)hint.textContent=d.h||"";
+  function mk(act,label,cls,parent){
+    var btn=document.createElement("button");
+    btn.textContent=label;
+    if(cls)btn.className=cls;
+    btn.addEventListener("click",function(){send(act);});
+    parent.appendChild(btn);
+  }
+  if(tabs){
+    tabs.innerHTML="";
+    var tops=["status","users","fleet","tools","operator"];
+    for(var ti=0;ti<tops.length;ti++){
+      var id=tops[ti], cls=(d.s===id)?"primary":"";
+      mk("g:"+id,tr(d,id),cls,tabs);
+    }
+  }
+  if(seg){
+    seg.innerHTML="";
+    if(d.segs&&d.segs.length){
+      for(var si=0;si<d.segs.length;si++){
+        var sid=d.segs[si], sc=(d.seg===sid)?"primary":"";
+        mk("sg:"+sid,tr(d,sid)||sid,sc,seg);
+      }
+    }
+  }
   if(body){
     if(d.rows&&d.rows.length){
       var html="";
       for(var i=0;i<d.rows.length;i++){
         var r=d.rows[i];
         html+='<div class="row"><span class="k">'+(r[0]||"")+'</span><span class="v">'+(r[1]||"—")+'</span></div>';
+        if(d.pct&&d.pct[i]!=null){
+          var p=Math.max(0,Math.min(100,+d.pct[i]||0));
+          html+='<div class="bar"><i style="width:'+p+'%"></i></div>';
+        }
       }
       if(d.lines){html+='<div class="pre"></div>';}
       body.innerHTML=html;
@@ -115,20 +131,11 @@ function paint(d){
   }
   if(nav){
     nav.innerHTML="";
-    function add(act,label,cls){
-      var btn=document.createElement("button");
-      btn.textContent=label;
-      if(cls)btn.className=cls;
-      btn.addEventListener("click",function(){send(act);});
-      nav.appendChild(btn);
-    }
+    function add(act,label,cls){mk(act,label,cls,nav);}
     add("r",tr(d,"refresh"),"primary");
     if(d.s&&d.s!=="home")add("b",tr(d,"back"));
-    if(d.s==="home"&&d.nav){
+    if(d.nav){
       for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));
-    }
-    if(d.nav&&d.s!=="home"){
-      for(var j2=0;j2<d.nav.length;j2++)add("g:"+d.nav[j2],tr(d,d.nav[j2]));
     }
     if(d.ids){
       var ids=String(d.ids).split(",");
@@ -139,9 +146,9 @@ function paint(d){
       for(var a=0;a<acts.length;a++){
         if(!acts[a])continue;
         var lab=tr(d,acts[a]);
-        if(acts[a].indexOf("y_")==0)lab=tr(d,acts[a]);
         var cls="";
-        if(acts[a]==="rv"||acts[a]==="y_rv"||acts[a]==="rb"||acts[a]==="y_rb"||acts[a]==="y_rbk"||acts[a]==="y_rst")cls="danger";
+        if(/^(rv|y_rv|rb|y_rb|y_rbk|y_rst)$/.test(acts[a]))cls="danger";
+        if(acts[a]==="en"||acts[a]==="et_on"||acts[a]==="et_soft_on")cls="on";
         add(acts[a],lab,cls);
       }
     }
@@ -152,7 +159,6 @@ function paint(d){
         add(String(pair[0]),String(pair[1]||pair[0]),"");
       }
     }
-    // pad removed: free text via chat message
     if(d.s!=="home")add("g:home",tr(d,"menu"));
     if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}
   }
@@ -172,20 +178,26 @@ if(W&&W.onEvent)W.onEvent("chatDataChanged",run);
 
 func appWidgetHTML() string {
 	return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<style>
-body{margin:0;padding:10px;font:13px/1.35 system-ui,sans-serif;background:var(--tg-theme-bg-color,#0f1419);color:var(--tg-theme-text-color,#e7ecf3)}
-h1{margin:0 0 8px;font-size:15px}
-.row{display:flex;justify-content:space-between;gap:8px;margin:3px 0}
-.k{color:var(--tg-theme-hint-color,#8b98a5);flex-shrink:0}
-.v{font-weight:600;text-align:right;word-break:break-word}
-.pre{margin:6px 0;padding:8px;background:var(--tg-theme-secondary-bg-color,#1c2733);border-radius:8px;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;max-height:240px;overflow:hidden}
-#n{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-button{border:0;border-radius:8px;padding:7px 10px;font:12px system-ui;background:var(--tg-theme-secondary-bg-color,#1c2733);color:inherit}
+<style>body{margin:0;padding:8px;font:13px/1.3 system-ui,sans-serif;background:var(--tg-theme-bg-color,#0f1419);color:var(--tg-theme-text-color,#e7ecf3)}
+#tabs,#seg,#n{display:flex;flex-wrap:wrap;gap:5px}
+#tabs{margin:0 0 6px}#tabs button{flex:1;min-width:52px;padding:9px 4px;font:600 11px system-ui;border-radius:9px}
+h1{margin:0 0 4px;font-size:15px}
+.row{display:flex;justify-content:space-between;gap:6px;margin:3px 0}
+.k{color:var(--tg-theme-hint-color,#8b98a5)}.v{font-weight:600;text-align:right;word-break:break-word}
+.bar{height:5px;border-radius:3px;background:var(--tg-theme-secondary-bg-color,#1c2733);margin:1px 0 5px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--tg-theme-button-color,#2a6df4)}
+.pre{margin:5px 0;padding:8px;background:var(--tg-theme-secondary-bg-color,#1c2733);border-radius:9px;font:12px/1.35 system-ui;white-space:pre-wrap;max-height:200px;overflow:hidden}
+#seg{margin:0 0 6px}#seg button{flex:1;padding:7px;border-radius:8px;font-weight:600}
+#n{margin-top:6px}#n button{padding:10px 10px;font:600 12px system-ui;border-radius:9px;min-width:calc(50% - 5px)}
+button{border:0;background:var(--tg-theme-secondary-bg-color,#1c2733);color:inherit}
 button.primary{background:var(--tg-theme-button-color,#2a6df4);color:var(--tg-theme-button-text-color,#fff)}
 button.danger{background:var(--tg-theme-destructive-text-color,#e53935);color:#fff}
-#h{margin-top:8px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}
+button.on{outline:2px solid var(--tg-theme-button-color,#2a6df4)}
+#h{margin-top:6px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}
 </style></head><body>
+<div id="tabs"></div>
 <h1 id="t">Netductor</h1>
+<div id="seg"></div>
 <div id="b"><div class="pre">—</div></div>
 <div id="n"></div>
 <div id="h"></div>
@@ -205,7 +217,10 @@ type appState struct {
 	Acts  string      `json:"acts,omitempty"` // comma-separated act codes for buttons
 	Btns  [][2]string `json:"btns,omitempty"` // dynamic [{act,label},...] for challenge codes etc.
 	Draft string      `json:"draft,omitempty"`
-	Pad   bool        `json:"pad,omitempty"` // show on-screen key pad (no free-text in widget profile)
+	Pad   bool        `json:"pad,omitempty"`
+	Segs  []string    `json:"segs,omitempty"`
+	Seg   string      `json:"seg,omitempty"`
+	Pct   []int       `json:"pct,omitempty"` // 0..100 aligned with rows
 	TS    int64       `json:"ts"`
 }
 
@@ -327,6 +342,126 @@ func appListFromItems(screen, titleEN, titleRU string, items []listWidgetItem) (
 	return appMarshal(st)
 }
 
+
+func parseResPct(res string) []int {
+	// res like "cpu 12% mem 40%" — optional bars aligned to version/host/nodes/svc/cpu row index 4
+	out := []int{-1, -1, -1, -1, -1, -1, -1}
+	res = strings.ToLower(res)
+	var cpu, mem int
+	fmt.Sscanf(res, "cpu %d", &cpu)
+	if i := strings.Index(res, "mem"); i >= 0 {
+		fmt.Sscanf(res[i:], "mem %d", &mem)
+	}
+	if cpu > 0 {
+		out[4] = cpu
+	}
+	if mem > 0 && cpu == 0 {
+		out[4] = mem
+	}
+	// keep only if any set
+	for _, v := range out {
+		if v >= 0 {
+			return out
+		}
+	}
+	return nil
+}
+
+func formatCmdOut(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	if strings.HasPrefix(s, "{") {
+		var m map[string]any
+		if json.Unmarshal([]byte(s), &m) == nil {
+			var b strings.Builder
+			keys := make([]string, 0, len(m))
+			for k := range m {
+				keys = append(keys, k)
+			}
+			// stable-ish short dump
+			for _, k := range keys {
+				if len(b.String()) > 400 {
+					break
+				}
+				v := m[k]
+				switch v.(type) {
+				case map[string]any, []any:
+					continue
+				}
+				fmt.Fprintf(&b, "%s: %v\n", k, v)
+			}
+			if b.Len() > 0 {
+				return strings.TrimSpace(b.String())
+			}
+		}
+	}
+	return s
+}
+
+func buildAppUpdates(seg string) (string, error) {
+	if seg == "" {
+		seg = "primary"
+	}
+	d := fleet.Build()
+	st := appState{
+		S: "updates", T: appTitle("Updates", "Обновления"),
+		Segs: []string{"primary", "secondary", "edge_a"},
+		Seg:  seg,
+		H:    appTitle("Primary · Secondary · Edge agents", "Primary · Secondary · Edge"),
+	}
+	switch seg {
+	case "secondary":
+		var lines []string
+		var ids []string
+		for i, s := range d.Secondaries {
+			if i >= 10 {
+				break
+			}
+			on := "off"
+			if s.Online {
+				on = "on"
+			}
+			name := s.ID
+			if name == "" {
+				name = s.Name
+			}
+			ver := s.Version
+			lines = append(lines, fmt.Sprintf("%d %s %s %s", len(ids)+1, name, ver, on))
+			ids = append(ids, name)
+		}
+		appMu.Lock()
+		appListIDs = ids
+		appMu.Unlock()
+		st.Lines = strings.Join(lines, "\n")
+		st.IDs = strings.Join(ids, ",")
+		if st.Lines == "" {
+			st.B = appTitle("no secondaries", "нет secondary")
+		}
+		st.Acts = "vpnref"
+		st.H = appTitle("# node · upgrade via secondary cmd", "# нода · upgrade через secondary cmd")
+	case "edge_a":
+		out := formatCmdOut(runND("edge", "list"))
+		st.Lines = widgetTruncate(out, 450)
+		st.Acts = ""
+		st.H = appTitle("edge agents / devices", "edge агенты / устройства")
+	default:
+		upd := appTitle("up to date", "актуально")
+		if d.UpdateAvailable {
+			upd = d.LatestRelease
+		}
+		st.Rows = [][2]string{
+			{appTitle("primary", "primary"), d.PrimaryVersion},
+			{appTitle("latest", "latest"), upd},
+			{appTitle("secondaries", "secondary"), fmt.Sprintf("%d", len(d.Secondaries))},
+		}
+		st.Nav = []string{"stack", "versions"}
+		st.H = appTitle("stack apply from Operator · versions list", "stack apply в Operator · список versions")
+	}
+	return appMarshal(st)
+}
+
 func buildAppHome() (string, error) {
 	// Parity with mainKeyboard: Status, Users, Fleet, Tools, Operator
 	return appMarshal(appState{
@@ -334,7 +469,7 @@ func buildAppHome() (string, error) {
 		T: "Netductor",
 		H: appTitle("same hubs as classic main menu", "те же хабы, что classic-меню"),
 		B: " ",
-		Nav: []string{"status", "users", "fleet", "tools", "operator", "help"},
+		Nav: []string{"status", "users", "fleet", "updates", "tools", "operator", "help"},
 	})
 }
 
@@ -350,9 +485,10 @@ func buildAppStatusHub() (string, error) {
 		{appTitle("migrate", "миграции"), d.Mig},
 	}
 	// classic also: incident, node reboot — multi-step stay out of SPA for now
+	pct := parseResPct(d.Res)
 	return appMarshal(appState{
-		S: "status", T: d.Title, Rows: rows, H: d.Hint,
-		Nav: []string{"channel", "netmap", "actions", "sessions", "digest", "incident", "reboot"},
+		S: "status", T: d.Title, Rows: rows, Pct: pct, H: d.Hint,
+		Nav: []string{"channel", "netmap", "actions", "sessions", "digest", "incident", "reboot", "updates"},
 	})
 }
 
@@ -375,7 +511,7 @@ func buildAppFleetHub() (string, error) {
 	}
 	return appMarshal(appState{
 		S: "fleet", T: appTitle("Fleet", "Флот"), Rows: rows,
-		Nav: []string{"nodes", "routers", "sites", "secondary", "addons"},
+		Nav: []string{"nodes", "updates", "routers", "sites", "secondary", "addons", "secops"},
 	})
 }
 
@@ -665,7 +801,7 @@ func buildAppOperatorHub() (string, error) {
 }
 
 func buildAppND(screen, en, ru string, args ...string) (string, error) {
-	out := strings.TrimSpace(runND(args...))
+	out := formatCmdOut(strings.TrimSpace(runND(args...)))
 	if out == "" {
 		out = appTitle("(empty)", "(пусто)")
 	}
@@ -886,6 +1022,8 @@ func buildAppScreen(screen string) (string, error) {
 		return appListFromItems("seclist", "Secondaries", "Secondary", collectSecondaryListItems())
 	case "channel":
 		return appFromLegacyWidget("channel", "Channel", "Канал", channelWidgetChatDataJSON)
+	case "updates":
+		return buildAppUpdates("")
 	case "versions":
 		return appFromLegacyWidget("versions", "Versions", "Версии", versionsWidgetChatDataJSON)
 	case "secondary":
@@ -978,6 +1116,27 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		act = "r"
 	}
 
+	// segment switch (updates hub etc.)
+	if strings.HasPrefix(act, "sg:") {
+		seg := strings.TrimPrefix(act, "sg:")
+		appMu.Lock()
+		s := appScreen
+		appMu.Unlock()
+		var cd string
+		var err error
+		if s == "updates" || seg == "primary" || seg == "secondary" || seg == "edge_a" {
+			cd, err = buildAppUpdates(seg)
+		} else {
+			cd, err = buildAppScreen(s)
+		}
+		if err != nil {
+			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+			return true
+		}
+		appPushState(token, q, cd)
+		return true
+	}
+
 	// language
 	if strings.HasPrefix(act, "L:") {
 		lang := strings.TrimPrefix(act, "L:")
@@ -1028,12 +1187,14 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			parent = "data"
 		case "probes", "stack", "doctor", "certs", "fw", "cleanup":
 			parent = "adv"
-		case "edge", "media", "data", "adv", "versions", "ssh", "sshkeys", "git", "presets", "mtls":
+		case "edge", "media", "data", "adv", "ssh", "sshkeys", "git", "presets", "mtls":
 			parent = "tools"
 		case "svcpaths", "session", "alerts", "admin", "audit", "sessions":
 			parent = "operator"
-		case "users", "status", "fleet", "tools", "operator", "help":
+		case "users", "status", "fleet", "tools", "operator", "help", "updates":
 			parent = "home"
+		case "versions":
+			parent = "updates"
 		}
 		cd, err := buildAppScreen(parent)
 		if err != nil {
