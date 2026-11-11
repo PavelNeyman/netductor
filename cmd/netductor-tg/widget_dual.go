@@ -274,12 +274,32 @@ func dualSplitChatData(full string) (navCD, infoCD string) {
 		nav.B = appTitle("refresh · back", "обновить · назад")
 	}
 	nb, err1 := appMarshal(nav)
-	ib, err2 := appMarshal(info)
 	if err1 != nil {
 		nb = full
 	}
+	ib, err2 := appMarshal(info)
 	if err2 != nil {
-		ib = `{"s":"info","t":"Status"}`
+		// shrink lines until fit
+		for lim := 400; lim >= 80; lim -= 80 {
+			info.Lines = widgetTruncate(info.Lines, lim)
+			if len(info.Rows) > 4 {
+				info.Rows = info.Rows[:4]
+			}
+			ib, err2 = appMarshal(info)
+			if err2 == nil {
+				break
+			}
+		}
+		if err2 != nil {
+			ib = `{"s":"info","t":"Status"}`
+		}
+	}
+	if _, err := clipWidgetChatData(ib); err != nil {
+		info.Lines = widgetTruncate(info.Lines, 200)
+		info.Spk = ""
+		if ib2, e := appMarshal(info); e == nil {
+			ib = ib2
+		}
 	}
 	return nb, ib
 }

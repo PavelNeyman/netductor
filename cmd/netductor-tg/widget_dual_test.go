@@ -146,3 +146,34 @@ func TestAnswerWidgetQueryRejectsHugeData(t *testing.T) {
 		t.Fatal("expected truncate")
 	}
 }
+
+func TestDualSplitChatDataSeparatesControls(t *testing.T) {
+	full, err := appMarshal(appState{
+		S: "status", T: "Status",
+		Rows:  [][2]string{{"cpu", "10%"}, {"mem", "20%"}},
+		Lines: "line1\nline2",
+		Nav:   []string{"home"},
+		Acts:  "r,b",
+		Spk:   "1,2,3",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	navCD, infoCD := dualSplitChatData(full)
+	var nav, info appState
+	if json.Unmarshal([]byte(navCD), &nav) != nil || json.Unmarshal([]byte(infoCD), &info) != nil {
+		t.Fatal("unmarshal")
+	}
+	if len(nav.Rows) > 0 || nav.Lines != "" || nav.Spk != "" {
+		t.Fatalf("nav still has content: rows=%v lines=%q spk=%q", nav.Rows, nav.Lines, nav.Spk)
+	}
+	if len(info.Rows) == 0 && info.Lines == "" {
+		t.Fatal("info empty")
+	}
+	if info.Acts != "" || len(info.Nav) > 0 {
+		t.Fatalf("info has controls acts=%q nav=%v", info.Acts, info.Nav)
+	}
+	if nav.Acts == "" {
+		t.Fatal("nav lost acts")
+	}
+}

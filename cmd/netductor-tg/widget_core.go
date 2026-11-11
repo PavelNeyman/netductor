@@ -258,19 +258,27 @@ func openAppScreen(token string, chat int64, screenID string) bool {
 
 // openAppScreenDual updates or opens the info+nav pair for screenID.
 func openAppScreenDual(token string, chat int64, screenID string) bool {
-	navCD, err := buildAppScreen(screenID)
+	full, err := buildAppScreen(screenID)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "dual nav build:", err)
 		return false
 	}
-	if navCD, err = clipWidgetChatData(navCD); err != nil {
-		fmt.Fprintln(os.Stderr, "dual nav clip:", err)
-		return false
+	navCD, infoCD := dualSplitChatData(full)
+	if c, e := clipWidgetChatData(navCD); e == nil {
+		navCD = c
+	} else {
+		// soft: controls-only should fit; last resort empty acts
+		navCD, _ = appMarshal(appState{S: screenID, T: screenID, Acts: "r"})
 	}
-	infoCD, err := buildInfoData(screenID)
-	if err != nil {
-		infoCD = `{"s":"info","t":"Status"}`
-	} else if infoCD, err = clipWidgetChatData(infoCD); err != nil {
+	if c, e := clipWidgetChatData(infoCD); e == nil {
+		infoCD = c
+	} else if alt, e2 := buildInfoData(screenID); e2 == nil {
+		if c2, e3 := clipWidgetChatData(alt); e3 == nil {
+			infoCD = c2
+		} else {
+			infoCD = `{"s":"info","t":"Status"}`
+		}
+	} else {
 		infoCD = `{"s":"info","t":"Status"}`
 	}
 	infoShell := infoShellForScreen(screenID)
