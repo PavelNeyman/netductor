@@ -177,4 +177,7 @@ func TestDualSplitChatDataSeparatesControls(t *testing.T) {
 	if nav.Acts == "" {
 		t.Fatal("nav lost acts")
 	}
+	if !nav.Pad || nav.Draft != "x" || len(nav.Btns) != 1 {
+		t.Fatalf("nav lost pad/draft/btns: pad=%v draft=%q btns=%v", nav.Pad, nav.Draft, nav.Btns)
+	}
 }

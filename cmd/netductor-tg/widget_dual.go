@@ -259,6 +259,9 @@ func dualSplitChatData(full string) (navCD, infoCD string) {
 		S: st.S, T: st.T, B: st.B, H: st.H,
 		Rows: st.Rows, Lines: st.Lines, Spk: st.Spk, Pct: st.Pct,
 	}
+	if st.Pad && st.Draft != "" && info.B == "" {
+		info.B = st.Draft
+	}
 	if info.T == "" {
 		info.T = st.S
 	}
@@ -268,6 +271,7 @@ func dualSplitChatData(full string) (navCD, infoCD string) {
 	nav := appState{
 		S: st.S, T: st.T, H: st.H, L: st.L,
 		Nav: st.Nav, Acts: st.Acts, Segs: st.Segs, Seg: st.Seg, IDs: st.IDs,
+		Btns: st.Btns, Draft: st.Draft, Pad: st.Pad,
 	}
 	// Keep a one-line summary on nav if no acts/nav at all
 	if nav.Nav == nil && nav.Acts == "" && nav.Segs == nil {
