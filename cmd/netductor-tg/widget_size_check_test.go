@@ -30,19 +30,15 @@ func TestAppWidgetHTMLSizeLimits(t *testing.T) {
 }
 
 func TestAppShellHTMLSizes(t *testing.T) {
-	for _, tc := range []struct{ name string; html string }{
-		{"hub", appWidgetHTMLHub()},
-		{"spark", appWidgetHTMLSpark()},
-	} {
-		var buf bytes.Buffer
-		w, _ := zlib.NewWriterLevel(&buf, 9)
-		_, _ = w.Write([]byte(tc.html))
-		_ = w.Close()
-		comp := buf.Len()
-		t.Logf("%s raw=%d zlib=%d", tc.name, len(tc.html), comp)
-		if len(tc.html) > 32768 || comp > 4096 {
-			t.Fatalf("%s over limit raw=%d comp=%d", tc.name, len(tc.html), comp)
-		}
+	html := appWidgetHTML()
+	var buf bytes.Buffer
+	w, _ := zlib.NewWriterLevel(&buf, 9)
+	_, _ = w.Write([]byte(html))
+	_ = w.Close()
+	comp := buf.Len()
+	t.Logf("spa raw=%d zlib=%d", len(html), comp)
+	if len(html) > 32768 || comp > 4096 {
+		t.Fatalf("SPA over limit raw=%d comp=%d", len(html), comp)
 	}
 }
 

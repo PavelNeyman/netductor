@@ -196,18 +196,7 @@ if(W&&W.onEvent)W.onEvent("chatDataChanged",run);
 })();`
 
 func appWidgetHTML() string {
-	return appWidgetHTMLHub()
-}
-
-func appWidgetHTMLHub() string {
-	return appWidgetHTMLBase(false)
-}
-
-func appWidgetHTMLSpark() string {
-	return appWidgetHTMLBase(true)
-}
-
-func appWidgetHTMLBase(spark bool) string {
+	// Single SPA HTML (canvas-capable). Multi-shell split deferred — see UI v2 plan.
 	css := `body{margin:0;padding:8px;font:13px/1.3 system-ui,sans-serif;background:var(--tg-theme-bg-color,#0f1419);color:var(--tg-theme-text-color,#e7ecf3)}
 #tabs,#seg,#n{display:flex;flex-wrap:wrap;gap:5px}
 #tabs{margin:0 0 6px}#tabs button{flex:1;min-width:52px;padding:9px 4px;font:600 11px system-ui;border-radius:9px}
@@ -224,11 +213,6 @@ button.primary{background:var(--tg-theme-button-color,#2a6df4);color:var(--tg-th
 button.danger{background:var(--tg-theme-destructive-text-color,#e53935);color:#fff}
 button.on{outline:2px solid var(--tg-theme-button-color,#2a6df4)}
 #h{margin-top:6px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}`
-	boot := appWidgetBoot
-	if !spark {
-		// hub: drop canvas helpers to save zlib budget
-		boot = stripSparkBoot(boot)
-	}
 	return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>` + css + `</style></head><body>
 <div id="tabs"></div>
 <h1 id="t">Netductor</h1>
@@ -236,26 +220,12 @@ button.on{outline:2px solid var(--tg-theme-button-color,#2a6df4)}
 <div id="b"><div class="pre">—</div></div>
 <div id="n"></div>
 <div id="h"></div>
-<script>` + boot + `</script></body></html>`
+<script>` + appWidgetBoot + `</script></body></html>`
 }
 
-func stripSparkBoot(boot string) string {
-	// remove drawSpk function and canvas inject lines
-	out := boot
-	out = strings.ReplaceAll(out, `if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px;margin:4px 0"></canvas>';`, "")
-	out = strings.ReplaceAll(out, `if(d.spk)drawSpk(d.spk);`, "")
-	// remove drawSpk function body (one-liner we added)
-	start := strings.Index(out, "function drawSpk(")
-	if start >= 0 {
-		end := strings.Index(out[start:], "function send(act){")
-		if end > 0 {
-			out = out[:start] + out[start+end:]
-		}
-	}
-	return out
-}
-
-
+// Deprecated aliases — dual open still names hub explicitly.
+func appWidgetHTMLHub() string  { return appWidgetHTML() }
+func appWidgetHTMLSpark() string { return appWidgetHTML() }
 
 type appState struct {
 	S     string      `json:"s"`
@@ -1310,7 +1280,7 @@ func appPushState(token string, q *widgetQuery, cd string) {
 		pushDualPair(token, q, infoCD, cd, infoShell, shellHub)
 		return
 	}
-	appPushStateSmart(token, q, screen, cd)
+	appPushStateSingle(token, q, cd)
 }
 
 func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {

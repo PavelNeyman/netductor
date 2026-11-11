@@ -72,21 +72,20 @@ When `NETDUCTOR_TG_DUAL` is not `1`, **do not** apply dual pair logic. Existing 
 
 ---
 
-## 2b. Dual vs multi-shell
+## 2b. Dual vs SPA
 
-| Mode | Messages | Where is spark/canvas? | Multi-shell swap |
-|------|----------|------------------------|------------------|
-| Dual **off** | 1 SPA | SPA spark shell on status | `appPushStateSmart` hub↔spark |
-| Dual **on** | 2 (info+nav) | **info only** | **Do not** spark-swap nav; nav stays hub |
+| Mode | Messages | Metrics / spark |
+|------|----------|-----------------|
+| Dual **off** | 1 SPA | same message (`spk` in chat_data) |
+| Dual **on** | info + nav | **info only**; nav is interactive hub |
 
-When dual is on, treating the pair like single-SPA multi-shell (swapping nav HTML for status) is wrong.
+SPA multi-HTML (hub↔spark swap) is **removed**. Reintroduce only under zlib pressure; document in UI v2 plan.
 
-## 2. Single SPA / multi-shell (dual off)
+## 2. Single SPA (dual off)
 
 1. Prefer **one** live app message per chat (`lastAppMsgID`).
-2. Same shell → `editMessageWidgetData` only.
-3. Different shell → send + delete previous app message (see UI v2 plan).
-4. `/start` or chat wipe: forget id **and** shell; do not edit unknown message ids blindly without recovery path.
+2. `editMessageWidgetData`; on failure resend + delete old.
+3. `/start` or chat wipe: `forgetAppMsg`; dual also `closeDualPair`.
 
 ---
 

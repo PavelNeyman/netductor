@@ -5,56 +5,29 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
 )
 
-// Multi-shell SPA: HTML is immutable after sendWidget, so a different layout
-// (e.g. status with canvas sparkline) requires a new message + delete of the old.
-// Kind "hub" = default navigation; "spark" = status metrics with canvas.
-
+// Shell kind labels (dual info slot metadata only — not SPA multi-HTML).
+// Historical note: SPA hub↔spark message swap was removed; revive only if zlib
+// forces a second HTML document (see docs/PLAN-TG-WIDGET-UI-V2.md).
 const (
 	shellHub   = "hub"
-	shellSpark = "spark"
+	shellSpark = "spark" // dual info: metrics series present / preferred
 )
 
-var (
-	lastAppShell   = map[int64]string{} // chat → shell kind
-	lastAppShellMu sync.Mutex
-)
-
-func shellKindForScreen(screen string) string {
-	switch screen {
-	case "status":
-		return shellSpark
-	default:
-		return shellHub
-	}
-}
-
-func appHTMLForShell(kind string) string {
-	if kind == shellSpark {
-		return appWidgetHTMLSpark()
-	}
-	return appWidgetHTMLHub()
-}
-
-// appPushStateSmart edits in place when the shell matches; otherwise swaps the message.
-func appPushStateSmart(token string, q *widgetQuery, screen, cd string) {
+// appPushStateSingle: one SPA message, one HTML. Edit chat_data in place;
+// on edit failure resend once and drop the old message id.
+func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	if q == nil {
 		return
 	}
-	kind := shellKindForScreen(screen)
 	answerWidgetQuery(token, q.ID, cd)
 	if q.Chat == nil {
 		return
 	}
 	chat := q.Chat.ID
-	lastAppShellMu.Lock()
-	cur := lastAppShell[chat]
-	lastAppShellMu.Unlock()
-
 	lastAppMu.Lock()
 	mid := lastAppMsgID[chat]
 	if mid == 0 && q.MessageID != 0 {
@@ -62,68 +35,30 @@ func appPushStateSmart(token string, q *widgetQuery, screen, cd string) {
 	}
 	lastAppMu.Unlock()
 
-	// Same shell → edit chat_data only (smooth).
-	if cur == kind || (cur == "" && kind == shellHub && mid != 0 && q.MessageID != 0) {
-		if mid != 0 {
-			_, err := apiPostWidget(token, "editMessageWidgetData", map[string]any{
-				"chat_id": chat, "message_id": mid, "chat_data": cd,
-			})
-			if err == nil {
-				lastAppShellMu.Lock()
-				lastAppShell[chat] = kind
-				lastAppShellMu.Unlock()
-				lastAppMu.Lock()
-				lastAppMsgID[chat] = mid
-				lastAppMu.Unlock()
-				return
-			}
-			fmt.Fprintln(os.Stderr, "editMessageWidgetData:", err)
+	if mid != 0 {
+		if err := editWidgetData(token, chat, mid, cd); err == nil {
+			lastAppMu.Lock()
+			lastAppMsgID[chat] = mid
+			lastAppMu.Unlock()
+			return
 		}
+		fmt.Fprintln(os.Stderr, "editMessageWidgetData:", mid, "→ resend")
 	}
 
-	// Shell change or edit failed → send new widget, delete previous.
-	html := appHTMLForShell(kind)
-	raw, err := apiPostWidget(token, "sendWidget", map[string]any{
-		"chat_id": chat, "html": html, "chat_data": cd, "allow_queries": true,
-	})
+	html := appWidgetHTML()
+	newID, err := sendWidgetMessage(token, chat, html, cd)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "sendWidget swap:", err)
-		// fallback: try edit on current message
-		if q.MessageID != 0 {
-			_, _ = apiPostWidget(token, "editMessageWidgetData", map[string]any{
-				"chat_id": chat, "message_id": q.MessageID, "chat_data": cd,
-			})
-		}
+		fmt.Fprintln(os.Stderr, "sendWidget SPA:", err)
 		return
 	}
-	var wr struct {
-		Result struct {
-			MessageID int `json:"message_id"`
-		} `json:"result"`
+	if mid > 0 && mid != newID {
+		_ = deleteMessage(token, chat, mid)
 	}
-	newID := 0
-	if json.Unmarshal(raw, &wr) == nil {
-		newID = wr.Result.MessageID
-	}
-	if newID > 0 {
-		lastAppMu.Lock()
-		lastAppMsgID[chat] = newID
-		lastAppMu.Unlock()
-		lastAppShellMu.Lock()
-		lastAppShell[chat] = kind
-		lastAppShellMu.Unlock()
-	}
-	// delete old message for smooth single-card feel
-	old := mid
-	if old == 0 {
-		old = q.MessageID
-	}
-	if old > 0 && old != newID {
-		_ = deleteMessage(token, chat, old)
-	}
+	lastAppMu.Lock()
+	lastAppMsgID[chat] = newID
+	lastAppMu.Unlock()
 }
 
-// parseScreenFromChatData reads "s" field for shell selection.
 func parseScreenFromChatData(cd string) string {
 	var m struct {
 		S string `json:"s"`
@@ -134,13 +69,6 @@ func parseScreenFromChatData(cd string) string {
 	return "home"
 }
 
-func forgetAppShell(chat int64) {
-	lastAppShellMu.Lock()
-	delete(lastAppShell, chat)
-	lastAppShellMu.Unlock()
-}
-
-// split secondary list text into lines for display (id ver on)
 func formatSecondaryLines() (lines []string, ids []string) {
 	d := fleet.Build()
 	for i, s := range d.Secondaries {
@@ -156,10 +84,11 @@ func formatSecondaryLines() (lines []string, ids []string) {
 			on = "on"
 		}
 		lines = append(lines, fmt.Sprintf("%d %s %s %s", len(ids)+1, name, s.Version, on))
-		ids = append(ids, s.ID)
-		if ids[len(ids)-1] == "" {
-			ids[len(ids)-1] = name
+		id := s.ID
+		if id == "" {
+			id = name
 		}
+		ids = append(ids, id)
 	}
 	return lines, ids
 }
@@ -169,7 +98,6 @@ func formatGitHubLines() (rows [][2]string, lines string) {
 	if out == "" {
 		out = appLines(runND("git", "sync", "status"))
 	}
-	// Prefer key rows when formatCmdOut produced key: value
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {

@@ -23,3 +23,12 @@ Transition: `appPushStateSmart` — same shell → `editMessageWidgetData`; diff
 ## Dual pair (next)
 
 See `docs/PLAN-TG-DUAL-WIDGET.md` and binding rules `docs/AI-RULES-TG-WIDGETS.md`.
+
+## Multi-shell (deferred)
+
+SPA hub↔spark **message swap is removed**. One SPA HTML includes canvas; dual mode
+puts metrics on the info message instead.
+
+If zlib forces a split later: restore two HTML variants + per-message shell kind
+and swap only that message (same pattern as dual slot swap). Do not invent a third
+state map without updating `AI-RULES-TG-WIDGETS.md`.

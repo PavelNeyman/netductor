@@ -12,10 +12,8 @@ import (
 
 // Dual info+nav pair (NETDUCTOR_TG_DUAL=1). Rules: docs/AI-RULES-TG-WIDGETS.md
 //
-// Multi-shell vs dual:
-//   - Dual OFF: one SPA message; appPushStateSmart may hub↔spark swap (status canvas).
-//   - Dual ON: two messages — info owns metrics/spark; nav stays hub only.
-//     SPA multi-shell is not used (appPushState returns before appPushStateSmart).
+// Dual ON: info = metrics; nav = interactive hub. SPA multi-HTML was removed;
+// revive only under zlib pressure (docs/PLAN-TG-WIDGET-UI-V2.md).
 //
 
 type dualPair struct {
