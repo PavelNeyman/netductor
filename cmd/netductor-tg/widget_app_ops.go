@@ -60,7 +60,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		}
 		cd, _ := appMarshal(appState{
 			S: "sessions", T: appTitle("Sessions", "Сессии"),
-			Lines: widgetTruncate(out, 400),
+			Lines: appLines(out),
 			Acts:  "srev",
 		})
 		appPushState(token, q, cd)
@@ -92,17 +92,17 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 	// --- sshkeys protect ---
 	case "sk_on":
 		out := runND("ssh-keys", "protect", "on")
-		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: widgetTruncate(out, 400), Acts: "sk_on,sk_off,sk_scan"})
+		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Acts: "sk_on,sk_off,sk_scan"})
 		appPushState(token, q, cd)
 		return true
 	case "sk_off":
 		out := runND("ssh-keys", "protect", "off")
-		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: widgetTruncate(out, 400), Acts: "sk_on,sk_off,sk_scan"})
+		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Acts: "sk_on,sk_off,sk_scan"})
 		appPushState(token, q, cd)
 		return true
 	case "sk_scan":
 		out := runND("ssh-keys", "scan")
-		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: widgetTruncate(out, 400), Acts: "sk_on,sk_off,sk_scan"})
+		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Acts: "sk_on,sk_off,sk_scan"})
 		appPushState(token, q, cd)
 		return true
 
@@ -112,27 +112,27 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if strings.TrimSpace(out) == "" {
 			out = runND("le", "renew")
 		}
-		cd, _ := appMarshal(appState{S: "certs", T: appTitle("Certs", "Сертификаты"), Lines: widgetTruncate(out, 450), Acts: "cert_ren"})
+		cd, _ := appMarshal(appState{S: "certs", T: appTitle("Certs", "Сертификаты"), Lines: appLines(out), Acts: "cert_ren"})
 		appPushState(token, q, cd)
 		return true
 	case "fw_apply":
 		out := runND("firewall", "apply")
-		cd, _ := appMarshal(appState{S: "fw", T: appTitle("Firewall", "Firewall"), Lines: widgetTruncate(out, 450), Acts: "fw_apply"})
+		cd, _ := appMarshal(appState{S: "fw", T: appTitle("Firewall", "Firewall"), Lines: appLines(out), Acts: "fw_apply"})
 		appPushState(token, q, cd)
 		return true
 	case "ag_st":
 		out := runND("aptguard", "status")
-		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: widgetTruncate(out, 450), Acts: "ag_st,ag_prev,ag_scan"})
+		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Acts: "ag_st,ag_prev,ag_scan"})
 		appPushState(token, q, cd)
 		return true
 	case "ag_prev":
 		out := runND("aptguard", "preview")
-		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: widgetTruncate(out, 450), Acts: "ag_st,ag_prev,ag_scan"})
+		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Acts: "ag_st,ag_prev,ag_scan"})
 		appPushState(token, q, cd)
 		return true
 	case "ag_scan":
 		out := runND("aptguard", "scan")
-		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: widgetTruncate(out, 450), Acts: "ag_st,ag_prev,ag_scan"})
+		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Acts: "ag_st,ag_prev,ag_scan"})
 		appPushState(token, q, cd)
 		return true
 
@@ -159,7 +159,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		out := enqueueNodeCmd(focus, "metrics")
-		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: widgetTruncate(out, 450), Acts: "up,rb,jn,rs,nrn,mx"})
+		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: appLines(out), Acts: "up,rb,jn,rs,nrn,mx"})
 		appPushState(token, q, cd)
 		return true
 
@@ -176,7 +176,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 				break
 			}
 		}
-		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: widgetTruncate(msg, 450), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd"})
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(msg), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd"})
 		appPushState(token, q, cd)
 		return true
 	case "gmirror":
@@ -198,7 +198,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 				}
 			}
 		}
-		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: widgetTruncate(b.String(), 450), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd"})
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(b.String()), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd"})
 		appPushState(token, q, cd)
 		return true
 	case "gjobs":
@@ -247,7 +247,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gpause,gresume,grm"})
+		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: appLines(msg), Acts: "gpause,gresume,grm"})
 		appPushState(token, q, cd)
 		return true
 	case "grm":
@@ -295,7 +295,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if focus != "" {
 			out = runND("edge", "luci", "on", focus, dur)
 		}
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: widgetTruncate(out, 400), Acts: "el_1,el_4,el_24,el_72,el_off"})
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_1,el_4,el_24,el_72,el_off"})
 		appPushState(token, q, cd)
 		return true
 	case "el_ext":
@@ -303,24 +303,24 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if focus != "" {
 			out = runND("edge", "luci", "extend", focus, "24h")
 		}
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: widgetTruncate(out, 400), Acts: "el_1,el_4,el_24,el_72,el_ext,el_off"})
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_1,el_4,el_24,el_72,el_ext,el_off"})
 		appPushState(token, q, cd)
 		return true
 
 	// --- edge storage / policy / template status ---
 	case "es_st":
 		out := runND("edge", "storage", "status")
-		cd, _ := appMarshal(appState{S: "edgestor", T: "Edge storage", Lines: widgetTruncate(out, 450)})
+		cd, _ := appMarshal(appState{S: "edgestor", T: "Edge storage", Lines: appLines(out)})
 		appPushState(token, q, cd)
 		return true
 	case "ep_st":
 		out := runND("edge", "policy", "status")
-		cd, _ := appMarshal(appState{S: "edgepol", T: "Edge policy", Lines: widgetTruncate(out, 450)})
+		cd, _ := appMarshal(appState{S: "edgepol", T: "Edge policy", Lines: appLines(out)})
 		appPushState(token, q, cd)
 		return true
 	case "et_st":
 		out := runND("edge", "template", "list")
-		cd, _ := appMarshal(appState{S: "edgetpl", T: "Edge templates", Lines: widgetTruncate(out, 450)})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: "Edge templates", Lines: appLines(out)})
 		appPushState(token, q, cd)
 		return true
 
@@ -331,7 +331,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		out := runND("edge", "guest", "facts", focus)
-		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: widgetTruncate(out, 450), Acts: "eg_gr,eg_rv,eg_facts"})
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Acts: "eg_gr,eg_rv,eg_facts"})
 		appPushState(token, q, cd)
 		return true
 	}
@@ -377,7 +377,7 @@ func buildAppSSHKeys() (string, error) {
 	out := runND("ssh-keys", "status")
 	return appMarshal(appState{
 		S: "sshkeys", T: appTitle("SSH keys", "SSH ключи"),
-		Lines: widgetTruncate(out, 400),
+		Lines: appLines(out),
 		Acts:  "sk_on,sk_off,sk_scan",
 		H:     appTitle("protect on/off · scan", "защита on/off · scan"),
 	})
@@ -387,7 +387,7 @@ func buildAppAptguard() (string, error) {
 	out := runND("aptguard", "status")
 	return appMarshal(appState{
 		S: "aptguard", T: "Aptguard",
-		Lines: widgetTruncate(out, 400),
+		Lines: appLines(out),
 		Acts:  "ag_st,ag_prev,ag_scan",
 	})
 }
@@ -399,7 +399,7 @@ func buildAppCerts() (string, error) {
 	}
 	return appMarshal(appState{
 		S: "certs", T: appTitle("Certs", "Сертификаты"),
-		Lines: widgetTruncate(out, 400),
+		Lines: appLines(out),
 		Acts:  "cert_ren",
 	})
 }
@@ -408,7 +408,7 @@ func buildAppFW() (string, error) {
 	out := runND("firewall", "status")
 	return appMarshal(appState{
 		S: "fw", T: "Firewall",
-		Lines: widgetTruncate(out, 400),
+		Lines: appLines(out),
 		Acts:  "fw_apply",
 	})
 }
@@ -417,7 +417,7 @@ func buildAppEdgeLuciFull() (string, error) {
 	out := strings.TrimSpace(runND("edge", "luci", "status"))
 	return appMarshal(appState{
 		S: "edgeluci", T: "Edge LuCI",
-		Lines: widgetTruncate(out, 350),
+		Lines: appLines(out),
 		Acts:  "el_1,el_4,el_24,el_72,el_ext,el_off",
 		H:     appTitle("duration presets", "пресеты длительности"),
 	})
@@ -549,7 +549,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		if strings.TrimSpace(out) == "" {
 			out = "mute queued/ok"
 		}
-		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: widgetTruncate(out, 400), Acts: "es_bak,es_rst,es_list,es_mute"})
+		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: appLines(out), Acts: "es_bak,es_rst,es_list,es_mute"})
 		appPushState(token, q, cd)
 		return true
 	case "et_on", "et_off":
@@ -605,7 +605,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: widgetTruncate(msg, 500), Acts: "gpause,gresume,grm,glog"})
+		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: appLines(msg), Acts: "gpause,gresume,grm,glog"})
 		appPushState(token, q, cd)
 		return true
 	case "eg_code":

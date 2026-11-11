@@ -112,7 +112,7 @@ func buildAppSvcPaths() (string, error) {
 	out := runND("svc-paths", "status")
 	return appMarshal(appState{
 		S: "svcpaths", T: "Svc paths",
-		Lines: widgetTruncate(out, 400),
+		Lines: appLines(out),
 		Acts:  "spa_apply",
 	})
 }
@@ -196,7 +196,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "spa_apply":
 		out := runND("svc-paths", "apply")
-		cd, _ := appMarshal(appState{S: "svcpaths", T: "Svc paths", Lines: widgetTruncate(out, 450), Acts: "spa_apply"})
+		cd, _ := appMarshal(appState{S: "svcpaths", T: "Svc paths", Lines: appLines(out), Acts: "spa_apply"})
 		appPushState(token, q, cd)
 		return true
 	case "room_add":

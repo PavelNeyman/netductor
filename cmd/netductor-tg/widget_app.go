@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -49,7 +50,13 @@ ulist:"List",ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",noda
 en:"On",di:"Off",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"OK?",up:"Upgrade",rb:"Reboot",jn:"Log",
 y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Rename",add:"Add",qr:"QR",heal:"Heal",
 al_test:"Test",al_clr:"Clear",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",
-api_tg:"API",usp_tg:"SP",vpnref:"Refresh",upol:"Policy",pr_new:"New",pr_draft:"Draft"
+api_tg:"API",usp_tg:"SP",vpnref:"Refresh",upol:"Policy",pr_new:"New",pr_draft:"Draft",
+es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",
+et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",
+edgestor:"Storage",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",
+loc:"Loc",room_add:"+room",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",
+er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",
+sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours",srev:"Revoke all",cy:"Canary"
 },
 ru:{
 home:"Меню",status:"Статус",users:"Юзеры",fleet:"Флот",tools:"Tools",operator:"Оператор",
@@ -64,7 +71,13 @@ ulist:"Список",ucard:"User",ncard:"Node",menu:"Меню",back:"←",refres
 en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Отозвать",y_rv:"OK?",up:"Upgrade",rb:"Ребут",jn:"Журнал",
 y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Имя",add:"Добавить",qr:"QR",heal:"Heal",
 al_test:"Тест",al_clr:"Сброс",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",
-api_tg:"API",usp_tg:"SP",vpnref:"Обновить",upol:"Policy",pr_new:"Новый",pr_draft:"Черновик"
+api_tg:"API",usp_tg:"SP",vpnref:"Обновить",upol:"Policy",pr_new:"Новый",pr_draft:"Черновик",
+es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",
+et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",
+edgestor:"Storage",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",
+loc:"Loc",room_add:"+комн",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",
+er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",
+sess1:"1ч",sess4:"4ч",sess24:"24ч",sess72:"72ч",sessx:"Часы",srev:"Сбросить",cy:"Canary"
 }
 };
 function L(d){return (d&&d.L==="en")?"en":"ru";}
@@ -156,7 +169,9 @@ function paint(d){
       for(var bi=0;bi<d.btns.length;bi++){
         var pair=d.btns[bi];
         if(!pair||!pair[0])continue;
-        add(String(pair[0]),String(pair[1]||pair[0]),"");
+        var bl=String(pair[1]||pair[0]); var bc="";
+        if(/·\s*(on|OPEN|Вкл)/i.test(bl))bc="on";
+        add(String(pair[0]),bl,bc);
       }
     }
     if(d.s!=="home")add("g:home",tr(d,"menu"));
@@ -375,30 +390,79 @@ func formatCmdOut(s string) string {
 	if strings.HasPrefix(s, "{") {
 		var m map[string]any
 		if json.Unmarshal([]byte(s), &m) == nil {
+			return formatMapLines(m, 480)
+		}
+	}
+	if strings.HasPrefix(s, "[") {
+		var arr []any
+		if json.Unmarshal([]byte(s), &arr) == nil {
 			var b strings.Builder
-			keys := make([]string, 0, len(m))
-			for k := range m {
-				keys = append(keys, k)
-			}
-			// stable-ish short dump
-			for _, k := range keys {
-				if len(b.String()) > 400 {
+			for i, it := range arr {
+				if i >= 12 || b.Len() > 450 {
 					break
 				}
-				v := m[k]
-				switch v.(type) {
-				case map[string]any, []any:
-					continue
+				switch v := it.(type) {
+				case map[string]any:
+					id, _ := v["id"].(string)
+					if id == "" {
+						id, _ = v["name"].(string)
+					}
+					ver, _ := v["version"].(string)
+					st, _ := v["status"].(string)
+					line := strings.TrimSpace(fmt.Sprintf("%d %s %s %s", i+1, id, ver, st))
+					b.WriteString(line)
+					b.WriteByte('\n')
+				default:
+					fmt.Fprintf(&b, "%d %v\n", i+1, v)
 				}
-				fmt.Fprintf(&b, "%s: %v\n", k, v)
 			}
 			if b.Len() > 0 {
 				return strings.TrimSpace(b.String())
 			}
 		}
 	}
+	// key: value or key=value lines already readable
 	return s
 }
+
+func formatMapLines(m map[string]any, max int) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		if b.Len() > max {
+			break
+		}
+		v := m[k]
+		switch x := v.(type) {
+		case map[string]any, []any:
+			continue
+		case bool:
+			fmt.Fprintf(&b, "%s: %v\n", k, x)
+		case float64:
+			if x == float64(int64(x)) {
+				fmt.Fprintf(&b, "%s: %d\n", k, int64(x))
+			} else {
+				fmt.Fprintf(&b, "%s: %.2f\n", k, x)
+			}
+		default:
+			sv := fmt.Sprint(x)
+			if len(sv) > 80 {
+				sv = sv[:80] + "…"
+			}
+			fmt.Fprintf(&b, "%s: %s\n", k, sv)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func appLines(s string) string {
+	return widgetTruncate(formatCmdOut(s), 480)
+}
+
 
 func buildAppUpdates(seg string) (string, error) {
 	if seg == "" {
@@ -521,7 +585,7 @@ func buildAppToolsHub() (string, error) {
 		S: "tools", T: appTitle("Tools", "Инструменты"),
 		B: appTitle("Edge · Media · Data · Advanced", "Edge · Медиа · Данные · Ещё"),
 		H: appTitle("no Status/Users/Fleet duplicates", "без дублей главных хабов"),
-		Nav: []string{"edge", "media", "data", "adv", "versions", "logs", "ssh", "sshkeys", "git", "presets", "mtls"},
+		Nav: []string{"edge", "media", "data", "adv", "updates", "versions", "logs", "ssh", "sshkeys", "git", "presets", "mtls"},
 	})
 }
 
@@ -558,9 +622,9 @@ func buildAppAdvHub() (string, error) {
 }
 
 func buildAppLogs() (string, error) {
-	out := runND("logs", "tail")
-	if strings.TrimSpace(out) == "" {
-		out = runND("status")
+	out := appLines(runND("logs", "tail"))
+	if out == "" {
+		out = appLines(runND("status"))
 	}
 	return appMarshal(appState{
 		S: "logs", T: appTitle("Logs", "Логи"),
@@ -570,10 +634,10 @@ func buildAppLogs() (string, error) {
 }
 
 func buildAppStack() (string, error) {
-	out := runND("stack", "status")
+	out := appLines(runND("stack", "status"))
 	return appMarshal(appState{
 		S: "stack", T: appTitle("Stack", "Стек"),
-		Lines: widgetTruncate(strings.TrimSpace(out), 420),
+		Lines: out,
 		Acts:  "heal,rbk,wd",
 		H:     appTitle("heal · rollback · watchdog", "heal · откат · watchdog"),
 	})
@@ -733,7 +797,7 @@ func buildAppEdgeLuci() (string, error) {
 	out := strings.TrimSpace(runND("edge", "luci", "status"))
 	return appMarshal(appState{
 		S: "edgeluci", T: "Edge LuCI",
-		Lines: widgetTruncate(out, 450),
+		Lines: appLines(out),
 		Acts:  "el_on,el_off",
 		H:     appTitle("temp LuCI access", "временный доступ LuCI"),
 	})
@@ -787,27 +851,33 @@ func buildAppOperatorHub() (string, error) {
 	if usersSP {
 		uspCell = "on"
 	}
+	apiLab := "API WAN · " + apiCell
+	uspLab := "Users→SP · " + uspCell
 	st := appState{
 		S: "operator", T: appTitle("Operator", "Оператор"),
 		Rows: [][2]string{
 			{"API WAN", apiCell},
 			{"Users→SP", uspCell},
 		},
-		Nav:  []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
-		Acts: "api_tg,usp_tg,vpnref",
-		H:    appTitle("toggles + admin sections", "переключатели и разделы"),
+		Nav: []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin", "updates"},
+		Btns: [][2]string{
+			{"api_tg", apiLab},
+			{"usp_tg", uspLab},
+			{"vpnref", appTitle("Refresh links", "Обновить ссылки")},
+		},
+		H: appTitle("tap toggle to flip", "нажмите чтобы переключить"),
 	}
 	return appMarshal(st)
 }
 
 func buildAppND(screen, en, ru string, args ...string) (string, error) {
-	out := formatCmdOut(strings.TrimSpace(runND(args...)))
+	out := appLines(runND(args...))
 	if out == "" {
 		out = appTitle("(empty)", "(пусто)")
 	}
 	return appMarshal(appState{
 		S: screen, T: appTitle(en, ru),
-		Lines: widgetTruncate(out, 500),
+		Lines: out,
 	})
 }
 
@@ -838,11 +908,15 @@ func buildAppUserCard(name string) (string, error) {
 	if vpn.IsDeviceProfile(name) {
 		kind = "device"
 	}
+	stLab := en
+	if stLab == "" || stLab == "?" {
+		stLab = "—"
+	}
 	rows := [][2]string{
-		{"status", en},
-		{"limit", fmt.Sprintf("%.0f GiB", lim)},
-		{"sub", prof},
-		{"kind", kind},
+		{appTitle("status", "статус"), stLab},
+		{appTitle("quota", "квота"), fmt.Sprintf("%.0f GiB", lim)},
+		{appTitle("profile", "профиль"), prof},
+		{appTitle("kind", "тип"), kind},
 	}
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
@@ -879,10 +953,10 @@ func buildAppNodeCard(id string) (string, error) {
 	}
 	rs := [][2]string{
 		{"id", id},
-		{"host", host},
-		{"role", displayRole(role)},
-		{"status", st},
-		{"version", ver},
+		{appTitle("host", "хост"), host},
+		{appTitle("role", "роль"), displayRole(role)},
+		{appTitle("status", "статус"), st},
+		{appTitle("version", "версия"), ver},
 	}
 	return appMarshal(appState{
 		S: "ncard", T: host, Rows: rs,
@@ -1069,7 +1143,7 @@ func buildAppScreen(screen string) (string, error) {
 		if out == "" {
 			out = runVPN("session", "list")
 		}
-		return appMarshal(appState{S: "sessions", T: appTitle("Sessions", "Сессии"), Lines: widgetTruncate(out, 400), Acts: "srev"})
+		return appMarshal(appState{S: "sessions", T: appTitle("Sessions", "Сессии"), Lines: appLines(out), Acts: "srev"})
 	case "audit":
 		return appFromLegacyWidget("audit", "Audit", "Аудит", auditWidgetChatDataJSON)
 	case "actions":
@@ -1377,7 +1451,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		out := runND("vpn", "refresh-links")
 		cd, _ := appMarshal(appState{
 			S: "operator", T: appTitle("Operator", "Оператор"),
-			Lines: widgetTruncate(out, 400),
+			Lines: appLines(out),
 			Nav:  []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
 			Acts: "api_tg,usp_tg,vpnref",
 		})
@@ -1453,7 +1527,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: appLines(msg), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
 		appPushState(token, q, cd)
 		return true
 	case "gship":
@@ -1466,7 +1540,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if err != nil {
 			msg = err.Error() + "\n" + logOut
 		}
-		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: widgetTruncate(msg, 400), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: appLines(msg), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
 		appPushState(token, q, cd)
 		return true
 	case "eg_gr":
@@ -1475,7 +1549,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := runND("edge", "guest", "grant", focus)
-		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: widgetTruncate(out, 400), Acts: "eg_gr,eg_rv"})
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Acts: "eg_gr,eg_rv"})
 		appPushState(token, q, cd)
 		return true
 	case "eg_rv":
@@ -1484,28 +1558,28 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := runND("edge", "guest", "revoke", focus)
-		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: widgetTruncate(out, 400), Acts: "eg_gr,eg_rv"})
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Acts: "eg_gr,eg_rv"})
 		appPushState(token, q, cd)
 		return true
 	case "el_on":
 		out := runND("edge", "luci", "on", "4h")
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: widgetTruncate(out, 400), Acts: "el_on,el_off"})
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_on,el_off"})
 		appPushState(token, q, cd)
 		return true
 	case "el_off":
 		out := runND("edge", "luci", "off")
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: widgetTruncate(out, 400), Acts: "el_on,el_off"})
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_on,el_off"})
 		appPushState(token, q, cd)
 		return true
 
 	case "heal":
 		out := runND("stack", "heal")
-		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: widgetTruncate(out, 450), Acts: "heal,rbk,wd"})
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Acts: "heal,rbk,wd"})
 		appPushState(token, q, cd)
 		return true
 	case "wd":
 		out := runND("stack", "watchdog")
-		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: widgetTruncate(out, 450), Acts: "heal,rbk,wd"})
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Acts: "heal,rbk,wd"})
 		appPushState(token, q, cd)
 		return true
 	case "rbk":
@@ -1518,7 +1592,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		return true
 	case "y_rbk":
 		out := runND("stack", "rollback")
-		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: widgetTruncate(out, 450), Acts: "heal,rbk,wd"})
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Acts: "heal,rbk,wd"})
 		appPushState(token, q, cd)
 		return true
 	case "y_rst":
@@ -1532,7 +1606,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		out := runND("backup", "restore", name)
 		cd, _ := appMarshal(appState{
 			S: "backup", T: appTitle("Restore", "Restore"),
-			Lines: widgetTruncate(out, 450),
+			Lines: appLines(out),
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1541,7 +1615,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if strings.TrimSpace(out) == "" {
 			out = runND("notify", "test")
 		}
-		cd, _ := appMarshal(appState{S: "alerts", T: appTitle("Alerts", "Алерты"), Lines: widgetTruncate(out, 400), Acts: "al_test,al_clr"})
+		cd, _ := appMarshal(appState{S: "alerts", T: appTitle("Alerts", "Алерты"), Lines: appLines(out), Acts: "al_test,al_clr"})
 		appPushState(token, q, cd)
 		return true
 	case "al_clr":
@@ -1589,7 +1663,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := restartSingBox(focus)
-		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: widgetTruncate(out, 400), Acts: "up,rb,jn,rs,nrn,mx"})
+		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: appLines(out), Acts: "up,rb,jn,rs,nrn,mx"})
 		appPushState(token, q, cd)
 		return true
 	case "gsall":
@@ -1608,7 +1682,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 				_ = out
 			}
 		}
-		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: widgetTruncate(b.String(), 450), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(b.String()), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig"})
 		appPushState(token, q, cd)
 		return true
 	case "inc1h":
@@ -1759,7 +1833,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		out := enqueueNodeCmd(focus, "upgrade")
 		cd, _ := appMarshal(appState{
-			S: "ncard", T: focus, Lines: widgetTruncate(out, 400),
+			S: "ncard", T: focus, Lines: appLines(out),
 			Acts: "up,rb,jn,rs,nrn,mx", H: appTitle("upgrade queued/result", "upgrade"),
 		})
 		appPushState(token, q, cd)
@@ -1784,7 +1858,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := enqueueNodeCmd(focus, "reboot")
-		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: widgetTruncate(out, 400), Acts: "up,rb,jn"})
+		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: appLines(out), Acts: "up,rb,jn"})
 		appPushState(token, q, cd)
 		return true
 	case "jn":
@@ -1803,7 +1877,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			}
 		}
 		cd, _ := appMarshal(appState{
-			S: "ncard", T: focus, Lines: widgetTruncate(out, 450),
+			S: "ncard", T: focus, Lines: appLines(out),
 			Acts: "up,rb,jn",
 		})
 		appPushState(token, q, cd)
@@ -1929,7 +2003,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		cd, _ := appMarshal(appState{
 			S: "reboot", T: appTitle("Reboot", "Reboot"),
-			Lines: widgetTruncate(out, 400),
+			Lines: appLines(out),
 			H:     target,
 		})
 		appPushState(token, q, cd)

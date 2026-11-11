@@ -43,7 +43,7 @@ func buildAppMTLS() (string, error) {
 	}
 	return appMarshal(appState{
 		S: "mtls", T: "mTLS",
-		Lines: widgetTruncate(out, 400),
+		Lines: appLines(out),
 		Acts:  "mt_list,mt_rot,mt_roll",
 	})
 }
@@ -52,7 +52,7 @@ func buildAppSecondaryOps() (string, error) {
 	out := strings.TrimSpace(runND("secondary", "list"))
 	return appMarshal(appState{
 		S: "secops", T: appTitle("Secondary ops", "Secondary"),
-		Lines: widgetTruncate(out, 350),
+		Lines: appLines(out),
 		Acts:  "sec_exp,sec_ol,sec_enr,sec_sync",
 		H:     appTitle("export · oneline · enroll · sync", "export · oneline · enroll · sync"),
 	})
@@ -132,7 +132,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "mt_list":
 		out := runND("mtls", "list")
-		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: widgetTruncate(out, 450), Acts: "mt_list,mt_rot,mt_roll"})
+		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: appLines(out), Acts: "mt_list,mt_rot,mt_roll"})
 		appPushState(token, q, cd)
 		return true
 	case "mt_rot":
@@ -146,7 +146,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "mt_roll":
 		out := runND("mtls", "rollover-status")
-		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: widgetTruncate(out, 450), Acts: "mt_list,mt_rot,mt_roll"})
+		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: appLines(out), Acts: "mt_list,mt_rot,mt_roll"})
 		appPushState(token, q, cd)
 		return true
 	case "sec_exp":
@@ -156,7 +156,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		if err == nil {
 			msg = string(b)
 		}
-		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: widgetTruncate(msg, 500), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
+		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: appLines(msg), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
 		appPushState(token, q, cd)
 		return true
 	case "sec_ol":
@@ -174,7 +174,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "sec_sync":
 		out := runND("secondary", "sync")
-		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: widgetTruncate(out, 450), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
+		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: appLines(out), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
 		appPushState(token, q, cd)
 		return true
 	case "er_reg":
@@ -212,12 +212,12 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 	case "er_rec":
 		if focus == "" {
 			out := runND("edge", "recovery", "list")
-			cd, _ := appMarshal(appState{S: "edgelife", T: "Recovery", Lines: widgetTruncate(out, 450), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+			cd, _ := appMarshal(appState{S: "edgelife", T: "Recovery", Lines: appLines(out), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
 			appPushState(token, q, cd)
 			return true
 		}
 		out := runND("edge", "recovery", focus)
-		cd, _ := appMarshal(appState{S: "edgelife", T: focus, Lines: widgetTruncate(out, 450), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+		cd, _ := appMarshal(appState{S: "edgelife", T: focus, Lines: appLines(out), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
 		appPushState(token, q, cd)
 		return true
 	case "loc_home", "loc_off":
