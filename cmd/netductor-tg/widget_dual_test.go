@@ -73,3 +73,22 @@ func TestDualEnabledRequiresBothFlags(t *testing.T) {
 		t.Fatal("expected dual on")
 	}
 }
+
+func TestOpenAppScreenDualRequiresFlag(t *testing.T) {
+	// dual off → openAppScreen must not call dual (smoke: home build only)
+	oldW := os.Getenv("NETDUCTOR_TG_WIDGETS")
+	oldD := os.Getenv("NETDUCTOR_TG_DUAL")
+	defer func() {
+		_ = os.Setenv("NETDUCTOR_TG_WIDGETS", oldW)
+		_ = os.Setenv("NETDUCTOR_TG_DUAL", oldD)
+	}()
+	_ = os.Setenv("NETDUCTOR_TG_WIDGETS", "1")
+	_ = os.Setenv("NETDUCTOR_TG_DUAL", "")
+	if dualEnabled() {
+		t.Fatal("dual should be off")
+	}
+	cd, err := buildAppScreen("home")
+	if err != nil || len(cd) > 1024 {
+		t.Fatalf("home %v len=%d", err, len(cd))
+	}
+}

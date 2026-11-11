@@ -33,6 +33,7 @@ func forgetAppMsg(chat int64) {
 	lastAppMu.Lock()
 	delete(lastAppMsgID, chat)
 	lastAppMu.Unlock()
+	forgetDual(chat) // pair ids only; use closeDualPair when deletes needed
 }
 
 func registerWidget(s *widgetScreen) {
@@ -191,13 +192,17 @@ func openAppScreen(token string, chat int64, screenID string) bool {
 	if alt, ok := spaScreenAlias[screenID]; ok {
 		screenID = alt
 	}
-	if screenID == "" {
+	if screenID == "" || screenID == "app" {
 		screenID = "home"
 	}
 	appMu.Lock()
 	appScreen = screenID
 	appMu.Unlock()
-	// Prefer in-place edit of the last SPA message in this chat.
+
+	if dualEnabled() {
+		return openAppScreenDual(token, chat, screenID)
+	}
+
 	lastAppMu.Lock()
 	mid := lastAppMsgID[chat]
 	lastAppMu.Unlock()
@@ -206,17 +211,57 @@ func openAppScreen(token string, chat int64, screenID string) bool {
 		if err == nil {
 			if cd2, err2 := clipWidgetChatData(cd); err2 == nil {
 				cd = cd2
-				if _, err := apiPostWidget(token, "editMessageWidgetData", map[string]any{
-					"chat_id": chat, "message_id": mid, "chat_data": cd,
-				}); err == nil {
+				if err := editWidgetData(token, chat, mid, cd); err == nil {
 					return true
 				}
 			}
 		}
-		// Stale id after chat clear / delete — force a new sendWidget.
 		forgetAppMsg(chat)
 	}
 	return sendWidgetScreen(token, chat, "app")
+}
+
+// openAppScreenDual updates or opens the info+nav pair for screenID.
+func openAppScreenDual(token string, chat int64, screenID string) bool {
+	navCD, err := buildAppScreen(screenID)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dual nav build:", err)
+		return false
+	}
+	if navCD, err = clipWidgetChatData(navCD); err != nil {
+		fmt.Fprintln(os.Stderr, "dual nav clip:", err)
+		return false
+	}
+	infoCD, err := buildInfoData(screenID)
+	if err != nil {
+		infoCD = `{"s":"info","t":"Status"}`
+	} else if infoCD, err = clipWidgetChatData(infoCD); err != nil {
+		infoCD = `{"s":"info","t":"Status"}`
+	}
+	infoShell := infoShellForScreen(screenID)
+
+	if p, ok := getDual(chat); ok && p.NavID > 0 && p.InfoID > 0 {
+		editDualSlot(token, chat, "nav", appWidgetHTML(), navCD, shellHub)
+		editDualSlot(token, chat, "info", appInfoHTML(), infoCD, infoShell)
+		syncDualNavAsApp(chat)
+		return true
+	}
+	if err := openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTML(), navCD, infoShell, shellHub); err != nil {
+		fmt.Fprintln(os.Stderr, "dual open:", err)
+		return false
+	}
+	syncDualNavAsApp(chat)
+	return true
+}
+
+func syncDualNavAsApp(chat int64) {
+	p, ok := getDual(chat)
+	if !ok || p.NavID <= 0 {
+		return
+	}
+	lastAppMu.Lock()
+	lastAppMsgID[chat] = p.NavID
+	lastAppMu.Unlock()
 }
 
 // tryReplyWidget: prefer SPA app shell for content screens; else legacy per-screen widget.

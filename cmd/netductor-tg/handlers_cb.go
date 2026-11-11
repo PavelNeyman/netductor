@@ -187,6 +187,7 @@ func handleCallback(token string, cq *callbackQuery, admin int64) {
 	case "m:menu", "m:help":
 		setState(chat, "", "")
 		if data == "m:menu" && widgetsEnabled() {
+			closeDualPair(token, chat)
 			forgetAppMsg(chat)
 			if tryReplyAppWidget(token, chat, 0) {
 				return

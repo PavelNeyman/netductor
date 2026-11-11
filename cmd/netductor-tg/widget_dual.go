@@ -83,6 +83,7 @@ func openDualPair(token string, chat int64, infoHTML, infoCD, navHTML, navCD str
 		InfoID: infoID, NavID: navID,
 		InfoShell: infoShell, NavShell: navShell,
 	})
+	syncDualNavAsApp(chat)
 	return nil
 }
 
@@ -275,6 +276,21 @@ func buildInfoData(screen string) (string, error) {
 		}
 		if screen == "updates" {
 			st.T = appTitle("Updates", "Обновления")
+		}
+	case "channel", "netmap", "digest", "probes", "actions", "incident", "reboot":
+		st.T = appTitle("Status", "Статус")
+		if screen == "channel" {
+			st.T = appTitle("Channel", "Канал")
+		}
+		if screen == "netmap" {
+			st.T = appTitle("Netmap", "Карта")
+		}
+		st.Rows = [][2]string{
+			{appTitle("version", "версия"), d.Ver},
+			{appTitle("nodes", "ноды"), d.Nodes},
+			{appTitle("secondary", "secondary"), d.Sec},
+			{appTitle("cpu/mem", "cpu/mem"), d.Res},
+			{appTitle("migrate", "миграции"), d.Mig},
 		}
 	case "users", "ulist", "devices", "ucard":
 		st.T = appTitle("Users", "Пользователи")
