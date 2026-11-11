@@ -24,16 +24,120 @@ import (
 // SPA menu with parity to classic hubs (Status / Users / Fleet / Tools / Operator).
 // Acts ≤64 bytes: r | b | m | g:<screen> | o:<n> | a:<code> | y:<code> | L:ru | L:en
 
+// SPA interactive state is per chat_id (same keying as dualPair — AI-RULES §1.1).
+// appBindChat must run before build/handle for that chat.
+type appSession struct {
+	Screen       string
+	ListIDs      []string
+	Focus        string // user name or node id for card actions
+	RebootTarget string
+	BackupName   string
+	Compose      string
+	ComposeMode  string // quota|rename|add
+}
+
 var (
-	appMu      sync.Mutex
-	appScreen  = "home"
-	appListIDs []string
-	appFocus   string // current user name or node id for card actions
-	appRebootTarget string
-	appBackupName   string
-	appCompose      string
-	appComposeMode  string // quota|rename|add
+	appMu         sync.Mutex
+	appActiveChat int64
+	appByChat     = map[int64]*appSession{}
 )
+
+func appBindChat(chat int64) {
+	if chat == 0 {
+		return
+	}
+	appMu.Lock()
+	appActiveChat = chat
+	if appByChat[chat] == nil {
+		appByChat[chat] = &appSession{Screen: "home"}
+	}
+	appMu.Unlock()
+}
+
+// appSessUnlocked requires appMu held.
+func appSessUnlocked() *appSession {
+	chat := appActiveChat
+	if chat == 0 {
+		chat = 1 // tests / no chat yet
+	}
+	s := appByChat[chat]
+	if s == nil {
+		s = &appSession{Screen: "home"}
+		appByChat[chat] = s
+	}
+	return s
+}
+
+func appGetScreen() string {
+	appMu.Lock()
+	defer appMu.Unlock()
+	return appSessUnlocked().Screen
+}
+func appSetScreen(v string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	appSessUnlocked().Screen = v
+}
+func appGetFocus() string {
+	appMu.Lock()
+	defer appMu.Unlock()
+	return appSessUnlocked().Focus
+}
+func appSetFocus(v string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	appSessUnlocked().Focus = v
+}
+func appGetListIDs() []string {
+	appMu.Lock()
+	defer appMu.Unlock()
+	return append([]string(nil), appSessUnlocked().ListIDs...)
+}
+func appSetListIDs(ids []string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	appSessUnlocked().ListIDs = append([]string(nil), ids...)
+}
+func appGetRebootTarget() string {
+	appMu.Lock()
+	defer appMu.Unlock()
+	return appSessUnlocked().RebootTarget
+}
+func appSetRebootTarget(v string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	appSessUnlocked().RebootTarget = v
+}
+func appGetBackupName() string {
+	appMu.Lock()
+	defer appMu.Unlock()
+	return appSessUnlocked().BackupName
+}
+func appSetBackupName(v string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	appSessUnlocked().BackupName = v
+}
+func appGetCompose() (text, mode string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	s := appSessUnlocked()
+	return s.Compose, s.ComposeMode
+}
+func appSetCompose(text, mode string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	s := appSessUnlocked()
+	s.Compose, s.ComposeMode = text, mode
+}
+func appGetComposeText() string {
+	t, _ := appGetCompose()
+	return t
+}
+func appGetComposeMode() string {
+	_, m := appGetCompose()
+	return m
+}
 
 const appWidgetBoot = `(function(){
 var W=window.TelegramWidget;
@@ -83,6 +187,7 @@ sess1:"1ч",sess4:"4ч",sess24:"24ч",sess72:"72ч",sessx:"Часы",srev:"Сб�
 };
 function L(d){return (d&&d.L==="en")?"en":"ru";}
 function tr(d,k){var lang=L(d);return (LAB[lang]&&LAB[lang][k])||(LAB.en[k])||k;}
+function esc(s){s=String(s==null?'':s);return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function read(){
   try{if(W&&W.chatData){var x=W.chatData;return typeof x==="string"?JSON.parse(x):x;}}catch(e){}
   return null;
@@ -126,7 +231,7 @@ function paint(d){
       var html="";
       for(var i=0;i<d.rows.length;i++){
         var r=d.rows[i];
-        html+='<div class="row"><span class="k">'+(r[0]||"")+'</span><span class="v">'+(r[1]||"—")+'</span></div>';
+        html+='<div class="row"><span class="k">'+esc(r[0]||"")+'</span><span class="v">'+esc(r[1]||"—")+'</span></div>';
         if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){
           var p=Math.max(0,Math.min(100,+d.pct[i]||0));
           html+='<div class="bar"><i style="width:'+p+'%"></i></div>';
@@ -346,7 +451,7 @@ func appListFromItems(screen, titleEN, titleRU string, items []listWidgetItem) (
 		ids = append(ids, it.N)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	st := appState{
 		S: screen, T: appTitle(titleEN, titleRU),
@@ -549,7 +654,7 @@ func buildAppUpdates(seg string) (string, error) {
 			ids = append(ids, name)
 		}
 		appMu.Lock()
-		appListIDs = ids
+		appSessUnlocked().ListIDs = ids
 		appMu.Unlock()
 		st.Lines = strings.Join(lines, "\n")
 		st.IDs = strings.Join(ids, ",")
@@ -726,7 +831,7 @@ func buildAppRebootPick() (string, error) {
 		ids = append(ids, d.ID)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	return appMarshal(appState{
 		S: "reboot", T: appTitle("Reboot", "Перезагрузка"),
@@ -743,8 +848,8 @@ func buildAppRebootChallenge(target, display string) (string, error) {
 	}
 	codes := notify.DecoyCodes(code, 3)
 	appMu.Lock()
-	appRebootTarget = target
-	appFocus = target
+	appSessUnlocked().RebootTarget = target
+	appSessUnlocked().Focus = target
 	appMu.Unlock()
 	btns := make([][2]string, 0, 3)
 	for _, c := range codes {
@@ -775,7 +880,7 @@ func buildAppGit() (string, error) {
 		ids = append(ids, pr.Name)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	st := appState{
 		S: "git", T: "Git",
@@ -813,7 +918,7 @@ func buildAppAlerts() (string, error) {
 		ids = append(ids, fmt.Sprintf("%d", k.ID))
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	return appMarshal(appState{
 		S: "alerts", T: appTitle("Alerts", "Алерты"),
@@ -843,7 +948,7 @@ func buildAppEdgeGuest() (string, error) {
 		ids = append(ids, id)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	st := appState{S: "edgeguest", T: "Edge guest", H: appTitle("# device actions", "# устройство")}
 	if len(lines) == 0 {
@@ -951,7 +1056,7 @@ func buildAppUserCard(name string) (string, error) {
 		return appMarshal(appState{S: "ucard", T: "?", B: appTitle("no user", "нет пользователя")})
 	}
 	appMu.Lock()
-	appFocus = name
+	appSessUnlocked().Focus = name
 	appMu.Unlock()
 	en := "?"
 	raw := runVPN("list")
@@ -1015,7 +1120,7 @@ func buildAppNodeCard(id string) (string, error) {
 		return appMarshal(appState{S: "ncard", T: "?", B: appTitle("no node", "нет ноды")})
 	}
 	appMu.Lock()
-	appFocus = id
+	appSessUnlocked().Focus = id
 	appMu.Unlock()
 	rows := parseNodesList()
 	host, role, st, ver := id, "", "", ""
@@ -1030,7 +1135,7 @@ func buildAppNodeCard(id string) (string, error) {
 			if id == r.Host && r.ID != "" {
 				id = r.ID
 				appMu.Lock()
-				appFocus = id
+				appSessUnlocked().Focus = id
 				appMu.Unlock()
 			}
 			break
@@ -1081,7 +1186,7 @@ func buildAppNodes() (string, error) {
 		ids = append(ids, id)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	st := appState{S: "nodes", T: appTitle("Nodes", "Ноды"), IDs: strings.Join(ids, ","), H: appTitle("# opens node", "# — нода")}
 	if len(lines) == 0 {
@@ -1095,12 +1200,12 @@ func buildAppNodes() (string, error) {
 
 func buildAppScreen(screen string) (string, error) {
 	appMu.Lock()
-	appScreen = screen
+	appSessUnlocked().Screen = screen
 	appMu.Unlock()
 	switch screen {
 	case "home", "menu", "":
 		appMu.Lock()
-		appScreen = "home"
+		appSessUnlocked().Screen = "home"
 		appMu.Unlock()
 		return buildAppHome()
 	case "status":
@@ -1209,7 +1314,7 @@ func buildAppScreen(screen string) (string, error) {
 		return buildAppPresetDraft()
 	case "upol":
 		appMu.Lock()
-		n := appFocus
+		n := appSessUnlocked().Focus
 		appMu.Unlock()
 		if n == "" {
 			return appMarshal(appState{S: "upol", T: "policy", B: "no user"})
@@ -1245,12 +1350,12 @@ func buildAppScreen(screen string) (string, error) {
 		return appFromLegacyWidget("routers", "Routers", "Роутеры", routersWidgetChatDataJSON)
 	case "ucard":
 		appMu.Lock()
-		n := appFocus
+		n := appSessUnlocked().Focus
 		appMu.Unlock()
 		return buildAppUserCard(n)
 	case "ncard":
 		appMu.Lock()
-		n := appFocus
+		n := appSessUnlocked().Focus
 		appMu.Unlock()
 		return buildAppNodeCard(n)
 	default:
@@ -1260,7 +1365,7 @@ func buildAppScreen(screen string) (string, error) {
 
 func appBuildData() (string, error) {
 	appMu.Lock()
-	s := appScreen
+	s := appSessUnlocked().Screen
 	appMu.Unlock()
 	return buildAppScreen(s)
 }
@@ -1290,12 +1395,17 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	if act == "" {
 		act = "r"
 	}
+	if q != nil && q.Chat != nil {
+		appBindChat(q.Chat.ID)
+	} else if admin != 0 {
+		appBindChat(admin)
+	}
 
 	// Dual: refresh from info slot — update info only (nav untouched).
 	if dualEnabled() && q != nil && q.Chat != nil && (act == "r" || act == "refresh") {
 		if p, ok := getDual(q.Chat.ID); ok && p.InfoID > 0 && q.MessageID == p.InfoID {
 			appMu.Lock()
-			s := appScreen
+			s := appSessUnlocked().Screen
 			appMu.Unlock()
 			infoCD, err := buildInfoData(s)
 			if err != nil {
@@ -1316,7 +1426,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	if strings.HasPrefix(act, "sg:") {
 		seg := strings.TrimPrefix(act, "sg:")
 		appMu.Lock()
-		s := appScreen
+		s := appSessUnlocked().Screen
 		appMu.Unlock()
 		var cd string
 		var err error
@@ -1351,7 +1461,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	// navigation
 	if act == "r" || act == "refresh" {
 		appMu.Lock()
-		s := appScreen
+		s := appSessUnlocked().Screen
 		appMu.Unlock()
 		cd, err := buildAppScreen(s)
 		if err != nil {
@@ -1363,7 +1473,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	}
 	if act == "b" || act == "back" {
 		appMu.Lock()
-		s := appScreen
+		s := appSessUnlocked().Screen
 		appMu.Unlock()
 		parent := "home"
 		switch s {
@@ -1419,8 +1529,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		var n int
 		fmt.Sscanf(strings.TrimPrefix(act, "o:"), "%d", &n)
 		appMu.Lock()
-		ids := append([]string(nil), appListIDs...)
-		screen := appScreen
+		ids := append([]string(nil), appSessUnlocked().ListIDs...)
+		screen := appSessUnlocked().Screen
 		appMu.Unlock()
 		if n < 1 || n > len(ids) {
 			answerWidgetQuery(token, q.ID, `{"err":"idx"}`)
@@ -1442,7 +1552,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = buildAppRebootChallenge(id, disp)
 		case "backup":
 			appMu.Lock()
-			appBackupName = id
+			appSessUnlocked().BackupName = id
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "backup", T: appTitle("Restore?", "Restore?"),
@@ -1451,7 +1561,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			})
 		case "git":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "git", T: id,
@@ -1461,7 +1571,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			})
 		case "alerts":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			// pick known chat by index id stored as chat id string
 			_ = notify.SetAlertsChatID(id)
@@ -1472,7 +1582,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			})
 		case "edgeguest":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "edgeguest", T: id,
@@ -1481,7 +1591,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			})
 		case "edgestor":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "edgestor", T: id,
@@ -1490,17 +1600,17 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			})
 		case "edgetpl":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			cd, err = buildAppTemplateCard(id)
 		case "edgepol", "edgelife":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			cd, err = buildAppEdgePolicyCard(id)
 		case "loc":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			rooms, _ := sites.ListRooms(id)
 			var lines []string
@@ -1518,13 +1628,13 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			})
 		case "canary":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			_, _ = vpn.ToggleCanary(id)
 			cd, err = buildAppCanary()
 		case "gjobs":
 			appMu.Lock()
-			appFocus = id
+			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "gjobs", T: id,
@@ -1544,7 +1654,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 
 	// user/node actions
 	appMu.Lock()
-	focus := appFocus
+	focus := appSessUnlocked().Focus
 	appMu.Unlock()
 
 	switch act {
@@ -1719,7 +1829,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		return true
 	case "y_rst":
 		appMu.Lock()
-		name := appBackupName
+		name := appSessUnlocked().BackupName
 		appMu.Unlock()
 		if name == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nobak"}`)
@@ -1935,7 +2045,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		out := runVPN("revoke", focus)
 		appMu.Lock()
-		appFocus = ""
+		appSessUnlocked().Focus = ""
 		appMu.Unlock()
 		cd, _ := appMarshal(appState{
 			S: "users", T: appTitle("Users", "Пользователи"),
@@ -2011,9 +2121,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	if strings.HasPrefix(act, "p:") {
 		key := strings.TrimPrefix(act, "p:")
 		appMu.Lock()
-		mode := appComposeMode
-		draft := appCompose
-		focus := appFocus
+		mode := appSessUnlocked().ComposeMode
+		draft := appSessUnlocked().Compose
+		focus := appSessUnlocked().Focus
 		appMu.Unlock()
 		if mode == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nopad"}`)
@@ -2028,8 +2138,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			draft = ""
 		case "ok":
 			appMu.Lock()
-			appCompose = draft
-			appComposeMode = ""
+			appSessUnlocked().Compose = draft
+			appSessUnlocked().ComposeMode = ""
 			appMu.Unlock()
 			switch mode {
 			case "quota":
@@ -2071,7 +2181,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			}
 		}
 		appMu.Lock()
-		appCompose = draft
+		appSessUnlocked().Compose = draft
 		appMu.Unlock()
 		show := draft
 		if show == "" {
@@ -2098,9 +2208,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	if strings.HasPrefix(act, "rc:") {
 		code := strings.TrimPrefix(act, "rc:")
 		appMu.Lock()
-		target := appRebootTarget
+		target := appSessUnlocked().RebootTarget
 		if target == "" {
-			target = appFocus
+			target = appSessUnlocked().Focus
 		}
 		appMu.Unlock()
 		if target == "" || code == "" {

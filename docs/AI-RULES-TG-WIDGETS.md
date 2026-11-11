@@ -31,6 +31,8 @@ When dual is enabled, the operator UI is a **pair**, not two independent widgets
 - **Open:** create info + nav (or roll back / delete orphans on failure).
 - **Close** (`/start` reset, disable widgets, chat clear recovery): delete **both** messages; clear **both** IDs and shell kinds.
 
+- **SPA session** (screen, focus, list ids, drafts): keyed by `chat_id` via `appBindChat` — same keying as the pair. Do not keep process-global-only UI context.
+
 ### 1.2 Roles (do not mix)
 
 | Slot | Allowed | Forbidden |

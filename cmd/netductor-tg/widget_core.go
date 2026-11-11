@@ -216,9 +216,8 @@ func openAppScreen(token string, chat int64, screenID string) bool {
 	if screenID == "" || screenID == "app" {
 		screenID = "home"
 	}
-	appMu.Lock()
-	appScreen = screenID
-	appMu.Unlock()
+	appBindChat(chat)
+	appSetScreen(screenID)
 
 	if dualEnabled() {
 		return openAppScreenDual(token, chat, screenID)

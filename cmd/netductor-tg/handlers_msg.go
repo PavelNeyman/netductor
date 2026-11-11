@@ -532,9 +532,8 @@ func handleMessage(token string, m *message, admin int64) {
 			// closeDualPair needs ids — must run before forgetAppMsg/forgetDual
 			closeDualPair(token, chat)
 			forgetAppMsg(chat)
-			appMu.Lock()
-			appScreen = "home"
-			appMu.Unlock()
+			appBindChat(chat)
+			appSetScreen("home")
 			if dualEnabled() {
 				infoCD, err1 := buildInfoData("home")
 				navCD, err2 := buildAppHome()

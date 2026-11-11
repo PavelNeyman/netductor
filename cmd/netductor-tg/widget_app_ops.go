@@ -217,7 +217,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			}
 		}
 		appMu.Lock()
-		appListIDs = ids
+		appSessUnlocked().ListIDs = ids
 		appMu.Unlock()
 		cd, _ := appMarshal(appState{
 			S: "gjobs", T: appTitle("Ship jobs", "Ship jobs"),
@@ -351,7 +351,7 @@ func buildAppCanary() (string, error) {
 		ids = append(ids, u)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	return appMarshal(appState{
 		S: "canary", T: "Canary",
@@ -437,7 +437,7 @@ func buildAppEdgeStorage() (string, error) {
 		ids = append(ids, d.DeviceID)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	st := appState{S: "edgestor", T: "Edge storage", H: appTitle("# device actions", "# устройство")}
 	if len(lines) == 0 {
@@ -463,7 +463,7 @@ func buildAppEdgeTemplates() (string, error) {
 		ids = append(ids, d.DeviceID)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	st := appState{S: "edgetpl", T: "Edge templates", H: appTitle("# VPN template", "# VPN шаблон")}
 	if len(lines) == 0 {
@@ -614,7 +614,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 			return true
 		}
 		appMu.Lock()
-		appFocus = focus
+		appSessUnlocked().Focus = focus
 		appMu.Unlock()
 		// Prompt + keep device id in chatExtra by encoding "mid|device"
 		mid := sendPlainHTML(token, q.Chat.ID, appTitle("Send: <code>CODE minutes</code> for ", "Пришлите: <code>КОД минуты</code> для ")+"<code>"+esc(focus)+"</code>")

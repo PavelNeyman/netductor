@@ -25,7 +25,7 @@ func buildAppPresets() (string, error) {
 		ids = append(ids, p.ID)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	return appMarshal(appState{
 		S: "presets", T: appTitle("Presets", "Пресеты"),
@@ -69,7 +69,7 @@ func buildAppEdgeLife() (string, error) {
 		ids = append(ids, d.DeviceID)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	return appMarshal(appState{
 		S: "edgelife", T: appTitle("Edge devices", "Edge устройства"),
@@ -94,7 +94,7 @@ func buildAppLoc() (string, error) {
 		ids = append(ids, s.ID)
 	}
 	appMu.Lock()
-	appListIDs = ids
+	appSessUnlocked().ListIDs = ids
 	appMu.Unlock()
 	return appMarshal(appState{
 		S: "loc", T: appTitle("Locations", "Локации"),

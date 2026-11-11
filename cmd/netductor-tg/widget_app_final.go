@@ -86,7 +86,7 @@ func buildAppUserPolicy(name string) (string, error) {
 		btns = append(btns, [2]string{"us:" + id, mark + id})
 	}
 	appMu.Lock()
-	appFocus = name
+	appSessUnlocked().Focus = name
 	appMu.Unlock()
 	return appMarshal(appState{
 		S: "upol", T: name,

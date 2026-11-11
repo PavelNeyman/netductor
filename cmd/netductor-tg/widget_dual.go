@@ -212,7 +212,8 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	if info2, err := clipWidgetChatData(infoCD); err == nil {
 		infoCD = info2
 	}
-	answerWidgetQuery(token, q.ID, `{"ok":true}`)
+	// AI-RULES §1.3: answer payload = nav chat_data (≤1024). State still via edit*.
+	answerWidgetQuery(token, q.ID, navCD)
 
 	p, ok := getDual(chat)
 	if !ok {
@@ -325,7 +326,7 @@ func buildInfoData(screen string) (string, error) {
 		}
 		focus := ""
 		appMu.Lock()
-		focus = appFocus
+		focus = appSessUnlocked().Focus
 		appMu.Unlock()
 		st.Rows = [][2]string{
 			{appTitle("profiles", "профили"), fmt.Sprintf("%d", n)},
@@ -377,7 +378,7 @@ func buildInfoData(screen string) (string, error) {
 	case "ncard":
 		st.T = appTitle("Node", "Нода")
 		appMu.Lock()
-		focus := appFocus
+		focus := appSessUnlocked().Focus
 		appMu.Unlock()
 		st.Rows = [][2]string{
 			{"id", focus},

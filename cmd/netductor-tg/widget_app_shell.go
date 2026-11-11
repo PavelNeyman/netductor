@@ -23,10 +23,15 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	if q == nil {
 		return
 	}
-	answerWidgetQuery(token, q.ID, `{"ok":true}`)
+	if c, e := clipWidgetChatData(cd); e == nil {
+		cd = c
+	}
+	// Single-mode: answer with nav/state payload (AI-RULES dual §1.3 analogue).
+	answerWidgetQuery(token, q.ID, cd)
 	if q.Chat == nil {
 		return
 	}
+	appBindChat(q.Chat.ID)
 	chat := q.Chat.ID
 	lastAppMu.Lock()
 	mid := lastAppMsgID[chat]
