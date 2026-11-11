@@ -1271,7 +1271,13 @@ func appPushState(token string, q *widgetQuery, cd string) {
 		infoShell := infoShellForScreen(screen)
 		infoCD, err := buildInfoData(screen)
 		if err != nil {
-			infoCD = cd
+			infoCD, _ = appMarshal(appState{S: "info", T: "Status", B: err.Error()})
+		}
+		if c, e := clipWidgetChatData(infoCD); e == nil {
+			infoCD = c
+		}
+		if c, e := clipWidgetChatData(cd); e == nil {
+			cd = c
 		}
 		pushDualPair(token, q, infoCD, cd, infoShell, shellHub)
 		return
@@ -1295,6 +1301,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			if err != nil {
 				answerWidgetQuery(token, q.ID, `{"err":"build"}`)
 				return true
+			}
+			if c, e := clipWidgetChatData(infoCD); e == nil {
+				infoCD = c
 			}
 			answerWidgetQuery(token, q.ID, infoCD)
 			infoShell := infoShellForScreen(s)

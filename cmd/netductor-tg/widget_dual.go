@@ -138,6 +138,14 @@ func editDualSlot(token string, chat int64, slot string, html, cd, shell string)
 		err = editWidgetData(token, chat, id, cd)
 	}
 	if err == nil {
+		if shell != "" {
+			if slot == "info" {
+				p.InfoShell = shell
+			} else {
+				p.NavShell = shell
+			}
+			setDual(chat, p)
+		}
 		return
 	}
 	fmt.Fprintln(os.Stderr, "dual edit", slot, err, "→ recreate")
@@ -146,10 +154,10 @@ func editDualSlot(token string, chat int64, slot string, html, cd, shell string)
 		fmt.Fprintln(os.Stderr, "dual recreate", slot, err2)
 		return
 	}
-	if id > 0 {
+	if id > 0 && id != newID {
 		_ = deleteMessage(token, chat, id)
 	}
-	p, _ = getDual(chat)
+	// keep the other slot from the snapshot — do not re-getDual (may race empty)
 	if slot == "info" {
 		p.InfoID = newID
 		p.InfoShell = shell
