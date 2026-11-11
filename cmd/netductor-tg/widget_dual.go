@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
-	"github.com/PavelNeyman/netductor/internal/fleet"
 )
 
 // Dual info+nav pair (NETDUCTOR_TG_DUAL=1). Rules: docs/AI-RULES-TG-WIDGETS.md
@@ -250,151 +248,66 @@ func infoShellForScreen(screen string) string {
 	}
 }
 
-// buildInfoData — metrics/context only (no nav acts). Dual D4.
+
+// dualSplitChatData splits a full SPA appState JSON into nav (controls) + info (content).
+func dualSplitChatData(full string) (navCD, infoCD string) {
+	var st appState
+	if json.Unmarshal([]byte(full), &st) != nil {
+		return full, `{"s":"info","t":"Status"}`
+	}
+	info := appState{
+		S: st.S, T: st.T, B: st.B, H: st.H,
+		Rows: st.Rows, Lines: st.Lines, Spk: st.Spk, Pct: st.Pct,
+	}
+	if info.T == "" {
+		info.T = st.S
+	}
+	if info.H == "" {
+		info.H = appTitle("content · controls below", "контент · управление ниже")
+	}
+	nav := appState{
+		S: st.S, T: st.T, H: st.H, L: st.L,
+		Nav: st.Nav, Acts: st.Acts, Segs: st.Segs, Seg: st.Seg, IDs: st.IDs,
+	}
+	// Keep a one-line summary on nav if no acts/nav at all
+	if nav.Nav == nil && nav.Acts == "" && nav.Segs == nil {
+		nav.B = appTitle("refresh · back", "обновить · назад")
+	}
+	nb, err1 := appMarshal(nav)
+	ib, err2 := appMarshal(info)
+	if err1 != nil {
+		nb = full
+	}
+	if err2 != nil {
+		ib = `{"s":"info","t":"Status"}`
+	}
+	return nb, ib
+}
+
+// buildInfoData — dual top pane: rows/lines/spark from the same screen as nav.
 func buildInfoData(screen string) (string, error) {
 	if screen == "" {
 		screen = "home"
 	}
-	d := buildStatusWidgetData()
-	st := appState{
-		S: "info",
-		H: appTitle("context · menu below", "контекст · меню ниже"),
-	}
-
-	switch screen {
-	case "home", "status":
-		st.T = d.Title
-		st.Rows = [][2]string{
-			{appTitle("version", "версия"), d.Ver},
-			{appTitle("host", "хост"), d.Host},
-			{appTitle("nodes", "ноды"), d.Nodes},
-			{appTitle("cpu/mem", "cpu/mem"), d.Res},
-			{appTitle("secondary", "secondary"), d.Sec},
-			{appTitle("migrate", "миграции"), d.Mig},
-		}
-		if cpuN, _ := parseCPUMemPct(d.Res); cpuN >= 0 {
-			st.Pct = []int{-1, -1, -1, cpuN, -1, -1}
+	full, err := buildAppScreen(screen)
+	if err != nil {
+		// fallback status snapshot
+		d := buildStatusWidgetData()
+		st := appState{
+			S: "info", T: d.Title,
+			Rows: [][2]string{
+				{appTitle("version", "версия"), d.Ver},
+				{appTitle("host", "хост"), d.Host},
+				{appTitle("cpu/mem", "cpu/mem"), d.Res},
+			},
 		}
 		if spk := sparkCPU(24); spk != "" {
 			st.Spk = spk
 		}
-	case "fleet", "nodes", "seclist", "secondary", "secops", "updates":
-		fd := fleet.Build()
-		on := 0
-		for _, s := range fd.Secondaries {
-			if s.Online {
-				on++
-			}
-		}
-		upd := appTitle("up to date", "актуально")
-		if fd.UpdateAvailable {
-			upd = fd.LatestRelease
-		}
-		st.T = appTitle("Fleet", "Флот")
-		st.Rows = [][2]string{
-			{appTitle("primary", "primary"), fd.PrimaryVersion},
-			{appTitle("update", "обновление"), upd},
-			{appTitle("secondaries", "secondary"), fmt.Sprintf("%d/%d on", on, len(fd.Secondaries))},
-			{appTitle("host", "хост"), d.Host},
-		}
-		if screen == "updates" {
-			st.T = appTitle("Updates", "Обновления")
-		}
-	case "channel", "netmap", "digest", "probes", "actions", "incident", "reboot":
-		st.T = appTitle("Status", "Статус")
-		if screen == "channel" {
-			st.T = appTitle("Channel", "Канал")
-		}
-		if screen == "netmap" {
-			st.T = appTitle("Netmap", "Карта")
-		}
-		st.Rows = [][2]string{
-			{appTitle("version", "версия"), d.Ver},
-			{appTitle("nodes", "ноды"), d.Nodes},
-			{appTitle("secondary", "secondary"), d.Sec},
-			{appTitle("cpu/mem", "cpu/mem"), d.Res},
-			{appTitle("migrate", "миграции"), d.Mig},
-		}
-	case "users", "ulist", "devices", "ucard":
-		st.T = appTitle("Users", "Пользователи")
-		n := 0
-		raw := runVPN("list")
-		for _, line := range strings.Split(raw, "\n") {
-			if strings.TrimSpace(line) != "" {
-				n++
-			}
-		}
-		focus := ""
-		appMu.Lock()
-		focus = appSessUnlocked().Focus
-		appMu.Unlock()
-		st.Rows = [][2]string{
-			{appTitle("profiles", "профили"), fmt.Sprintf("%d", n)},
-			{appTitle("host", "хост"), d.Host},
-		}
-		if screen == "ucard" && focus != "" {
-			st.T = focus
-			st.Rows = append(st.Rows, [2]string{appTitle("focus", "фокус"), focus})
-		}
-	case "operator", "session", "sessions", "alerts", "admin", "audit", "svcpaths", "stack":
-		st.T = appTitle("Operator", "Оператор")
-		apiArmed := strings.Contains(runND("api-public", "status"), "armed=true")
-		apiCell := "closed"
-		if apiArmed {
-			apiCell = "OPEN"
-		}
-		st.Rows = [][2]string{
-			{"API WAN", apiCell},
-			{appTitle("version", "версия"), d.Ver},
-			{appTitle("host", "хост"), d.Host},
-			{appTitle("services", "сервисы"), d.Svc},
-		}
-	case "tools", "edge", "media", "data", "adv", "git", "logs", "versions",
-		"routers", "sites", "pending", "lampac", "canary", "ssh", "backup", "dns", "certs", "fw":
-		st.T = appTitle("Tools", "Инструменты")
-		if screen == "git" {
-			st.T = "Git"
-		}
-		if screen == "edge" || screen == "routers" || screen == "sites" {
-			st.T = "Edge"
-		}
-		st.Rows = [][2]string{
-			{appTitle("version", "версия"), d.Ver},
-			{appTitle("screen", "экран"), screen},
-			{appTitle("host", "хост"), d.Host},
-			{appTitle("cpu/mem", "cpu/mem"), d.Res},
-		}
-		if screen == "git" {
-			rows, lines := formatGitHubLines()
-			if len(rows) > 0 {
-				st.Rows = append(st.Rows[:1], rows...)
-				if len(st.Rows) > 6 {
-					st.Rows = st.Rows[:6]
-				}
-			} else if lines != "" {
-				st.Lines = widgetTruncate(lines, 200)
-			}
-		}
-	case "ncard":
-		st.T = appTitle("Node", "Нода")
-		appMu.Lock()
-		focus := appSessUnlocked().Focus
-		appMu.Unlock()
-		st.Rows = [][2]string{
-			{"id", focus},
-			{appTitle("host", "хост"), d.Host},
-			{appTitle("version", "версия"), d.Ver},
-		}
-	default:
-		st.T = appTitle("Context", "Контекст") + " · " + screen
-		st.Rows = [][2]string{
-			{appTitle("screen", "экран"), screen},
-			{appTitle("version", "версия"), d.Ver},
-			{appTitle("host", "хост"), d.Host},
-			{appTitle("cpu/mem", "cpu/mem"), d.Res},
-		}
+		return appMarshal(st)
 	}
-	return appMarshal(st)
+	_, infoCD := dualSplitChatData(full)
+	return infoCD, nil
 }
 
 func appInfoHTML() string {
@@ -427,7 +340,10 @@ if(d.spk){var c=document.getElementById("spk");if(c&&c.getContext){var a=String(
 if(n>1){ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var j=0;j<n;j++){var v=Math.max(0,Math.min(100,+a[j]||0));var x=j/(n-1)*(w-2)+1,y=hgt-1-(v/100)*(hgt-4);if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}}}}
 var r=document.getElementById("r");if(r)r.onclick=function(){if(W&&W.request)W.request("r");};
 }function run(){try{var x=(W&&W.chatData);if(typeof x==="string")x=JSON.parse(x||"{}");paint(x||{});}catch(e){}}
-run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
+run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);
+// auto-refresh top info pane (default on)
+setInterval(function(){try{if(W&&W.request)W.request("r");}catch(e){}},15000);
+})();`
 	return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>` + css + `</style></head><body>
 <h1 id="t">Status</h1><div id="b"></div><div id="h"></div>
 <button id="r" type="button">↻</button>
