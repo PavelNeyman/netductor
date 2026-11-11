@@ -196,8 +196,19 @@ if(W&&W.onEvent)W.onEvent("chatDataChanged",run);
 })();`
 
 func appWidgetHTML() string {
-	return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<style>body{margin:0;padding:8px;font:13px/1.3 system-ui,sans-serif;background:var(--tg-theme-bg-color,#0f1419);color:var(--tg-theme-text-color,#e7ecf3)}
+	return appWidgetHTMLHub()
+}
+
+func appWidgetHTMLHub() string {
+	return appWidgetHTMLBase(false)
+}
+
+func appWidgetHTMLSpark() string {
+	return appWidgetHTMLBase(true)
+}
+
+func appWidgetHTMLBase(spark bool) string {
+	css := `body{margin:0;padding:8px;font:13px/1.3 system-ui,sans-serif;background:var(--tg-theme-bg-color,#0f1419);color:var(--tg-theme-text-color,#e7ecf3)}
 #tabs,#seg,#n{display:flex;flex-wrap:wrap;gap:5px}
 #tabs{margin:0 0 6px}#tabs button{flex:1;min-width:52px;padding:9px 4px;font:600 11px system-ui;border-radius:9px}
 h1{margin:0 0 4px;font-size:15px}
@@ -212,16 +223,39 @@ button{border:0;background:var(--tg-theme-secondary-bg-color,#1c2733);color:inhe
 button.primary{background:var(--tg-theme-button-color,#2a6df4);color:var(--tg-theme-button-text-color,#fff)}
 button.danger{background:var(--tg-theme-destructive-text-color,#e53935);color:#fff}
 button.on{outline:2px solid var(--tg-theme-button-color,#2a6df4)}
-#h{margin-top:6px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}
-</style></head><body>
+#h{margin-top:6px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}`
+	boot := appWidgetBoot
+	if !spark {
+		// hub: drop canvas helpers to save zlib budget
+		boot = stripSparkBoot(boot)
+	}
+	return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>` + css + `</style></head><body>
 <div id="tabs"></div>
 <h1 id="t">Netductor</h1>
 <div id="seg"></div>
 <div id="b"><div class="pre">—</div></div>
 <div id="n"></div>
 <div id="h"></div>
-<script>` + appWidgetBoot + `</script></body></html>`
+<script>` + boot + `</script></body></html>`
 }
+
+func stripSparkBoot(boot string) string {
+	// remove drawSpk function and canvas inject lines
+	out := boot
+	out = strings.ReplaceAll(out, `if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px;margin:4px 0"></canvas>';`, "")
+	out = strings.ReplaceAll(out, `if(d.spk)drawSpk(d.spk);`, "")
+	// remove drawSpk function body (one-liner we added)
+	start := strings.Index(out, "function drawSpk(")
+	if start >= 0 {
+		end := strings.Index(out[start:], "function send(act){")
+		if end > 0 {
+			out = out[:start] + out[start+end:]
+		}
+	}
+	return out
+}
+
+
 
 type appState struct {
 	S     string      `json:"s"`
@@ -233,14 +267,14 @@ type appState struct {
 	Lines string      `json:"lines,omitempty"`
 	IDs   string      `json:"ids,omitempty"`
 	Nav   []string    `json:"nav,omitempty"`
-	Acts  string      `json:"acts,omitempty"` // comma-separated act codes for buttons
-	Btns  [][2]string `json:"btns,omitempty"` // dynamic [{act,label},...] for challenge codes etc.
+	Acts  string      `json:"acts,omitempty"`
+	Btns  [][2]string `json:"btns,omitempty"`
 	Draft string      `json:"draft,omitempty"`
 	Pad   bool        `json:"pad,omitempty"`
 	Segs  []string    `json:"segs,omitempty"`
 	Seg   string      `json:"seg,omitempty"`
-	Pct   []int       `json:"pct,omitempty"` // 0..100 aligned with rows
-	Spk   string      `json:"spk,omitempty"` // csv 0..100 sparkline
+	Pct   []int       `json:"pct,omitempty"`
+	Spk   string      `json:"spk,omitempty"`
 	TS    int64       `json:"ts"`
 }
 
@@ -1140,7 +1174,15 @@ func buildAppScreen(screen string) (string, error) {
 	case "dns":
 		return buildAppND("dns", "DNS", "DNS", "dns", "status")
 	case "git":
-		return buildAppGit()
+		rows, lines := formatGitHubLines()
+		st := appState{S: "git", T: "Git", Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig",
+			H: appTitle("sync · ship · jobs", "sync · ship · jobs")}
+		if len(rows) > 0 {
+			st.Rows = rows
+		} else {
+			st.Lines = lines
+		}
+		return appMarshal(st)
 	case "certs":
 		return buildAppCerts()
 	case "fw":
@@ -1258,15 +1300,8 @@ func appBuildData() (string, error) {
 }
 
 func appPushState(token string, q *widgetQuery, cd string) {
-	answerWidgetQuery(token, q.ID, cd)
-	if q.MessageID != 0 && q.Chat != nil {
-		lastAppMu.Lock()
-		lastAppMsgID[q.Chat.ID] = q.MessageID
-		lastAppMu.Unlock()
-		_, _ = apiPostWidget(token, "editMessageWidgetData", map[string]any{
-			"chat_id": q.Chat.ID, "message_id": q.MessageID, "chat_data": cd,
-		})
-	}
+	screen := parseScreenFromChatData(cd)
+	appPushStateSmart(token, q, screen, cd)
 }
 
 func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {

@@ -1,35 +1,21 @@
-# TG Widget UI v2 (shell A+B)
+# TG Widget UI v2
 
-## Constraints
-- HTML ≤32KiB, zlib ≤4KiB; chat_data ≤1024B; height ≤600px; no scroll; no network
-- Tabs/segments = our buttons, not Telegram native controls
-- Charts = canvas or CSS bars from compact numbers in chat_data
+## Shells (multi-widget)
 
-## IA
-| Tab | Content |
-|-----|---------|
-| Status | health rows + bars + channel/netmap/incident |
-| Users | list → card (toggles, quota, QR via chat) |
-| Fleet | nodes, secondaries, updates hub |
-| Tools | edge/media/data/git/mtls/presets |
-| Operator | stack, backup, session, doctor |
+HTML is fixed after `sendWidget`. Layouts that need extra JS (CPU canvas) use a **second shell**:
 
-## Updates hub (`updates`)
-Segments: **Primary | Secondary | Edge**
-- Primary: version, floor, stack apply entry
-- Secondary: online/version list, upgrade act
-- Edge: agent versions / pending
+| Kind | When | HTML |
+|------|------|------|
+| `hub` | home, lists, cards, tools… | tabs/seg/bars, no canvas |
+| `spark` | **status** only | hub + sparkline canvas |
 
-## Visual patterns
-- Top tab bar (always)
-- Segment control on multi-layer screens
-- Toggle-looking acts (primary = on)
-- Key/value rows; CSS progress bars
-- Optional sparkline later (canvas, ≤24 samples)
+Transition: `appPushStateSmart` — same shell → `editMessageWidgetData`; different shell → `sendWidget` + `deleteMessage` (one card in chat).
 
-## Rollout
-1. Shell CSS/JS + tabs
-2. Updates hub
-3. Formatters (no raw JSON dumps)
-4. Toggle polish + i18n
-5. Sparkline on status (optional)
+## Formatters
+- `appLines` / `formatCmdOut` — JSON → key lines
+- Secondary list from `fleet.Build` rows
+- Git status → rows when possible
+
+## Limits
+- zlib ≤ 4096 per shell (tested hub + spark)
+- chat_data ≤ 1024

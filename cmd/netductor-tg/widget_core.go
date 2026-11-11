@@ -33,6 +33,7 @@ func forgetAppMsg(chat int64) {
 	lastAppMu.Lock()
 	delete(lastAppMsgID, chat)
 	lastAppMu.Unlock()
+	forgetAppShell(chat)
 }
 
 func registerWidget(s *widgetScreen) {
@@ -127,6 +128,9 @@ func sendWidgetScreen(token string, chat int64, screenID string) bool {
 			lastAppMu.Lock()
 			lastAppMsgID[chat] = wr.Result.MessageID
 			lastAppMu.Unlock()
+			lastAppShellMu.Lock()
+			lastAppShell[chat] = shellHub
+			lastAppShellMu.Unlock()
 		}
 	}
 	return true
