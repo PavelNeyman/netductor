@@ -204,7 +204,15 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 		return
 	}
 	chat := q.Chat.ID
-	answerWidgetQuery(token, q.ID, navCD)
+	// Answer is only the request ack (≤1024). State is applied via editMessageWidgetData.
+	// Do not put full chat_data in answerWidgetQuery — SPA paints from chatDataChanged.
+	if nav2, err := clipWidgetChatData(navCD); err == nil {
+		navCD = nav2
+	}
+	if info2, err := clipWidgetChatData(infoCD); err == nil {
+		infoCD = info2
+	}
+	answerWidgetQuery(token, q.ID, `{"ok":true}`)
 
 	p, ok := getDual(chat)
 	if !ok {
@@ -214,12 +222,6 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	}
 
 	navShell = shellHub
-	if nav2, err := clipWidgetChatData(navCD); err == nil {
-		navCD = nav2
-	}
-	if info2, err := clipWidgetChatData(infoCD); err == nil {
-		infoCD = info2
-	}
 	editDualSlot(token, chat, "nav", appWidgetHTML(), navCD, navShell)
 
 	// Info: one metrics shell; "spark" kind only marks that series may be present.

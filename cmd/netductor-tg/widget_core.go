@@ -102,9 +102,14 @@ func apiPostWidget(token, method string, payload any) ([]byte, error) {
 }
 
 func answerWidgetQuery(token, queryID, result string) {
-	// Bot API 10.4: parameter is "data" (not "result"); widget promise gets { result: data }.
+	// Bot API 10.4: parameter is "data" (0–1024 bytes). Does not change widget state;
+	// use editMessageWidgetData / editSharedWidgetData for chat_data/public_data.
 	payload := map[string]any{"widget_query_id": queryID}
 	if result != "" {
+		if len(result) > widgetChatDataMax {
+			fmt.Fprintln(os.Stderr, "answerWidgetQuery: data too large", len(result), "→ truncate ack")
+			result = `{"ok":true}`
+		}
 		payload["data"] = result
 	}
 	if _, err := apiPostWidget(token, "answerWidgetQuery", payload); err != nil {

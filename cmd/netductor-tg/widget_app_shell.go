@@ -23,7 +23,7 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	if q == nil {
 		return
 	}
-	answerWidgetQuery(token, q.ID, cd)
+	answerWidgetQuery(token, q.ID, `{"ok":true}`)
 	if q.Chat == nil {
 		return
 	}

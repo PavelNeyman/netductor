@@ -362,7 +362,9 @@ func handleListWidgetAct(screen string, collect func() []listWidgetItem, openFn 
 				if q.MessageID != 0 && q.Chat != nil {
 					_ = editWidgetScreenData(token, q.Chat.ID, q.MessageID, screen)
 				}
-				answerWidgetQuery(token, q.ID, `{"ok":true,"d":`+cd+`}`)
+				// State via editMessageWidgetData only; answer is ack (cd can be ~1KiB).
+				_ = cd
+				answerWidgetQuery(token, q.ID, `{"ok":true}`)
 				return true
 			}
 			return false
