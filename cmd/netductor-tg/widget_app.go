@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
+	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/incident"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/notify"
@@ -126,14 +127,16 @@ function paint(d){
       for(var i=0;i<d.rows.length;i++){
         var r=d.rows[i];
         html+='<div class="row"><span class="k">'+(r[0]||"")+'</span><span class="v">'+(r[1]||"—")+'</span></div>';
-        if(d.pct&&d.pct[i]!=null){
+        if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){
           var p=Math.max(0,Math.min(100,+d.pct[i]||0));
           html+='<div class="bar"><i style="width:'+p+'%"></i></div>';
         }
       }
+      if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px;margin:4px 0"></canvas>';
       if(d.lines){html+='<div class="pre"></div>';}
       body.innerHTML=html;
       if(d.lines){body.querySelector(".pre").textContent=d.lines;}
+      if(d.spk)drawSpk(d.spk);
     }else if(d.lines){
       body.innerHTML='<div class="pre"></div>';
       body.firstChild.textContent=d.lines;
@@ -170,7 +173,7 @@ function paint(d){
         var pair=d.btns[bi];
         if(!pair||!pair[0])continue;
         var bl=String(pair[1]||pair[0]); var bc="";
-        if(/·\s*(on|OPEN|Вкл)/i.test(bl))bc="on";
+        if(/·\s*(on|OPEN|вкл)/i.test(bl))bc="on";
         add(String(pair[0]),bl,bc);
       }
     }
@@ -178,6 +181,7 @@ function paint(d){
     if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}
   }
 }
+function drawSpk(s){var c=document.getElementById("spk");if(!c||!c.getContext)return;var a=String(s).split(",");var ctx=c.getContext("2d"),w=c.width,h=c.height,n=a.length;if(n<2)return;ctx.clearRect(0,0,w,h);ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var i=0;i<n;i++){var v=Math.max(0,Math.min(100,+a[i]||0));var x=i/(n-1)*(w-2)+1,y=h-1-(v/100)*(h-4);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}
 function send(act){
   act=String(act||"r");
   if(act.length>64)act=act.slice(0,64);
@@ -236,6 +240,7 @@ type appState struct {
 	Segs  []string    `json:"segs,omitempty"`
 	Seg   string      `json:"seg,omitempty"`
 	Pct   []int       `json:"pct,omitempty"` // 0..100 aligned with rows
+	Spk   string      `json:"spk,omitempty"` // csv 0..100 sparkline
 	TS    int64       `json:"ts"`
 }
 
@@ -357,6 +362,54 @@ func appListFromItems(screen, titleEN, titleRU string, items []listWidgetItem) (
 	return appMarshal(st)
 }
 
+
+func parseCPUMemPct(res string) (cpu, mem int) {
+	cpu, mem = -1, -1
+	res = strings.ReplaceAll(res, "%", "")
+	parts := strings.Split(res, "/")
+	if len(parts) >= 1 {
+		var c float64
+		if _, err := fmt.Sscanf(strings.TrimSpace(parts[0]), "%f", &c); err == nil {
+			cpu = int(c)
+		}
+	}
+	if len(parts) >= 2 {
+		var m float64
+		if _, err := fmt.Sscanf(strings.TrimSpace(parts[1]), "%f", &m); err == nil {
+			mem = int(m)
+		}
+	}
+	return cpu, mem
+}
+
+func sparkCPU(n int) string {
+	if n <= 0 {
+		n = 24
+	}
+	hist := metrics.History(n)
+	vals := make([]string, 0, len(hist))
+	for _, row := range hist {
+		v, ok := row["cpu_pct"].(float64)
+		if !ok {
+			continue
+		}
+		if v < 0 {
+			v = 0
+		}
+		if v > 100 {
+			v = 100
+		}
+		vals = append(vals, fmt.Sprintf("%.0f", v))
+	}
+	if len(vals) < 2 {
+		m := metrics.Collect()
+		if c, ok := m["cpu_pct"].(float64); ok {
+			return fmt.Sprintf("%.0f", c)
+		}
+		return ""
+	}
+	return strings.Join(vals, ",")
+}
 
 func parseResPct(res string) []int {
 	// res like "cpu 12% mem 40%" — optional bars aligned to version/host/nodes/svc/cpu row index 4
@@ -549,11 +602,23 @@ func buildAppStatusHub() (string, error) {
 		{appTitle("migrate", "миграции"), d.Mig},
 	}
 	// classic also: incident, node reboot — multi-step stay out of SPA for now
-	pct := parseResPct(d.Res)
-	return appMarshal(appState{
-		S: "status", T: d.Title, Rows: rows, Pct: pct, H: d.Hint,
+	cpuN, _ := parseCPUMemPct(d.Res)
+	pct := []int{-1, -1, -1, -1, -1, -1, -1}
+	if cpuN >= 0 {
+		pct[4] = cpuN
+	}
+	spk := sparkCPU(24)
+	st := appState{
+		S: "status", T: d.Title, Rows: rows, H: d.Hint,
 		Nav: []string{"channel", "netmap", "actions", "sessions", "digest", "incident", "reboot", "updates"},
-	})
+	}
+	if cpuN >= 0 {
+		st.Pct = pct
+	}
+	if spk != "" {
+		st.Spk = spk
+	}
+	return appMarshal(st)
 }
 
 func buildAppFleetHub() (string, error) {
@@ -918,10 +983,30 @@ func buildAppUserCard(name string) (string, error) {
 		{appTitle("profile", "профиль"), prof},
 		{appTitle("kind", "тип"), kind},
 	}
+	on := strings.Contains(strings.ToLower(en), "en") || strings.EqualFold(en, "on") || strings.EqualFold(en, "true") || en == "1"
+	// heuristic: common list columns show enabled/disabled
+	if strings.Contains(strings.ToLower(en), "dis") {
+		on = false
+	}
+	vpnLab := appTitle("VPN · off (tap on)", "VPN · выкл (включить)")
+	if on {
+		vpnLab = appTitle("VPN · on (tap off)", "VPN · вкл (выключить)")
+	}
+	vpnAct := "en"
+	if on {
+		vpnAct = "di"
+	}
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
-		H:    appTitle("actions below", "действия ниже"),
-		Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
+		H: appTitle("toggle + actions", "переключатель и действия"),
+		Btns: [][2]string{
+			{vpnAct, vpnLab},
+			{"lk", appTitle("Link", "Ссылка")},
+			{"sb", "Sub"},
+			{"qr", "QR"},
+			{"upol", appTitle("Policy", "Политика")},
+		},
+		Acts: "q50,q200,q0,qn,rn,kd,ku,sp,cy,rv",
 	})
 }
 
