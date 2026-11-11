@@ -2,7 +2,9 @@
 
 **Audience:** every human or AI agent changing `cmd/netductor-tg` widget code, dual UI, or related plans.  
 **Precedence:** these rules override casual “just send another widget” instincts.  
-**Related:** `docs/PLAN-TG-DUAL-WIDGET.md`, `docs/PLAN-TG-WIDGET-UI-V2.md`.
+**Related:** `docs/PLAN-TG-DUAL-WIDGET.md`, `docs/PLAN-TG-WIDGET-UI-V2.md`, **`docs/SECURITY-TG-WIDGETS.md` (RCE advisory 2026-11-11)**.
+
+**Security default:** widgets stay off (`NETDUCTOR_TG_WIDGETS` ≠ `1`) until the operator accepts client-side QuickJS risk. Do not “helpfully” enable widgets in deploy defaults.
 
 ---
 

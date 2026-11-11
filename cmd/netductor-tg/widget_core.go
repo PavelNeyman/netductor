@@ -61,7 +61,22 @@ func registerWidget(s *widgetScreen) {
 	widgetRegistry[s.ID] = s
 }
 
-func widgetsEnabled() bool { return os.Getenv("NETDUCTOR_TG_WIDGETS") == "1" }
+func widgetsEnabled() bool {
+	on := os.Getenv("NETDUCTOR_TG_WIDGETS") == "1"
+	if on {
+		widgetSecurityWarnOnce()
+	}
+	return on
+}
+
+var widgetSecWarnOnce sync.Once
+
+func widgetSecurityWarnOnce() {
+	widgetSecWarnOnce.Do(func() {
+		fmt.Fprintln(os.Stderr, "SECURITY: NETDUCTOR_TG_WIDGETS=1 — HTML widgets execute in the Telegram client (QuickJS). "+
+			"Client RCE via widgets was disclosed 2026-11-11. Prefer classic keyboard until clients are patched. See docs/SECURITY-TG-WIDGETS.md")
+	})
+}
 
 func widgetAPIBase(token string) string {
 	if os.Getenv("NETDUCTOR_TG_WIDGET_BETA") == "1" {
