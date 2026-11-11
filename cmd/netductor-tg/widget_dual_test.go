@@ -92,3 +92,25 @@ func TestOpenAppScreenDualRequiresFlag(t *testing.T) {
 		t.Fatalf("home %v len=%d", err, len(cd))
 	}
 }
+
+func TestBuildInfoDataAllParityScreens(t *testing.T) {
+	screens := []string{
+		"home", "status", "users", "ulist", "fleet", "tools", "operator", "help",
+		"channel", "netmap", "actions", "sessions", "digest", "incident", "reboot",
+		"nodes", "secondary", "addons", "seclist", "edge", "routers", "sites", "pending",
+		"media", "lampac", "canary", "nvr", "data", "backup", "logs", "dns",
+		"adv", "probes", "stack", "doctor", "certs", "fw", "cleanup",
+		"versions", "updates", "ssh", "git", "session", "alerts", "admin", "audit", "svcpaths",
+		"devices", "presets", "mtls", "secops", "ucard", "ncard",
+	}
+	for _, s := range screens {
+		cd, err := buildInfoData(s)
+		if err != nil {
+			t.Errorf("info %s: %v", s, err)
+			continue
+		}
+		if len(cd) > 1024 {
+			t.Errorf("info %s len %d", s, len(cd))
+		}
+	}
+}

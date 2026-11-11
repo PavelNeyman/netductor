@@ -195,13 +195,18 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	p, ok := getDual(chat)
 	if !ok {
 		// recover: open pair from scratch
-		_ = openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTMLHub(), navCD, infoShell, shellHub)
+		_ = openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTML(), navCD, infoShell, shellHub)
 		return
 	}
 
-	// Nav is always hub HTML in dual mode (no SPA multi-shell here).
 	navShell = shellHub
-	editDualSlot(token, chat, "nav", appWidgetHTMLHub(), navCD, navShell)
+	if nav2, err := clipWidgetChatData(navCD); err == nil {
+		navCD = nav2
+	}
+	if info2, err := clipWidgetChatData(infoCD); err == nil {
+		infoCD = info2
+	}
+	editDualSlot(token, chat, "nav", appWidgetHTML(), navCD, navShell)
 
 	// Info: one metrics shell; "spark" kind only marks that series may be present.
 	infoHTML := appInfoHTML()
@@ -215,6 +220,7 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	} else {
 		editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
 	}
+	syncDualNavAsApp(chat)
 }
 
 // infoShellForScreen picks info HTML kind (spark when metrics series useful).
