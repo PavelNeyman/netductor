@@ -520,7 +520,7 @@ func buildAppUpdates(seg string) (string, error) {
 			{appTitle("select P/S", "выбор P/S"), priMark + " / " + secMark},
 		},
 		Lines: strings.Join(lines, "\n"),
-		Acts:  "vt_p,vt_s,v_all,v_none,v_apply,v_ref,stack",
+		Acts:  "vt_p,vt_s,v_all,v_none,v_apply,v_ref",
 		Nav:   []string{"versions", "stack", "tools"},
 		H:     appTitle("toggle targets · Apply schedules stack", "выбор целей · Apply = schedule"),
 	}
@@ -529,11 +529,23 @@ func buildAppUpdates(seg string) (string, error) {
 
 func buildAppHome() (string, error) {
 	// Parity with mainKeyboard: Status, Users, Fleet, Tools, Operator
+	d := buildStatusWidgetData()
+	fd := fleet.Build()
+	upd := appTitle("up to date", "актуально")
+	if fd.UpdateAvailable && fd.LatestRelease != "" {
+		upd = fd.LatestRelease
+	}
 	return appMarshal(appState{
 		S: "home",
 		T: "Netductor",
-		H: appTitle("same hubs as classic main menu", "те же хабы, что classic-меню"),
-		B: " ",
+		H: appTitle("hubs below · status above in dual", "хабы внизу · статус сверху в dual"),
+		Rows: [][2]string{
+			{appTitle("version", "версия"), d.Ver},
+			{appTitle("host", "хост"), d.Host},
+			{appTitle("update", "обновление"), upd},
+			{appTitle("cpu/mem", "cpu/mem"), d.Res},
+			{appTitle("secondary", "secondary"), d.Sec},
+		},
 		Nav: []string{"status", "users", "fleet", "updates", "tools", "operator", "help"},
 	})
 }
@@ -1354,7 +1366,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "updates", T: appTitle("Updates", "Обновления"),
 			Lines: strings.Join(lines, "\n"),
 			B:     appTitle("do not re-tap Apply", "не жмите Apply повторно"),
-			Acts:  "v_ref,vt_p,vt_s,stack",
+			Acts:  "v_ref,vt_p,vt_s",
+			Nav:   []string{"stack", "tools"},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -2192,7 +2205,33 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	if handleAppFinalAct(token, q, act, focus) {
 		return true
 	}
+	// Bare act equal to a SPA screen id (nav buttons sometimes omit g:)
+	if isAppScreenID(act) {
+		cd, err := buildAppScreen(act)
+		if err != nil {
+			answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+			return true
+		}
+		appPushState(token, q, cd)
+		return true
+	}
 	return false
+}
+
+func isAppScreenID(s string) bool {
+	switch s {
+	case "home", "menu", "status", "fleet", "tools", "edge", "media", "data", "adv", "logs",
+		"stack", "help", "operator", "users", "ulist", "nodes", "incident", "sshkeys", "reboot",
+		"dns", "git", "certs", "fw", "doctor", "cleanup", "admin", "session", "alerts",
+		"edgestor", "edgepol", "edgetpl", "edgeguest", "edgeluci", "nvr", "devices", "sites",
+		"pending", "ssh", "backup", "seclist", "channel", "updates", "versions", "secondary",
+		"probes", "netmap", "digest", "addons", "svcpaths", "prdraft", "upol", "lampac",
+		"presets", "mtls", "secops", "edgelife", "loc", "aptguard", "canary", "sessions",
+		"audit", "actions", "routers", "ucard", "ncard":
+		return true
+	default:
+		return false
+	}
 }
 
 func execJournalSingBox() (string, error) {
