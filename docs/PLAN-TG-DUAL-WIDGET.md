@@ -104,9 +104,8 @@ Do not reintroduce status→spark swaps on the nav message while dual is enabled
 
 ## Known remaining (post D5)
 
-1. **D6 operator smoke** — not done in CI; needs primary with both flags.
-2. **Release** — tip has dual; VERSION may lag until explicit release.
-3. **Info fidelity** — many screens share generic status rows; deep edge/git metrics optional.
-4. **Orphan recovery** — if process restarts, in-memory pair ids are lost (messages may remain until /start).
-5. **Dead aliases** — `appWidgetHTMLHub/Spark`, `appInfoHTMLSpark` are thin wrappers (harmless).
-6. **zlib SPA** — ~4020/4096; headroom thin if boot grows.
+1. **D6 operator smoke** — needs primary with WIDGETS=1 DUAL=1 (not automatable here).
+2. **Release** — only when operator confirms smoke.
+3. **Info fidelity** — optional richer per-screen rows (edge/git/node).
+4. **Orphan recovery** — pair + SPA msg ids persisted under `TelegramDir()/widget_ui.json`; `/start` still close+reopen.
+5. **zlib SPA** — ~4020/4096; avoid growing `appWidgetBoot` without measuring.

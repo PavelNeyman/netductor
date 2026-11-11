@@ -29,6 +29,7 @@ var (
 )
 
 func dualEnabled() bool {
+	loadWidgetUIStore()
 	return widgetsEnabled() && os.Getenv("NETDUCTOR_TG_DUAL") == "1"
 }
 
@@ -43,21 +44,21 @@ func setDual(chat int64, p dualPair) {
 	lastDualMu.Lock()
 	lastDual[chat] = p
 	lastDualMu.Unlock()
+	saveWidgetUIStore()
 }
 
 func forgetDual(chat int64) {
 	lastDualMu.Lock()
 	delete(lastDual, chat)
 	lastDualMu.Unlock()
+	saveWidgetUIStore()
 }
 
 // closeDualPair deletes both messages and clears state.
 func closeDualPair(token string, chat int64) {
 	p, ok := getDual(chat)
 	forgetDual(chat)
-	lastAppMu.Lock()
-	delete(lastAppMsgID, chat)
-	lastAppMu.Unlock()
+	setLastAppMsg(chat, 0)
 	if !ok {
 		return
 	}
@@ -384,14 +385,14 @@ func buildInfoData(screen string) (string, error) {
 }
 
 func appInfoHTML() string {
-	return appInfoHTMLBase(false)
+	return appInfoHTMLBase()
 }
 
-func appInfoHTMLSpark() string {
-	return appInfoHTMLBase(true)
+func appInfoHTMLSpark() string { // test alias
+	return appInfoHTML()
 }
 
-func appInfoHTMLBase(spark bool) string {
+func appInfoHTMLBase() string {
 	css := `body{margin:0;padding:8px;font:13px/1.3 system-ui,sans-serif;background:var(--tg-theme-bg-color,#0f1419);color:var(--tg-theme-text-color,#e7ecf3)}
 h1{margin:0 0 6px;font-size:15px}
 .row{display:flex;justify-content:space-between;gap:6px;margin:3px 0}
@@ -414,7 +415,6 @@ if(n>1){ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var j=0;j<
 var r=document.getElementById("r");if(r)r.onclick=function(){if(W&&W.request)W.request("r");};
 }function run(){try{paint(JSON.parse((W&&W.chatData)||"{}"));}catch(e){}}
 run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
-	_ = spark // same HTML; spark series only in chat_data
 	return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>` + css + `</style></head><body>
 <h1 id="t">Status</h1><div id="b"></div><div id="h"></div>
 <button id="r" type="button">↻</button>

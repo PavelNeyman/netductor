@@ -223,10 +223,6 @@ button.on{outline:2px solid var(--tg-theme-button-color,#2a6df4)}
 <script>` + appWidgetBoot + `</script></body></html>`
 }
 
-// Deprecated aliases — dual open still names hub explicitly.
-func appWidgetHTMLHub() string  { return appWidgetHTML() }
-func appWidgetHTMLSpark() string { return appWidgetHTML() }
-
 type appState struct {
 	S     string      `json:"s"`
 	T     string      `json:"t"`

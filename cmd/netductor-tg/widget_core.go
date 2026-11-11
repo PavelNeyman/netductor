@@ -29,11 +29,25 @@ var widgetRegistry = map[string]*widgetScreen{}
 var lastAppMsgID = map[int64]int{}
 var lastAppMu sync.Mutex
 
+func setLastAppMsg(chat int64, mid int) {
+	loadWidgetUIStore()
+	lastAppMu.Lock()
+	if mid <= 0 {
+		delete(lastAppMsgID, chat)
+	} else {
+		lastAppMsgID[chat] = mid
+	}
+	lastAppMu.Unlock()
+	saveWidgetUIStore()
+}
+
 func forgetAppMsg(chat int64) {
+	loadWidgetUIStore()
 	lastAppMu.Lock()
 	delete(lastAppMsgID, chat)
 	lastAppMu.Unlock()
 	forgetDual(chat) // pair ids only; use closeDualPair when deletes needed
+	saveWidgetUIStore()
 }
 
 func registerWidget(s *widgetScreen) {
@@ -125,9 +139,7 @@ func sendWidgetScreen(token string, chat int64, screenID string) bool {
 			} `json:"result"`
 		}
 		if json.Unmarshal(raw, &wr) == nil && wr.Result.MessageID > 0 {
-			lastAppMu.Lock()
-			lastAppMsgID[chat] = wr.Result.MessageID
-			lastAppMu.Unlock()
+			setLastAppMsg(chat, wr.Result.MessageID)
 		}
 	}
 	return true
@@ -259,9 +271,7 @@ func syncDualNavAsApp(chat int64) {
 	if !ok || p.NavID <= 0 {
 		return
 	}
-	lastAppMu.Lock()
-	lastAppMsgID[chat] = p.NavID
-	lastAppMu.Unlock()
+	setLastAppMsg(chat, p.NavID)
 }
 
 // tryReplyWidget: prefer SPA app shell for content screens; else legacy per-screen widget.

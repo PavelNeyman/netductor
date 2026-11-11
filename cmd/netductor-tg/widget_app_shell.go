@@ -37,9 +37,7 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 
 	if mid != 0 {
 		if err := editWidgetData(token, chat, mid, cd); err == nil {
-			lastAppMu.Lock()
-			lastAppMsgID[chat] = mid
-			lastAppMu.Unlock()
+			setLastAppMsg(chat, mid)
 			return
 		}
 		fmt.Fprintln(os.Stderr, "editMessageWidgetData:", mid, "→ resend")
@@ -54,9 +52,7 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	if mid > 0 && mid != newID {
 		_ = deleteMessage(token, chat, mid)
 	}
-	lastAppMu.Lock()
-	lastAppMsgID[chat] = newID
-	lastAppMu.Unlock()
+	setLastAppMsg(chat, newID)
 }
 
 func parseScreenFromChatData(cd string) string {
