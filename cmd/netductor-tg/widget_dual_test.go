@@ -156,6 +156,9 @@ func TestDualSplitChatDataSeparatesControls(t *testing.T) {
 		Nav:   []string{"home"},
 		Acts:  "r,b",
 		Spk:   "1,2,3",
+		Btns:  [][2]string{{"en", "On"}},
+		Draft: "x",
+		Pad:   true,
 	})
 	if err != nil {
 		t.Fatal(err)
