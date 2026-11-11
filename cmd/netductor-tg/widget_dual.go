@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
+
+	"github.com/PavelNeyman/netductor/internal/fleet"
 )
 
 // Dual info+nav pair (NETDUCTOR_TG_DUAL=1). Rules: docs/AI-RULES-TG-WIDGETS.md
@@ -187,7 +190,11 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	p, ok := getDual(chat)
 	if !ok {
 		// recover: open pair from scratch
-		_ = openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTMLHub(), navCD, infoShell, navShell)
+		infoHTML := appInfoHTML()
+		if infoShell == shellSpark {
+			infoHTML = appInfoHTMLSpark()
+		}
+		_ = openDualPair(token, chat, infoHTML, infoCD, appWidgetHTMLHub(), navCD, infoShell, navShell)
 		return
 	}
 
@@ -211,39 +218,131 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	}
 }
 
-// buildInfoData — metrics/context only (no nav acts). Dual D2 baseline.
+// infoShellForScreen picks info HTML kind (spark when metrics series useful).
+func infoShellForScreen(screen string) string {
+	switch screen {
+	case "home", "status", "":
+		return shellSpark
+	default:
+		return shellHub
+	}
+}
+
+// buildInfoData — metrics/context only (no nav acts). Dual D4.
 func buildInfoData(screen string) (string, error) {
-	// Default: status summary for most screens; refine per-screen later.
+	if screen == "" {
+		screen = "home"
+	}
 	d := buildStatusWidgetData()
-	rows := [][2]string{
-		{appTitle("version", "версия"), d.Ver},
-		{appTitle("host", "хост"), d.Host},
-		{appTitle("nodes", "ноды"), d.Nodes},
-		{appTitle("cpu/mem", "cpu/mem"), d.Res},
-		{appTitle("secondary", "secondary"), d.Sec},
-	}
-	cpuN, _ := parseCPUMemPct(d.Res)
 	st := appState{
-		S: "info", T: d.Title, Rows: rows,
-		H: appTitle("context · nav below", "контекст · меню ниже"),
+		S: "info",
+		H: appTitle("context · menu below", "контекст · меню ниже"),
 	}
-	if screen != "" && screen != "home" && screen != "status" {
-		st.T = appTitle("Context", "Контекст") + " · " + screen
-		st.H = screen
-	}
-	if cpuN >= 0 {
-		st.Pct = []int{-1, -1, -1, cpuN, -1}
-	}
-	if screen == "status" || screen == "home" {
+
+	switch screen {
+	case "home", "status":
+		st.T = d.Title
+		st.Rows = [][2]string{
+			{appTitle("version", "версия"), d.Ver},
+			{appTitle("host", "хост"), d.Host},
+			{appTitle("nodes", "ноды"), d.Nodes},
+			{appTitle("cpu/mem", "cpu/mem"), d.Res},
+			{appTitle("secondary", "secondary"), d.Sec},
+			{appTitle("migrate", "миграции"), d.Mig},
+		}
+		if cpuN, _ := parseCPUMemPct(d.Res); cpuN >= 0 {
+			st.Pct = []int{-1, -1, -1, cpuN, -1, -1}
+		}
 		if spk := sparkCPU(24); spk != "" {
 			st.Spk = spk
+		}
+	case "fleet", "nodes", "seclist", "secondary", "secops", "updates":
+		fd := fleet.Build()
+		on := 0
+		for _, s := range fd.Secondaries {
+			if s.Online {
+				on++
+			}
+		}
+		upd := appTitle("up to date", "актуально")
+		if fd.UpdateAvailable {
+			upd = fd.LatestRelease
+		}
+		st.T = appTitle("Fleet", "Флот")
+		st.Rows = [][2]string{
+			{appTitle("primary", "primary"), fd.PrimaryVersion},
+			{appTitle("update", "обновление"), upd},
+			{appTitle("secondaries", "secondary"), fmt.Sprintf("%d/%d on", on, len(fd.Secondaries))},
+			{appTitle("host", "хост"), d.Host},
+		}
+		if screen == "updates" {
+			st.T = appTitle("Updates", "Обновления")
+		}
+	case "users", "ulist", "devices", "ucard":
+		st.T = appTitle("Users", "Пользователи")
+		n := 0
+		raw := runVPN("list")
+		for _, line := range strings.Split(raw, "\n") {
+			if strings.TrimSpace(line) != "" {
+				n++
+			}
+		}
+		focus := ""
+		appMu.Lock()
+		focus = appFocus
+		appMu.Unlock()
+		st.Rows = [][2]string{
+			{appTitle("profiles", "профили"), fmt.Sprintf("%d", n)},
+			{appTitle("host", "хост"), d.Host},
+		}
+		if screen == "ucard" && focus != "" {
+			st.T = focus
+			st.Rows = append(st.Rows, [2]string{appTitle("focus", "фокус"), focus})
+		}
+	case "operator", "session", "sessions", "alerts", "admin", "audit", "svcpaths", "stack":
+		st.T = appTitle("Operator", "Оператор")
+		apiArmed := strings.Contains(runND("api-public", "status"), "armed=true")
+		apiCell := "closed"
+		if apiArmed {
+			apiCell = "OPEN"
+		}
+		st.Rows = [][2]string{
+			{"API WAN", apiCell},
+			{appTitle("version", "версия"), d.Ver},
+			{appTitle("host", "хост"), d.Host},
+			{appTitle("services", "сервисы"), d.Svc},
+		}
+	case "tools", "edge", "media", "data", "adv", "git", "logs", "versions":
+		st.T = appTitle("Tools", "Инструменты")
+		st.Rows = [][2]string{
+			{appTitle("version", "версия"), d.Ver},
+			{appTitle("screen", "экран"), screen},
+			{appTitle("host", "хост"), d.Host},
+			{appTitle("cpu/mem", "cpu/mem"), d.Res},
+		}
+	case "ncard":
+		st.T = appTitle("Node", "Нода")
+		appMu.Lock()
+		focus := appFocus
+		appMu.Unlock()
+		st.Rows = [][2]string{
+			{"id", focus},
+			{appTitle("host", "хост"), d.Host},
+			{appTitle("version", "версия"), d.Ver},
+		}
+	default:
+		st.T = appTitle("Context", "Контекст") + " · " + screen
+		st.Rows = [][2]string{
+			{appTitle("screen", "экран"), screen},
+			{appTitle("version", "версия"), d.Ver},
+			{appTitle("host", "хост"), d.Host},
+			{appTitle("cpu/mem", "cpu/mem"), d.Res},
 		}
 	}
 	return appMarshal(st)
 }
 
 func appInfoHTML() string {
-	// metrics-only shell: no tab bar
 	return appInfoHTMLBase(false)
 }
 
@@ -267,15 +366,14 @@ if(b){var html="";if(d.rows){for(var i=0;i<d.rows.length;i++){var r=d.rows[i];
 html+='<div class="row"><span class="k">'+(r[0]||"")+'</span><span class="v">'+(r[1]||"—")+'</span></div>';
 if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){var p=Math.max(0,Math.min(100,+d.pct[i]||0));html+='<div class="bar"><i style="width:'+p+'%"></i></div>';}}
 }if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px"></canvas>';
-if(d.lines)html+='<pre style="white-space:pre-wrap;font:12px system-ui">'+(d.lines||"")+'</pre>';
-b.innerHTML=html;if(d.spk){var c=document.getElementById("spk");if(c&&c.getContext){var a=String(d.spk).split(","),ctx=c.getContext("2d"),w=c.width,hgt=c.height,n=a.length;
+if(d.lines)html+='<pre style="white-space:pre-wrap;font:12px system-ui"></pre>';
+b.innerHTML=html;if(d.lines){var pre=b.querySelector("pre");if(pre)pre.textContent=d.lines;}
+if(d.spk){var c=document.getElementById("spk");if(c&&c.getContext){var a=String(d.spk).split(","),ctx=c.getContext("2d"),w=c.width,hgt=c.height,n=a.length;
 if(n>1){ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var j=0;j<n;j++){var v=Math.max(0,Math.min(100,+a[j]||0));var x=j/(n-1)*(w-2)+1,y=hgt-1-(v/100)*(hgt-4);if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}}}}
 var r=document.getElementById("r");if(r)r.onclick=function(){if(W&&W.request)W.request("r");};
 }function run(){try{paint(JSON.parse((W&&W.chatData)||"{}"));}catch(e){}}
 run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
-	if !spark {
-		// strip canvas path by using same boot — spark data simply unused without draw is ok; size small
-	}
+	_ = spark // same HTML; spark series only in chat_data
 	return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>` + css + `</style></head><body>
 <h1 id="t">Status</h1><div id="b"></div><div id="h"></div>
 <button id="r" type="button">↻</button>

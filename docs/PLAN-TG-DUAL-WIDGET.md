@@ -1,6 +1,6 @@
 # Plan: Dual Telegram HTML Widgets (info + nav)
 
-**Status:** planned → implement behind `NETDUCTOR_TG_DUAL=1` (default off)  
+**Status:** D1–D4 in main behind `NETDUCTOR_TG_DUAL=1` (default off); D5 tests partial  
 **Depends on:** SPA app shell, multi-shell hub/spark (`docs/PLAN-TG-WIDGET-UI-V2.md`)  
 **Non-goals:** replacing classic keyboard; single-message mode remains default until dual is stable.
 
@@ -74,13 +74,13 @@ lastDual[chat] dualPair
 
 | Phase | Deliverable |
 |-------|-------------|
-| **D0** | This plan + `AI-RULES-TG-WIDGETS.md` |
-| **D1** | `dualPair` state, flag, open/close helpers, no UX change if flag off |
-| **D2** | Split builders: `buildInfoData(screen)` / `buildNavData(screen)` |
-| **D3** | Wire `handleAppAct` + `/start` to dual path |
-| **D4** | Info shell HTML (metrics-only); nav keeps hub |
-| **D5** | Swap-per-slot; tests for pair lifecycle |
-| **D6** | Manual QA; then default-on consideration |
+| **D0** | Done — plan + AI rules |
+| **D1** | Done — dualPair, flag, open/close/edit/swap |
+| **D2** | Done — `buildInfoData(screen)` per hub |
+| **D3** | Done — `/start` dual open; `appPushState` dual path |
+| **D4** | Done — info metrics shell; spark on home/status |
+| **D5** | Partial — state/shell/info size tests; full HTTP mock optional |
+| **D6** | Manual QA on primary with both flags |
 
 ## Tests
 

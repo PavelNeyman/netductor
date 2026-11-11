@@ -1302,10 +1302,7 @@ func appBuildData() (string, error) {
 func appPushState(token string, q *widgetQuery, cd string) {
 	screen := parseScreenFromChatData(cd)
 	if dualEnabled() && q != nil && q.Chat != nil {
-		infoShell := shellHub
-		if screen == "status" || screen == "home" {
-			infoShell = shellSpark
-		}
+		infoShell := infoShellForScreen(screen)
 		infoCD, err := buildInfoData(screen)
 		if err != nil {
 			infoCD = cd
@@ -1320,6 +1317,32 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	act = strings.TrimSpace(act)
 	if act == "" {
 		act = "r"
+	}
+
+	// Dual: refresh from info slot — update info only (nav untouched).
+	if dualEnabled() && q != nil && q.Chat != nil && (act == "r" || act == "refresh") {
+		if p, ok := getDual(q.Chat.ID); ok && p.InfoID > 0 && q.MessageID == p.InfoID {
+			appMu.Lock()
+			s := appScreen
+			appMu.Unlock()
+			infoCD, err := buildInfoData(s)
+			if err != nil {
+				answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+				return true
+			}
+			answerWidgetQuery(token, q.ID, infoCD)
+			infoShell := infoShellForScreen(s)
+			html := appInfoHTML()
+			if infoShell == shellSpark {
+				html = appInfoHTMLSpark()
+			}
+			if p.InfoShell != infoShell {
+				swapDualSlot(token, q.Chat.ID, "info", html, infoCD, infoShell)
+			} else {
+				editDualSlot(token, q.Chat.ID, "info", html, infoCD, infoShell)
+			}
+			return true
+		}
 	}
 
 	// segment switch (updates hub etc.)
