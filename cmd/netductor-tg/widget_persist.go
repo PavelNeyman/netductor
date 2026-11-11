@@ -20,6 +20,7 @@ type widgetUIStore struct {
 
 var (
 	widgetStoreOnce sync.Once
+	widgetStoreMu   sync.Mutex
 )
 
 func widgetStorePath() string {
@@ -59,6 +60,8 @@ func loadWidgetUIStore() {
 
 func saveWidgetUIStore() {
 	loadWidgetUIStore() // ensure once ran
+	widgetStoreMu.Lock()
+	defer widgetStoreMu.Unlock()
 	st := widgetUIStore{
 		Dual: map[string]dualPair{},
 		App:  map[string]int{},

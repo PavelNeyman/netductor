@@ -114,3 +114,17 @@ func TestBuildInfoDataAllParityScreens(t *testing.T) {
 		}
 	}
 }
+
+func TestCloseDualPairNoOpWithoutPair(t *testing.T) {
+	const chat int64 = 515151
+	forgetDual(chat)
+	setLastAppMsg(chat, 42)
+	closeDualPair("fake-token", chat) // no pair → must not clear SPA id
+	lastAppMu.Lock()
+	mid := lastAppMsgID[chat]
+	lastAppMu.Unlock()
+	if mid != 42 {
+		t.Fatalf("closeDualPair without pair cleared app msg: %d", mid)
+	}
+	setLastAppMsg(chat, 0)
+}

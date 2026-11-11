@@ -34,6 +34,7 @@ func dualEnabled() bool {
 }
 
 func getDual(chat int64) (dualPair, bool) {
+	loadWidgetUIStore()
 	lastDualMu.Lock()
 	defer lastDualMu.Unlock()
 	p, ok := lastDual[chat]
@@ -56,12 +57,13 @@ func forgetDual(chat int64) {
 
 // closeDualPair deletes both messages and clears state.
 func closeDualPair(token string, chat int64) {
+	loadWidgetUIStore()
 	p, ok := getDual(chat)
-	forgetDual(chat)
-	setLastAppMsg(chat, 0)
 	if !ok {
 		return
 	}
+	forgetDual(chat)
+	setLastAppMsg(chat, 0)
 	if p.InfoID > 0 {
 		_ = deleteMessage(token, chat, p.InfoID)
 	}
@@ -413,7 +415,7 @@ b.innerHTML=html;if(d.lines){var pre=b.querySelector("pre");if(pre)pre.textConte
 if(d.spk){var c=document.getElementById("spk");if(c&&c.getContext){var a=String(d.spk).split(","),ctx=c.getContext("2d"),w=c.width,hgt=c.height,n=a.length;
 if(n>1){ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var j=0;j<n;j++){var v=Math.max(0,Math.min(100,+a[j]||0));var x=j/(n-1)*(w-2)+1,y=hgt-1-(v/100)*(hgt-4);if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}}}}
 var r=document.getElementById("r");if(r)r.onclick=function(){if(W&&W.request)W.request("r");};
-}function run(){try{paint(JSON.parse((W&&W.chatData)||"{}"));}catch(e){}}
+}function run(){try{var x=(W&&W.chatData);if(typeof x==="string")x=JSON.parse(x||"{}");paint(x||{});}catch(e){}}
 run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
 	return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>` + css + `</style></head><body>
 <h1 id="t">Status</h1><div id="b"></div><div id="h"></div>

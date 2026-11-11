@@ -46,7 +46,11 @@ func forgetAppMsg(chat int64) {
 	lastAppMu.Lock()
 	delete(lastAppMsgID, chat)
 	lastAppMu.Unlock()
-	forgetDual(chat) // pair ids only; use closeDualPair when deletes needed
+	// Dual pair requires closeDualPair (deletes messages). Do not strip dual ids here
+	// when dual is on — callers must closeDualPair first (/start, m:menu).
+	if !dualEnabled() {
+		forgetDual(chat)
+	}
 	saveWidgetUIStore()
 }
 

@@ -539,6 +539,12 @@ func handleMessage(token string, m *message, admin int64) {
 				infoCD, err1 := buildInfoData("home")
 				navCD, err2 := buildAppHome()
 				if err1 == nil && err2 == nil {
+					if c, e := clipWidgetChatData(infoCD); e == nil {
+						infoCD = c
+					}
+					if c, e := clipWidgetChatData(navCD); e == nil {
+						navCD = c
+					}
 					err := openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTML(), navCD, infoShellForScreen("home"), shellHub)
 					if uid > 0 {
 						_ = deleteMessage(token, chat, uid)
