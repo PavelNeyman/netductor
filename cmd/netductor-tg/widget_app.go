@@ -588,28 +588,54 @@ func buildAppFleetHub() (string, error) {
 		upd = d.LatestRelease
 	}
 	on := 0
-	for _, s := range d.Secondaries {
+	var lines []string
+	for i, s := range d.Secondaries {
 		if s.Online {
 			on++
 		}
+		if i >= 8 {
+			continue
+		}
+		name := s.Name
+		if name == "" {
+			name = s.ID
+		}
+		st := "off"
+		if s.Online {
+			st = "on"
+		}
+		ver := s.Version
+		if ver == "" {
+			ver = "—"
+		}
+		lines = append(lines, fmt.Sprintf("%s %s %s", name, ver, st))
 	}
 	rows := [][2]string{
 		{appTitle("primary", "primary"), d.PrimaryVersion},
 		{appTitle("update", "обновление"), upd},
 		{appTitle("secondaries", "secondary"), fmt.Sprintf("%d/%d on", on, len(d.Secondaries))},
 	}
-	return appMarshal(appState{
+	st := appState{
 		S: "fleet", T: appTitle("Fleet", "Флот"), Rows: rows,
 		Nav: []string{"nodes", "updates", "routers", "sites", "secondary", "addons", "secops"},
-	})
+	}
+	if len(lines) > 0 {
+		st.Lines = strings.Join(lines, "\n")
+	}
+	return appMarshal(st)
 }
 
 func buildAppToolsHub() (string, error) {
 	// Classic Tools = Day2Groups (edge/media/data/adv) + Git/Updates/Logs/SSH keys rows.
+	d := buildStatusWidgetData()
 	return appMarshal(appState{
 		S: "tools", T: appTitle("Tools", "Инструменты"),
-		B: appTitle("Edge · Media · Data · Advanced", "Edge · Медиа · Данные · Ещё"),
-		H: appTitle("no Status/Users/Fleet duplicates", "без дублей главных хабов"),
+		H: appTitle("pick group below", "выберите группу ниже"),
+		Rows: [][2]string{
+			{appTitle("version", "версия"), d.Ver},
+			{appTitle("host", "хост"), d.Host},
+			{appTitle("services", "сервисы"), d.Svc},
+		},
 		Nav: []string{"edge", "media", "data", "adv", "updates", "versions", "logs", "ssh", "sshkeys", "git", "presets", "mtls"},
 	})
 }
@@ -1152,7 +1178,8 @@ func buildAppScreen(screen string) (string, error) {
 	case "updates":
 		return buildAppUpdates("")
 	case "versions":
-		return appFromLegacyWidget("versions", "Versions", "Версии", versionsWidgetChatDataJSON)
+		// Same hub as classic m:updates / m:versions (select + apply).
+		return buildAppUpdates("")
 	case "secondary":
 		return appFromLegacyWidget("secondary", "Secondary", "Secondary", secondaryWidgetChatDataJSON)
 	case "probes":

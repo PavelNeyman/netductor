@@ -340,6 +340,8 @@ func parseWidgetAct(data string) (screen, act string) {
 		data == "gsync" || data == "gship" || data == "eg_gr" || data == "eg_rv" ||
 		data == "el_on" || data == "el_off" ||
 		strings.HasPrefix(data, "rc:") || strings.HasPrefix(data, "p:") || strings.HasPrefix(data, "ps:") || strings.HasPrefix(data, "us:") ||
+		data == "vt_p" || data == "vt_s" || data == "v_all" || data == "v_none" || data == "v_apply" || data == "v_ref" ||
+		data == "y_fmt" || data == "pd_net" || data == "pd_mode" || data == "pd_save" ||
 		strings.HasPrefix(data, "g:") || strings.HasPrefix(data, "o:") || strings.HasPrefix(data, "L:") || strings.HasPrefix(data, "sg:") {
 		return "app", data
 	}
