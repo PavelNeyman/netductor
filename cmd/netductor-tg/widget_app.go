@@ -4,23 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/fleet"
-	"github.com/PavelNeyman/netductor/internal/metrics"
-	"github.com/PavelNeyman/netductor/internal/incident"
 	gitstore "github.com/PavelNeyman/netductor/internal/git"
+	"github.com/PavelNeyman/netductor/internal/incident"
+	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/sites"
-	"github.com/PavelNeyman/netductor/internal/vpn"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
+	"github.com/PavelNeyman/netductor/internal/vpn"
 )
 
 // SPA menu with parity to classic hubs (Status / Users / Fleet / Tools / Operator).
@@ -29,13 +29,14 @@ import (
 // SPA interactive state is per chat_id (same keying as dualPair — AI-RULES §1.1).
 // appBindChat must run before build/handle for that chat.
 type appSession struct {
-	Screen       string
-	ListIDs      []string
-	Focus        string // user name or node id for card actions
-	RebootTarget string
-	BackupName   string
-	Compose      string
-	ComposeMode  string // quota|rename|add
+	Screen        string
+	ListIDs       []string
+	Focus         string // user name or node id for card actions
+	ConfirmTarget string // bound at confirm prompt; y_* must use this, not Focus
+	RebootTarget  string
+	BackupName    string
+	Compose       string
+	ComposeMode   string // quota|rename|add
 }
 
 var (
@@ -89,6 +90,16 @@ func appSetFocus(v string) {
 	appMu.Lock()
 	defer appMu.Unlock()
 	appSessUnlocked().Focus = v
+}
+func appGetConfirmTarget() string {
+	appMu.Lock()
+	defer appMu.Unlock()
+	return appSessUnlocked().ConfirmTarget
+}
+func appSetConfirmTarget(v string) {
+	appMu.Lock()
+	defer appMu.Unlock()
+	appSessUnlocked().ConfirmTarget = v
 }
 func appGetListIDs() []string {
 	appMu.Lock()
@@ -295,7 +306,6 @@ func appListFromItems(screen, titleEN, titleRU string, items []listWidgetItem) (
 	return appMarshal(st)
 }
 
-
 func parseCPUMemPct(res string) (cpu, mem int) {
 	cpu, mem = -1, -1
 	res = strings.ReplaceAll(res, "%", "")
@@ -448,7 +458,6 @@ func formatMapLines(m map[string]any, max int) string {
 func appLines(s string) string {
 	return widgetTruncate(formatCmdOut(s), 480)
 }
-
 
 func buildAppUpdates(seg string) (string, error) {
 	// Parity with classic m:updates → Versions hub (primary/secondary select + apply).
@@ -643,7 +652,7 @@ func buildAppToolsHub() (string, error) {
 func buildAppEdgeHub() (string, error) {
 	return appMarshal(appState{
 		S: "edge", T: appTitle("Edge", "Edge"),
-		B: appTitle("routers · sites · pending", "роутеры · сайты · pending"),
+		B:   appTitle("routers · sites · pending", "роутеры · сайты · pending"),
 		Nav: []string{"routers", "sites", "pending", "edgeguest", "edgeluci", "edgestor", "edgepol", "edgetpl", "edgelife", "loc"},
 	})
 }
@@ -651,7 +660,7 @@ func buildAppEdgeHub() (string, error) {
 func buildAppMediaHub() (string, error) {
 	return appMarshal(appState{
 		S: "media", T: appTitle("Media", "Медиа"),
-		B: appTitle("lampac · canary", "lampac · canary"),
+		B:   appTitle("lampac · canary", "lampac · canary"),
 		Nav: []string{"lampac", "canary", "nvr", "aptguard"},
 	})
 }
@@ -659,7 +668,7 @@ func buildAppMediaHub() (string, error) {
 func buildAppDataHub() (string, error) {
 	return appMarshal(appState{
 		S: "data", T: appTitle("Data", "Данные"),
-		B: appTitle("backup · logs", "бэкапы · логи"),
+		B:   appTitle("backup · logs", "бэкапы · логи"),
 		Nav: []string{"backup", "logs", "dns"},
 	})
 }
@@ -667,7 +676,7 @@ func buildAppDataHub() (string, error) {
 func buildAppAdvHub() (string, error) {
 	return appMarshal(appState{
 		S: "adv", T: appTitle("Advanced", "Ещё"),
-		B: appTitle("probes · stack", "probes · стек"),
+		B:   appTitle("probes · stack", "probes · стек"),
 		Nav: []string{"probes", "stack", "doctor", "certs", "fw", "cleanup"},
 	})
 }
@@ -680,7 +689,7 @@ func buildAppLogs() (string, error) {
 	return appMarshal(appState{
 		S: "logs", T: appTitle("Logs", "Логи"),
 		Lines: widgetTruncate(strings.TrimSpace(out), 500),
-		H: appTitle("refresh for latest", "обновите для свежих"),
+		H:     appTitle("refresh for latest", "обновите для свежих"),
 	})
 }
 
@@ -693,7 +702,6 @@ func buildAppStack() (string, error) {
 		H:     appTitle("heal · rollback · watchdog", "heal · откат · watchdog"),
 	})
 }
-
 
 func buildAppRebootPick() (string, error) {
 	var lines []string
@@ -745,7 +753,6 @@ func buildAppRebootChallenge(target, display string) (string, error) {
 	})
 }
 
-
 func buildAppGit() (string, error) {
 	list, err := gitstore.LoadProjects()
 	if err != nil {
@@ -765,7 +772,7 @@ func buildAppGit() (string, error) {
 	appMu.Unlock()
 	st := appState{
 		S: "git", T: "Git",
-		H: appTitle("# card · sync-all / ship via acts on card", "# карточка · sync/ship"),
+		H:    appTitle("# card · sync-all / ship via acts on card", "# карточка · sync/ship"),
 		Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig",
 	}
 	if len(lines) == 0 {
@@ -776,7 +783,6 @@ func buildAppGit() (string, error) {
 	}
 	return appMarshal(st)
 }
-
 
 func buildAppAlerts() (string, error) {
 	st := notify.GetAlertsRoutingStatus()
@@ -854,7 +860,6 @@ func buildAppEdgeLuci() (string, error) {
 	})
 }
 
-
 func buildAppIncident() (string, error) {
 	ev := incident.ListEvents(20)
 	var lines []string
@@ -887,7 +892,6 @@ func buildAppHelp() (string, error) {
 		Lines: widgetTruncate(h, 500),
 	})
 }
-
 
 func buildAppOperatorHub() (string, error) {
 	// Classic operatorHub: session, alerts, sessions, audit, stack, svc paths, admin, toggles, vpn refresh.
@@ -1039,7 +1043,7 @@ func buildAppNodeCard(id string) (string, error) {
 func buildAppUsersHub() (string, error) {
 	return appMarshal(appState{
 		S: "users", T: appTitle("Users", "Пользователи"),
-		B: appTitle("VPN users · device profiles", "VPN пользователи · устройства"),
+		B:    appTitle("VPN users · device profiles", "VPN пользователи · устройства"),
 		Nav:  []string{"ulist", "devices"},
 		Acts: "add",
 		H:    appTitle("list · devices · add (reply with name)", "список · устройства · добавить (имя сообщением)"),
@@ -1307,7 +1311,6 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 	}
 
-	
 	// Versions/Updates selection (parity with classic m:ver:*)
 	switch act {
 	case "vt_p":
@@ -1400,7 +1403,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		return true
 	}
 
-// segment switch (updates hub etc.)
+	// segment switch (updates hub etc.)
 	if strings.HasPrefix(act, "sg:") {
 		seg := strings.TrimPrefix(act, "sg:")
 		appMu.Lock()
@@ -1543,9 +1546,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "git", T: id,
-				B: appTitle("project actions", "действия проекта"),
+				B:    appTitle("project actions", "действия проекта"),
 				Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig",
-				H: id,
+				H:    id,
 			})
 		case "alerts":
 			appMu.Lock()
@@ -1555,7 +1558,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			_ = notify.SetAlertsChatID(id)
 			cd, err = appMarshal(appState{
 				S: "alerts", T: appTitle("Alerts", "Алерты"),
-				B: appTitle("bound to", "привязано") + " " + id,
+				B:    appTitle("bound to", "привязано") + " " + id,
 				Acts: "al_test,al_clr",
 			})
 		case "edgeguest":
@@ -1564,7 +1567,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "edgeguest", T: id,
-				B: appTitle("guest device", "guest устройство"),
+				B:    appTitle("guest device", "guest устройство"),
 				Acts: "eg_gr,eg_rv,eg_facts,eg_code",
 			})
 		case "edgestor":
@@ -1574,7 +1577,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "edgestor", T: id,
 				Acts: "es_bak,es_rst,es_list,es_mute,es_fmt",
-				H: id,
+				H:    id,
 			})
 		case "edgetpl":
 			appMu.Lock()
@@ -1601,8 +1604,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "loc", T: id,
 				Lines: strings.Join(lines, "\n"),
-				Acts: "room_add",
-				H: id,
+				Acts:  "room_add",
+				H:     id,
 			})
 		case "canary":
 			appMu.Lock()
@@ -1617,7 +1620,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "gjobs", T: id,
 				Acts: "gpause,gresume,grm,glog",
-				H: id,
+				H:    id,
 			})
 		default:
 			cd, err = buildAppScreen(screen)
@@ -1662,8 +1665,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: "operator", T: appTitle("Operator", "Оператор"),
 			Lines: appLines(out),
-			Nav:  []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
-			Acts: "api_tg,usp_tg,vpnref",
+			Nav:   []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
+			Acts:  "api_tg,usp_tg,vpnref",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1676,8 +1679,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appTitle("Send soft limit in GiB (number, 0 = unlimited) for ", "Пришлите лимит GiB (число, 0 = ∞) для ")+"<code>"+esc(focus)+"</code>:")
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: focus,
-			B: appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
-			H: appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
+			B:    appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
+			H:    appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
 			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
@@ -1707,8 +1710,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		beginTextInput(token, q.Chat.ID, "wait_rename_new:"+focus, Tf("rename_new_hint", focus))
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: focus,
-			B: appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
-			H: appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
+			B:    appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
+			H:    appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
 			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
@@ -1721,8 +1724,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		beginTextInput(token, q.Chat.ID, "wait_vpn_add_name", T("add_prompt"))
 		cd, _ := appMarshal(appState{
 			S: "users", T: appTitle("Users", "Пользователи"),
-			B: appTitle("waiting for name in chat…", "ждём имя в чате…"),
-			H: appTitle("message will be deleted after add", "сообщение удалится после добавления"),
+			B:   appTitle("waiting for name in chat…", "ждём имя в чате…"),
+			H:   appTitle("message will be deleted after add", "сообщение удалится после добавления"),
 			Nav: []string{"ulist", "devices"}, Acts: "add",
 		})
 		appPushState(token, q, cd)
@@ -1795,7 +1798,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	case "rbk":
 		cd, _ := appMarshal(appState{
 			S: "stack", T: appTitle("Rollback?", "Откат?"),
-			B: appTitle("restore last-good stack", "восстановить last-good"),
+			B:    appTitle("restore last-good stack", "восстановить last-good"),
 			Acts: "y_rbk",
 		})
 		appPushState(token, q, cd)
@@ -1808,6 +1811,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	case "y_rst":
 		appMu.Lock()
 		name := appSessUnlocked().BackupName
+		appSessUnlocked().BackupName = "" // one-shot; prevent TOCTOU replay
 		appMu.Unlock()
 		if name == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nobak"}`)
@@ -1927,7 +1931,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}(token, q.Chat.ID)
 		cd, _ := appMarshal(appState{
 			S: "incident", T: appTitle("Incident", "Инцидент"),
-			B: appTitle("collecting 1h pack…", "собираю пакет 1ч…"),
+			B:    appTitle("collecting 1h pack…", "собираю пакет 1ч…"),
 			Acts: "inc1h",
 		})
 		appPushState(token, q, cd)
@@ -1998,8 +2002,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			Rows:  [][2]string{{"mode", mode}},
 			Lines: link,
-			H:    appTitle("link / sub URI", "ссылка / sub"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
+			H:     appTitle("link / sub URI", "ссылка / sub"),
+			Acts:  "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -2008,6 +2012,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
+		appSetConfirmTarget(focus)
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: appTitle("Revoke?", "Удалить?"),
 			B:    focus,
@@ -2017,13 +2022,15 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appPushState(token, q, cd)
 		return true
 	case "y_rv":
-		if focus == "" {
+		target := appGetConfirmTarget()
+		if target == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		out := runVPN("revoke", focus)
+		out := runVPN("revoke", target)
 		appMu.Lock()
 		appSessUnlocked().Focus = ""
+		appSessUnlocked().ConfirmTarget = ""
 		appMu.Unlock()
 		cd, _ := appMarshal(appState{
 			S: "users", T: appTitle("Users", "Пользователи"),
@@ -2062,13 +2069,23 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appPushState(token, q, cd)
 		return true
 	case "y_rb":
-		// legacy simple path unused; kept for safety
-		if focus == "" {
+		// legacy simple path; bind target at confirm time (rb already sets RebootTarget via challenge)
+		appMu.Lock()
+		target := appSessUnlocked().ConfirmTarget
+		if target == "" {
+			target = appSessUnlocked().RebootTarget
+		}
+		if target == "" {
+			target = appSessUnlocked().Focus
+		}
+		appSessUnlocked().ConfirmTarget = ""
+		appMu.Unlock()
+		if target == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		out := enqueueNodeCmd(focus, "reboot")
-		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: appLines(out), Acts: "up,rb,jn"})
+		out := enqueueNodeCmd(target, "reboot")
+		cd, _ := appMarshal(appState{S: "ncard", T: target, Lines: appLines(out), Acts: "up,rb,jn"})
 		appPushState(token, q, cd)
 		return true
 	case "jn":
@@ -2093,7 +2110,6 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appPushState(token, q, cd)
 		return true
 	}
-
 
 	// on-screen pad (widget profile has no text input)
 	if strings.HasPrefix(act, "p:") {
@@ -2175,7 +2191,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		cd, _ := appMarshal(appState{
 			S: screen, T: title, Pad: true, Draft: show,
-			H: appTitle("pad · OK to apply", "панель · OK"),
+			H:    appTitle("pad · OK to apply", "панель · OK"),
 			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
 		})
 		appPushState(token, q, cd)

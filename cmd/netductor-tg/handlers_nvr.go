@@ -177,11 +177,12 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		}(chat, msgID, did, cmdID)
 	case strings.HasPrefix(data, "m:nvr:add:"):
 		idxStr := strings.TrimPrefix(data, "m:nvr:add:")
-		if chatState[chat] != "nvr_lease_cache" || chatExtra[chat] == "" {
+		st, ex := getState(chat)
+		if st != "nvr_lease_cache" || ex == "" {
 			reply(token, chat, msgID, T("nvr_lease_expired"), nvrSitesKeyboard())
 			return
 		}
-		parts := strings.SplitN(chatExtra[chat], "\n", 2)
+		parts := strings.SplitN(ex, "\n", 2)
 		if len(parts) != 2 {
 			reply(token, chat, msgID, T("nvr_bad_cache"), nvrSubKeyboard())
 			return
@@ -306,12 +307,13 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		action := parts[2]
 		var idx int
 		fmt.Sscanf(parts[3], "%d", &idx)
-		if chatState[chat] != "nvr_cam_cache" || chatExtra[chat] == "" {
+		st, ex := getState(chat)
+		if st != "nvr_cam_cache" || ex == "" {
 			reply(token, chat, msgID, T("nvr_open_cams"), nvrSubKeyboard())
 			return
 		}
 		var cams []nvr.Camera
-		if json.Unmarshal([]byte(chatExtra[chat]), &cams) != nil || idx < 0 || idx >= len(cams) {
+		if json.Unmarshal([]byte(ex), &cams) != nil || idx < 0 || idx >= len(cams) {
 			reply(token, chat, msgID, T("nvr_cache"), nvrSubKeyboard())
 			return
 		}
@@ -391,12 +393,13 @@ func handleNVRCB(token string, chat int64, msgID int, data string) {
 		var idx int
 		fmt.Sscanf(parts[3], "%d", &idx)
 		dir := strings.Join(parts[4:], ":")
-		if chatState[chat] != "nvr_cam_cache" || chatExtra[chat] == "" {
+		st, ex := getState(chat)
+		if st != "nvr_cam_cache" || ex == "" {
 			reply(token, chat, msgID, T("nvr_open_cams"), nvrSubKeyboard())
 			return
 		}
 		var cams []nvr.Camera
-		if json.Unmarshal([]byte(chatExtra[chat]), &cams) != nil || idx < 0 || idx >= len(cams) {
+		if json.Unmarshal([]byte(ex), &cams) != nil || idx < 0 || idx >= len(cams) {
 			reply(token, chat, msgID, T("nvr_cache"), nvrSubKeyboard())
 			return
 		}
@@ -514,10 +517,10 @@ func trunc(s string, n int) string {
 }
 
 func handleNVRMessage(token string, chat int64, text string) bool {
-	if chatState[chat] != "wait_nvr_pass" {
+	st, draftJSON := getState(chat)
+	if st != "wait_nvr_pass" {
 		return false
 	}
-	draftJSON := chatExtra[chat]
 	setState(chat, "", "")
 	var draft map[string]string
 	if json.Unmarshal([]byte(draftJSON), &draft) != nil {

@@ -228,3 +228,26 @@ If stats API unavailable: ship **aggregate** C1–C8 only; document C11 as “be
 - `internal/metrics` (history.jsonl pattern)  
 - `docs/AI-RULES-TG-WIDGETS.md`, `docs/PLAN-TG-DUAL-WIDGET.md`  
 - Incident: speed collapse with green uplink → T1 rates required  
+
+
+## Defaults (starting thresholds)
+
+Agreed 2026-11-12 for lab links (~40–50 ms S↔P, observed collapse ~10↓/4↑ Mbps):
+
+```text
+sample_interval: 20s
+down_samples: 2
+rtt_warn_ms: 150
+rtt_crit_ms: 300
+rtt_ratio_warn: 3.0
+rate_ratio_warn: 0.2
+rate_ratio_crit: 0.1
+rate_abs_warn_mbps: 15   # only if 1h p50 > 50
+rate_abs_crit_mbps: 8
+bulk_interval: 45m
+bulk_warn_mbps: 20
+bulk_crit_mbps: 8
+alert_cooldown: 5m
+```
+
+Config target: `/etc/netductor/channel-alerts.json` (T3). Constants live in `internal/channels` until then.

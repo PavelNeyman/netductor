@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-
 )
 
 // Dual info+nav pair (NETDUCTOR_TG_DUAL=1). Rules: docs/AI-RULES-TG-WIDGETS.md
@@ -248,7 +247,6 @@ func infoShellForScreen(screen string) string {
 	}
 }
 
-
 // dualSplitChatData splits a full SPA appState JSON into nav (controls) + info (content).
 func dualSplitChatData(full string) (navCD, infoCD string) {
 	var st appState
@@ -352,10 +350,11 @@ h1{margin:0 0 6px;font-size:15px}
 #h{margin-top:6px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}
 button{border:0;border-radius:8px;padding:8px 12px;margin-top:6px;background:var(--tg-theme-button-color,#2a6df4);color:#fff;font-weight:600}`
 	boot := `(function(){var W=window.TelegramWidget;
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function paint(d){if(!d)return;var t=document.getElementById("t"),b=document.getElementById("b"),h=document.getElementById("h");
 if(t)t.textContent=d.t||"Status";if(h)h.textContent=d.h||"";
 if(b){var html="";if(d.rows){for(var i=0;i<d.rows.length;i++){var r=d.rows[i];
-html+='<div class="row"><span class="k">'+(r[0]||"")+'</span><span class="v">'+(r[1]||"—")+'</span></div>';
+html+='<div class="row"><span class="k">'+esc(r[0]||"")+'</span><span class="v">'+esc(r[1]||"—")+'</span></div>';
 if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){var p=Math.max(0,Math.min(100,+d.pct[i]||0));html+='<div class="bar"><i style="width:'+p+'%"></i></div>';}}
 }if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px"></canvas>';
 if(d.lines)html+='<pre style="white-space:pre-wrap;font:12px system-ui"></pre>';

@@ -268,6 +268,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		if focus == "" {
 			return true
 		}
+		appSetConfirmTarget(focus)
 		cd, _ := appMarshal(appState{
 			S: "edgestor", T: appTitle("Format+restore?", "Format+restore?"),
 			B: focus, Acts: "y_fmt",
@@ -276,12 +277,14 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		appPushState(token, q, cd)
 		return true
 	case "y_fmt":
-		if focus == "" {
+		target := appGetConfirmTarget()
+		if target == "" {
 			return true
 		}
-		_ = edge.EnqueueCmd(focus, "storage_init_usb", "format=yes")
-		cid := edge.EnqueueCmd(focus, "storage_restore_remote", "")
-		cd, _ := appMarshal(appState{S: "edgestor", T: focus, B: "fmt+restore " + cid, Acts: "es_bak,es_rst,es_list,es_mute,es_fmt"})
+		appSetConfirmTarget("")
+		_ = edge.EnqueueCmd(target, "storage_init_usb", "format=yes")
+		cid := edge.EnqueueCmd(target, "storage_restore_remote", "")
+		cd, _ := appMarshal(appState{S: "edgestor", T: target, B: "fmt+restore " + cid, Acts: "es_bak,es_rst,es_list,es_mute,es_fmt"})
 		appPushState(token, q, cd)
 		return true
 	case "et_fb":

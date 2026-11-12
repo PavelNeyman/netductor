@@ -1,3 +1,11 @@
+## 0.9.712
+
+- TG dual info-shell: escape row labels/values before innerHTML (XSS).
+- Destructive confirms (revoke / USB format / legacy reboot) bind target at prompt time via ConfirmTarget; backup restore is one-shot (clears BackupName).
+- chatState/chatExtra guarded by mutex; NVR handlers use getState (concurrent map crash fix).
+- Channel T1: `channel sample` + `channel history` with jsonl under state/metrics; iface rate on default route + secondary face RTT samples.
+- PLAN-CHANNEL-TELEMETRY: starting alert threshold defaults.
+
 ## 0.9.695
 
 - svc-paths Status/doctor: prefer active peer slot ifaces (fixes WARN SP/PS after A removed, B on slot1).

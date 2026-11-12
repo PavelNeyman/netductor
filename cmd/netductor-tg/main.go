@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -671,7 +672,6 @@ func sendPhotoFile(token string, chat int64, path, caption string, kb map[string
 	return nil
 }
 
-
 func sendPhotoFileID(token string, chat int64, path, caption string, kb map[string]any) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -891,10 +891,15 @@ func helpText() string {
 	return T("help_title") + "\n\n" + T("help_body")
 }
 
-var chatState = map[int64]string{}
-var chatExtra = map[int64]string{}
+var (
+	chatStateMu sync.Mutex
+	chatState   = map[int64]string{}
+	chatExtra   = map[int64]string{}
+)
 
 func setState(chat int64, st, extra string) {
+	chatStateMu.Lock()
+	defer chatStateMu.Unlock()
 	if st == "" {
 		delete(chatState, chat)
 		delete(chatExtra, chat)
@@ -905,6 +910,8 @@ func setState(chat int64, st, extra string) {
 }
 
 func getState(chat int64) (string, string) {
+	chatStateMu.Lock()
+	defer chatStateMu.Unlock()
 	return chatState[chat], chatExtra[chat]
 }
 
