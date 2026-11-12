@@ -24,6 +24,9 @@ type SecondaryPath struct {
 	UplinkOK        bool    `json:"uplink_ok"` // agent: primary:443 reachable from secondary
 	TCP443OK        bool    `json:"tcp443_ok"` // primary → secondary public:443 (face only; uplink is data-plane)
 	TCP443ms        float64 `json:"tcp443_ms,omitempty"`
+	UplinkRTTMs     float64 `json:"uplink_rtt_ms,omitempty"` // T2: agent-reported S→P :443
+	EgressRxBps     float64 `json:"egress_rx_bps,omitempty"` // T2: agent default-route rates
+	EgressTxBps     float64 `json:"egress_tx_bps,omitempty"`
 	Mismatch30m     int     `json:"mismatch_30m"` // as reported by agent heartbeat
 }
 
@@ -56,6 +59,8 @@ func Collect() Report {
 		sp := SecondaryPath{
 			ID: d.ID, Name: d.Name, PublicIP: d.PublicIP,
 			SingBoxOK: d.SingBoxOK, UplinkOK: d.UplinkOK,
+			UplinkRTTMs: d.UplinkRTTMs,
+			EgressRxBps: d.EgressRxBps, EgressTxBps: d.EgressTxBps,
 			Mismatch30m: d.MismatchTotal,
 		}
 		if sp.Name == "" {
@@ -135,8 +140,8 @@ func FormatText(r Report) string {
 		return b.String()
 	}
 	for _, s := range r.Secondaries {
-		b.WriteString(fmt.Sprintf("  %s ip=%s online=%v hb_age=%ds sb=%v uplink=%v tcp443=%v (%.0fms) mismatch30m=%d\n",
-			s.Name, s.PublicIP, s.Online, s.HeartbeatAgeSec, s.SingBoxOK, s.UplinkOK, s.TCP443OK, s.TCP443ms, s.Mismatch30m))
+		b.WriteString(fmt.Sprintf("  %s ip=%s online=%v hb_age=%ds sb=%v uplink=%v up_rtt=%.0fms tcp443=%v (%.0fms) egress_rx=%.0f egress_tx=%.0f mismatch30m=%d\n",
+			s.Name, s.PublicIP, s.Online, s.HeartbeatAgeSec, s.SingBoxOK, s.UplinkOK, s.UplinkRTTMs, s.TCP443OK, s.TCP443ms, s.EgressRxBps, s.EgressTxBps, s.Mismatch30m))
 	}
 	b.WriteString(FormatPathE2E(r.Path))
 	return b.String()

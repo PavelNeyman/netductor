@@ -1,3 +1,9 @@
+## 0.9.715
+
+- Channel T2: secondary agent reports uplink RTT (S→P :443) and default-route egress rates in heartbeat.
+- Primary stores UplinkRTTMs / EgressRxBps / EgressTxBps; channel status + sample include C2 RTT from agent and C8 rates.
+- Channel T4: GET /api/channel, /api/channel/history, /api/channel/sample (session).
+
 ## 0.9.714
 
 - TG M2: v_apply debounce 2m same tag; schedule under CommandContext 30s.

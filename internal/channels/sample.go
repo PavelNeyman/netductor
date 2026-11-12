@@ -59,25 +59,30 @@ func SamplePrimary() SamplePoint {
 		if peer == "" {
 			peer = d.Name
 		}
-		// C2: uplink boolean from agent + face RTT
+		// C2: uplink boolean from agent + agent-measured S→P RTT (T2)
 		c2 := ChannelSample{ID: "C2", Peer: peer, OK: d.UplinkOK && secondary.Online(d, 3*time.Minute)}
+		if d.UplinkRTTMs > 0 {
+			c2.RTTMs = d.UplinkRTTMs
+		}
+		if !d.UplinkOK {
+			c2.Note = "uplink_down"
+		}
+		pt.Channels = append(pt.Channels, c2)
 		if ip := strings.TrimSpace(d.PublicIP); ip != "" {
 			ok, ms := tcpProbe(ip, 443, 3*time.Second)
-			c2.RTTMs = ms
-			if !ok {
-				c2.Note = "face443_fail"
-			}
-			// face alone is C3-ish from primary view of S
 			c3 := ChannelSample{ID: "C3", Peer: peer, OK: ok, RTTMs: ms}
 			if !ok {
 				c3.Note = "tcp443_fail"
 			}
 			pt.Channels = append(pt.Channels, c3)
 		}
-		if !d.UplinkOK {
-			c2.Note = "uplink_down"
+		// C8: secondary egress rates from agent heartbeat
+		if d.EgressRxBps > 0 || d.EgressTxBps > 0 {
+			pt.Channels = append(pt.Channels, ChannelSample{
+				ID: "C8", Peer: peer, OK: true,
+				RxBps: d.EgressRxBps, TxBps: d.EgressTxBps,
+			})
 		}
-		pt.Channels = append(pt.Channels, c2)
 	}
 	// Host default-route iface rates (C7 egress baseline)
 	if rx, tx, iface, ok := defaultRouteRates(); ok {

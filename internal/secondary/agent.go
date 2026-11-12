@@ -20,6 +20,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"bufio"
+	"strconv"
+	"sync"
+
 	"github.com/PavelNeyman/netductor/internal/aptguard"
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/mtls"
@@ -48,21 +52,104 @@ func agentHTTPClient() *http.Client {
 
 var uplinkFailStreak int
 
-func probePrimaryUplink(coreBase string) bool {
+func probePrimaryUplink(coreBase string) (ok bool, rttMs float64) {
 	hostport := strings.TrimPrefix(strings.TrimPrefix(coreBase, "https://"), "http://")
 	host := hostport
 	if i := strings.LastIndex(hostport, ":"); i > 0 {
 		host = hostport[:i]
 	}
 	if host == "" {
-		return false
+		return false, 0
 	}
+	t0 := time.Now()
 	c, err := net.DialTimeout("tcp", net.JoinHostPort(host, "443"), 5*time.Second)
+	rttMs = float64(time.Since(t0).Milliseconds())
 	if err != nil {
-		return false
+		return false, rttMs
 	}
 	_ = c.Close()
-	return true
+	return true, rttMs
+}
+
+func agentDefaultRouteIface() string {
+	b, err := os.ReadFile("/proc/net/route")
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 2 && f[1] == "00000000" {
+			return f[0]
+		}
+	}
+	return ""
+}
+
+var (
+	agentIfaceLastMu sync.Mutex
+	agentIfaceLast   = map[string]struct {
+		rx, tx uint64
+		at     time.Time
+	}{}
+)
+
+func agentIfaceRateBps(name string) (rxBps, txBps float64) {
+	f, err := os.Open("/proc/net/dev")
+	if err != nil {
+		return 0, 0
+	}
+	defer f.Close()
+	var rx, tx uint64
+	found := false
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if !strings.Contains(line, name+":") {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) < 10 {
+			continue
+		}
+		rx, _ = strconv.ParseUint(parts[1], 10, 64)
+		tx, _ = strconv.ParseUint(parts[9], 10, 64)
+		found = true
+		break
+	}
+	if !found {
+		return 0, 0
+	}
+	now := time.Now()
+	agentIfaceLastMu.Lock()
+	defer agentIfaceLastMu.Unlock()
+	prev, had := agentIfaceLast[name]
+	agentIfaceLast[name] = struct {
+		rx, tx uint64
+		at     time.Time
+	}{rx, tx, now}
+	if !had || now.Sub(prev.at) < time.Second {
+		return 0, 0
+	}
+	dt := now.Sub(prev.at).Seconds()
+	if dt <= 0 {
+		return 0, 0
+	}
+	var drx, dtx float64
+	if rx >= prev.rx {
+		drx = float64(rx - prev.rx)
+	}
+	if tx >= prev.tx {
+		dtx = float64(tx - prev.tx)
+	}
+	return drx / dt * 8, dtx / dt * 8
+}
+
+func agentEgressRates() (rx, tx float64) {
+	iface := agentDefaultRouteIface()
+	if iface == "" {
+		return 0, 0
+	}
+	return agentIfaceRateBps(iface)
 }
 
 func AgentLoop(coreBase, token string, interval time.Duration) {
@@ -166,9 +253,13 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	}
 	cpu, memU, memT, load1 := sampleMetrics()
 	mm := vpn.CollectMismatch(30)
+	// T2 metrics: S→P face RTT (independent of SP/PS control path) + egress rates.
+	_, faceRTT := probePrimaryUplink(coreBase)
+	rxBps, txBps := agentEgressRates()
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
 		Version: version.Release, SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: *applied,
+		UplinkRTTMs: faceRTT, EgressRxBps: rxBps, EgressTxBps: txBps,
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: *lastDone, CmdOK: *lastOK, CmdLog: *lastLog,
 		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
@@ -329,10 +420,12 @@ func applyHostname(hn string) error {
 }
 
 func reportCmdDone(client *http.Client, coreBase, token, cmd string, ok bool, log, ip, pub, sid, sni string, sbOK bool, applied int, cpu float64, memU, memT int64, load1 float64) error {
-	upOK := probePrimaryUplink(coreBase)
+	upOK, upRTT := probePrimaryUplink(coreBase)
+	rxBps, txBps := agentEgressRates()
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
 		Version: version.Release, SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: applied,
+		UplinkRTTMs: upRTT, EgressRxBps: rxBps, EgressTxBps: txBps,
 		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: cmd, CmdOK: ok, CmdLog: log,
 	})

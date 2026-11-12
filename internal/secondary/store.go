@@ -33,6 +33,9 @@ type Device struct {
 	Version       string         `json:"version"`
 	SingBoxOK     bool           `json:"singbox_ok"`
 	UplinkOK      bool           `json:"uplink_ok"`
+	UplinkRTTMs   float64        `json:"uplink_rtt_ms,omitempty"` // T2: S→P :443 dial RTT
+	EgressRxBps   float64        `json:"egress_rx_bps,omitempty"` // T2: default-route iface rate
+	EgressTxBps   float64        `json:"egress_tx_bps,omitempty"`
 	ConfigVer     int            `json:"config_ver"`
 	CPUPercent    float64        `json:"cpu_percent"`
 	MemUsedMB     int64          `json:"mem_used_mb"`
@@ -59,15 +62,14 @@ type registry struct {
 }
 
 var (
-	mu sync.Mutex
-	ErrUnauthorized = errors.New("unauthorized")
+	mu                sync.Mutex
+	ErrUnauthorized   = errors.New("unauthorized")
 	ErrInvalidCommand = errors.New("secondary command is not allowed")
 )
 
 func path() string {
 	return filepath.Join(paths.StateDir(), "secondary", "devices.json")
 }
-
 
 // acquireRegistryLock serializes registry transactions across Netductor processes.
 // The lock file lives beside devices.json and is independent of the registry inode,
@@ -316,6 +318,9 @@ type HeartbeatIn struct {
 	Version       string         `json:"version"`
 	SingBoxOK     bool           `json:"singbox_ok"`
 	UplinkOK      bool           `json:"uplink_ok"`
+	UplinkRTTMs   float64        `json:"uplink_rtt_ms,omitempty"`
+	EgressRxBps   float64        `json:"egress_rx_bps,omitempty"`
+	EgressTxBps   float64        `json:"egress_tx_bps,omitempty"`
 	ConfigVer     int            `json:"config_ver"`
 	CPUPercent    float64        `json:"cpu_percent"`
 	MemUsedMB     int64          `json:"mem_used_mb"`
@@ -368,6 +373,9 @@ func HeartbeatWithTLSIdentity(token string, in HeartbeatIn, tlsSerial string) (*
 		r.Devices[i].Version = in.Version
 		r.Devices[i].SingBoxOK = in.SingBoxOK
 		r.Devices[i].UplinkOK = in.UplinkOK
+		r.Devices[i].UplinkRTTMs = in.UplinkRTTMs
+		r.Devices[i].EgressRxBps = in.EgressRxBps
+		r.Devices[i].EgressTxBps = in.EgressTxBps
 		r.Devices[i].ConfigVer = in.ConfigVer
 		r.Devices[i].CPUPercent = in.CPUPercent
 		r.Devices[i].MemUsedMB = in.MemUsedMB
