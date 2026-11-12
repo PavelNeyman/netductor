@@ -205,12 +205,11 @@ func scrapeLocalUserTraffic() []UserTraffic {
 				}
 			}
 			if user == "" || user == "unknown" {
-				if h, ok := meta["host"].(string); ok && len(h) >= 36 {
-					// often UUID-shaped when name missing
-					user = strings.TrimSpace(h)
-					if uuid == "" {
-						uuid = user
-					}
+				if uuid != "" {
+					user = uuid
+				} else if sip, ok := meta["sourceIP"].(string); ok && strings.TrimSpace(sip) != "" {
+					// host is destination — do not use it as user identity
+					user = "client:" + strings.TrimSpace(sip)
 				}
 			}
 		}

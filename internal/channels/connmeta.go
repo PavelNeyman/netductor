@@ -9,7 +9,11 @@ import (
 
 var uuidRE = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
-// userFromClashMeta extracts display name + uuid from sing-box clash connection metadata.
+// userFromClashMeta extracts VPN user label from sing-box clash connection metadata.
+//
+// Important: metadata.host is the *destination* hostname (chatgpt.com, etc.), NOT the
+// VPN user. When sing-box omits metadata.user (common on some builds), fall back to
+// sourceIP so we aggregate per client, not per site.
 func userFromClashMeta(meta map[string]any) (user, uuid string) {
 	if meta == nil {
 		return "unknown", ""
@@ -26,21 +30,17 @@ func userFromClashMeta(meta map[string]any) (user, uuid string) {
 	}
 	user = get("user", "User")
 	uuid = get("uuid", "UUID", "uid")
-	if uuid == "" {
-		if h := get("host"); uuidRE.MatchString(h) {
-			uuid = h
-		}
+	if user != "" && user != "unknown" {
+		return user, uuid
 	}
-	if user == "" || user == "unknown" {
-		if uuid != "" {
-			user = uuid
-		} else if h := get("host"); h != "" {
-			user = h
-		} else {
-			user = "unknown"
-		}
+	if uuid != "" {
+		return uuid, uuid
 	}
-	return user, uuid
+	// Client identity when name is not exposed by clash API.
+	if sip := get("sourceIP", "source_ip", "src"); sip != "" {
+		return "client:" + sip, uuid
+	}
+	return "unknown", uuid
 }
 
 // resolveVPNUserName maps uuid or raw label to registry user name when possible.

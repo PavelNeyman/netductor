@@ -1,3 +1,7 @@
+## 0.9.719
+
+- C11: do not treat clash metadata.host as VPN user (it is destination). Fall back to client:sourceIP when user/uuid absent.
+
 ## 0.9.718
 
 - C11: resolve clash connection metadata to VPN registry names (user/uuid/host); secondary heartbeats carry UUID when name empty.
