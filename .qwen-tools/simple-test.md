@@ -1,3 +1,0 @@
-# Test
-
-Simple test file
