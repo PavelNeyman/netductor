@@ -285,30 +285,41 @@ func dualSplitChatData(full string) (navCD, infoCD string) {
 		nb = full
 	}
 	ib, err2 := appMarshal(info)
-	if err2 != nil {
-		// shrink lines until fit
-		for lim := 400; lim >= 80; lim -= 80 {
+	if err2 != nil || mustClip(ib) {
+		// shrink until chat_data fits (M6: previous 400→80 loop barely reduced Rows)
+		info.Spk = ""
+		for lim := 400; lim >= 40; lim -= 40 {
 			info.Lines = widgetTruncate(info.Lines, lim)
-			if len(info.Rows) > 4 {
-				info.Rows = info.Rows[:4]
+			for n := len(info.Rows); n >= 0; n-- {
+				tmp := info
+				if n < len(info.Rows) {
+					tmp.Rows = info.Rows[:n]
+				}
+				tmp.Pct = nil
+				if n < 2 {
+					tmp.Spk = ""
+				}
+				ib2, e := appMarshal(tmp)
+				if e == nil && !mustClip(ib2) {
+					ib, err2 = ib2, nil
+					info = tmp
+					break
+				}
 			}
-			ib, err2 = appMarshal(info)
-			if err2 == nil {
+			if err2 == nil && !mustClip(ib) {
 				break
 			}
 		}
-		if err2 != nil {
-			ib = `{"s":"info","t":"Status"}`
-		}
-	}
-	if _, err := clipWidgetChatData(ib); err != nil {
-		info.Lines = widgetTruncate(info.Lines, 200)
-		info.Spk = ""
-		if ib2, e := appMarshal(info); e == nil {
-			ib = ib2
+		if err2 != nil || mustClip(ib) {
+			ib = `{"s":"info","t":"Status","h":"trimmed"}`
 		}
 	}
 	return nb, ib
+}
+
+func mustClip(cd string) bool {
+	_, err := clipWidgetChatData(cd)
+	return err != nil
 }
 
 // buildInfoData — dual top pane: rows/lines/spark from the same screen as nav.

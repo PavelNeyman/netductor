@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Phase 0 foundation: HTML Widgets registry (Bot API 10.4).
@@ -89,30 +90,57 @@ func apiPostWidget(token, method string, payload any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := tgHTTP.Post(widgetAPIBase(token)+method, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
-	if err != nil {
-		return nil, err
-	}
-	var wr struct {
-		OK          bool   `json:"ok"`
-		Description string `json:"description"`
-	}
-	if json.Unmarshal(data, &wr) == nil && !wr.OK {
-		desc := wr.Description
-		if desc == "" {
-			desc = string(data)
+	var data []byte
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		resp, err := tgHTTP.Post(widgetAPIBase(token)+method, "application/json", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
 		}
-		return data, fmt.Errorf("telegram %s: %s", method, desc)
+		data, err = io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		var wr struct {
+			OK          bool   `json:"ok"`
+			Description string `json:"description"`
+			Parameters  struct {
+				RetryAfter int `json:"retry_after"`
+			} `json:"parameters"`
+		}
+		_ = json.Unmarshal(data, &wr)
+		rateLimited := resp.StatusCode == 429 || wr.Parameters.RetryAfter > 0 ||
+			strings.Contains(strings.ToLower(wr.Description), "too many requests") ||
+			strings.Contains(strings.ToLower(wr.Description), "retry after")
+		if rateLimited {
+			wait := wr.Parameters.RetryAfter
+			if wait <= 0 {
+				wait = 1 + attempt
+			}
+			if wait > 30 {
+				wait = 30
+			}
+			lastErr = fmt.Errorf("telegram %s: 429 retry_after=%d", method, wait)
+			time.Sleep(time.Duration(wait) * time.Second)
+			continue
+		}
+		if !wr.OK && (wr.Description != "" || strings.Contains(string(data), `"ok":false`)) {
+			desc := wr.Description
+			if desc == "" {
+				desc = string(data)
+			}
+			return data, fmt.Errorf("telegram %s: %s", method, desc)
+		}
+		if resp.StatusCode >= 300 {
+			return data, fmt.Errorf("telegram %s HTTP %d", method, resp.StatusCode)
+		}
+		return data, nil
 	}
-	if resp.StatusCode >= 300 {
-		return data, fmt.Errorf("telegram %s HTTP %d", method, resp.StatusCode)
+	if lastErr != nil {
+		return data, lastErr
 	}
-	return data, nil
+	return data, fmt.Errorf("telegram %s: retries exhausted", method)
 }
 
 func answerWidgetQuery(token, queryID, result string) {

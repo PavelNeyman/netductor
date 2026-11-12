@@ -1,3 +1,10 @@
+## 0.9.714
+
+- TG M2: v_apply debounce 2m same tag; schedule under CommandContext 30s.
+- TG M5: apiPostWidget retries on 429 with retry_after (cap 30s).
+- TG M6: dual info chat_data shrink rows aggressively until clip fits.
+- Channel T3: EvaluateSampleAlerts (RTT/rate) + SampleAndEvaluate; collect wires when NETDUCTOR_CHANNEL_SAMPLE=1.
+
 ## 0.9.713
 
 - Dual close: delete widget messages before forgetting pair IDs (no orphan "r").

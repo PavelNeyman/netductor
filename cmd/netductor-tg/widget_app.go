@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,6 +44,9 @@ var (
 	appMu         sync.Mutex
 	appActiveChat int64
 	appByChat     = map[int64]*appSession{}
+	vApplyMu      sync.Mutex
+	vApplyLastTag string
+	vApplyLastAt  time.Time
 )
 
 func appBindChat(chat int64) {
@@ -1384,9 +1388,27 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if !strings.HasPrefix(tag, "v") {
 			tag = "v" + tag
 		}
+		// M2: double-tap debounce — same tag within 2 minutes is a no-op.
+		vApplyMu.Lock()
+		if tag == vApplyLastTag && time.Since(vApplyLastAt) < 2*time.Minute {
+			vApplyMu.Unlock()
+			cd, _ := appMarshal(appState{
+				S: "updates", T: appTitle("Updates", "Обновления"),
+				B:     appTitle("already scheduled — wait", "уже запланировано — подождите"),
+				Lines: "tag " + tag, Acts: "v_ref,vt_p,vt_s",
+			})
+			appPushState(token, q, cd)
+			return true
+		}
+		vApplyLastTag = tag
+		vApplyLastAt = time.Now()
+		vApplyMu.Unlock()
 		var lines []string
 		if pri {
-			if err := exec.Command("/usr/local/bin/netductor", "stack", "schedule", tag).Run(); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			err := exec.CommandContext(ctx, "/usr/local/bin/netductor", "stack", "schedule", tag).Run()
+			cancel()
+			if err != nil {
 				lines = append(lines, "primary: schedule err "+err.Error())
 			} else {
 				lines = append(lines, "primary: scheduled "+tag)

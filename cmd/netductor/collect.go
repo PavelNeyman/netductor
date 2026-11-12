@@ -264,6 +264,12 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	}
 	if enabled("channel_health") {
 		ch := channels.Collect()
+		// T3: rate/RTT sample alerts (opt-in soak via NETDUCTOR_CHANNEL_SAMPLE=1)
+		if os.Getenv("NETDUCTOR_CHANNEL_SAMPLE") == "1" {
+			for _, a := range channels.SampleAndEvaluate() {
+				notify.AlertOnce(a.Key, a.Msg)
+			}
+		}
 		for _, s := range ch.Secondaries {
 			// Public :443 face-check (primary→secondary). Secondary signal only — not data-plane.
 			key := "channel:tcp443:" + s.ID
