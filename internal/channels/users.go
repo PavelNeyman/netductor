@@ -58,8 +58,9 @@ func CollectUsers() UsersReport {
 		sources = append(sources, src)
 		rep.Available = true
 		for _, ut := range d.UserTraffic {
+			name := resolveVPNUserName(ut.User, ut.UUID)
 			users = append(users, UserPath{
-				User: ut.User, UUID: ut.UUID,
+				User: name, UUID: ut.UUID,
 				UpBytes: ut.Up, DownBytes: ut.Down,
 				Source: src,
 			})
@@ -126,22 +127,16 @@ func scrapeLocalUsers() (users []UserPath, source string, ok bool) {
 					continue
 				}
 				meta, _ := m["metadata"].(map[string]any)
-				user := ""
-				if meta != nil {
-					if u, ok := meta["user"].(string); ok {
-						user = u
-					}
-				}
-				if user == "" {
-					user = "unknown"
-				}
+				rawUser, uuid := userFromClashMeta(meta)
+				user := resolveVPNUserName(rawUser, uuid)
 				up, _ := asInt64(m["upload"])
 				down, _ := asInt64(m["download"])
-				if p := byUser[user]; p != nil {
+				key := user
+				if p := byUser[key]; p != nil {
 					p.UpBytes += up
 					p.DownBytes += down
 				} else {
-					byUser[user] = &UserPath{User: user, UpBytes: up, DownBytes: down, Source: "primary"}
+					byUser[key] = &UserPath{User: user, UUID: uuid, UpBytes: up, DownBytes: down, Source: "primary"}
 				}
 			}
 			for _, p := range byUser {

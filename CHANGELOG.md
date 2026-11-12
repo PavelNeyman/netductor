@@ -1,3 +1,8 @@
+## 0.9.718
+
+- C11: resolve clash connection metadata to VPN registry names (user/uuid/host); secondary heartbeats carry UUID when name empty.
+- Docs: after 0.9.717 apply, run `netductor firewall apply primary` (and secondary) so UFW DENY 9090 is present.
+
 ## 0.9.717
 
 - C11: sing-box `experimental.clash_api` on **127.0.0.1:9090** is written on every primary Apply and secondary WriteSecondarySingBox (never dropped; `NETDUCTOR_CLASH_API=off` to disable).

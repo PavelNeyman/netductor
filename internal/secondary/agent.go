@@ -193,10 +193,25 @@ func scrapeLocalUserTraffic() []UserTraffic {
 		if m == nil {
 			continue
 		}
-		user := "unknown"
+		user, uuid := "unknown", ""
 		if meta, _ := m["metadata"].(map[string]any); meta != nil {
-			if u, ok := meta["user"].(string); ok && u != "" {
-				user = u
+			if u, ok := meta["user"].(string); ok && strings.TrimSpace(u) != "" {
+				user = strings.TrimSpace(u)
+			}
+			for _, k := range []string{"uuid", "UUID", "uid"} {
+				if v, ok := meta[k].(string); ok && strings.TrimSpace(v) != "" {
+					uuid = strings.TrimSpace(v)
+					break
+				}
+			}
+			if user == "" || user == "unknown" {
+				if h, ok := meta["host"].(string); ok && len(h) >= 36 {
+					// often UUID-shaped when name missing
+					user = strings.TrimSpace(h)
+					if uuid == "" {
+						uuid = user
+					}
+				}
 			}
 		}
 		var up, down int64
@@ -216,7 +231,7 @@ func scrapeLocalUserTraffic() []UserTraffic {
 			p.Up += up
 			p.Down += down
 		} else {
-			byUser[user] = &UserTraffic{User: user, Up: up, Down: down}
+			byUser[user] = &UserTraffic{User: user, UUID: uuid, Up: up, Down: down}
 		}
 	}
 	out := make([]UserTraffic, 0, len(byUser))
