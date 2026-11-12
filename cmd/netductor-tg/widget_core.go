@@ -2,13 +2,12 @@ package main
 
 import (
 	"bytes"
-	"sync"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"strings"
+	"sync"
 )
 
 // Phase 0 foundation: HTML Widgets registry (Bot API 10.4).
@@ -90,7 +89,7 @@ func apiPostWidget(token, method string, payload any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Post(widgetAPIBase(token)+method, "application/json", bytes.NewReader(body))
+	resp, err := tgHTTP.Post(widgetAPIBase(token)+method, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}

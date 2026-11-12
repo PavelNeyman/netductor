@@ -1292,21 +1292,32 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 
 	// Dual: refresh from info slot — update info only (nav untouched).
 	if dualEnabled() && q != nil && q.Chat != nil && (act == "r" || act == "refresh") {
-		if p, ok := getDual(q.Chat.ID); ok && p.InfoID > 0 && q.MessageID == p.InfoID {
-			appMu.Lock()
-			s := appSessUnlocked().Screen
-			appMu.Unlock()
-			infoCD, err := buildInfoData(s)
-			if err != nil {
-				answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+		if p, ok := getDual(q.Chat.ID); ok {
+			if p.InfoID > 0 && q.MessageID == p.InfoID {
+				appMu.Lock()
+				s := appSessUnlocked().Screen
+				appMu.Unlock()
+				infoCD, err := buildInfoData(s)
+				if err != nil {
+					answerWidgetQuery(token, q.ID, `{"err":"build"}`)
+					return true
+				}
+				if c, e := clipWidgetChatData(infoCD); e == nil {
+					infoCD = c
+				}
+				answerWidgetQuery(token, q.ID, `{"ok":true}`)
+				infoShell := infoShellForScreen(s)
+				editDualSlot(token, q.Chat.ID, "info", appInfoHTML(), infoCD, infoShell)
 				return true
 			}
-			if c, e := clipWidgetChatData(infoCD); e == nil {
-				infoCD = c
+			// Query from neither live info nor nav → stale orphan after close.
+			if q.MessageID != 0 && q.MessageID != p.InfoID && q.MessageID != p.NavID {
+				answerWidgetQuery(token, q.ID, `{"ok":true}`)
+				return true
 			}
+		} else if q.MessageID != 0 {
+			// No pair recorded: orphan refresh must not recreate dual.
 			answerWidgetQuery(token, q.ID, `{"ok":true}`)
-			infoShell := infoShellForScreen(s)
-			editDualSlot(token, q.Chat.ID, "info", appInfoHTML(), infoCD, infoShell)
 			return true
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 // Dual info+nav pair (NETDUCTOR_TG_DUAL=1). Rules: docs/AI-RULES-TG-WIDGETS.md
@@ -53,20 +54,23 @@ func forgetDual(chat int64) {
 }
 
 // closeDualPair deletes both messages and clears state.
+// Delete first, then forget: if delete fails the IDs stay known so the next
+// close/open can retry; forgetting first left orphan widgets that keep
+// sending "r" and resurrected the pair via pushDualPair recover.
 func closeDualPair(token string, chat int64) {
 	loadWidgetUIStore()
 	p, ok := getDual(chat)
 	if !ok {
 		return
 	}
-	forgetDual(chat)
-	setLastAppMsg(chat, 0)
 	if p.InfoID > 0 {
 		_ = deleteMessage(token, chat, p.InfoID)
 	}
 	if p.NavID > 0 {
 		_ = deleteMessage(token, chat, p.NavID)
 	}
+	forgetDual(chat)
+	setLastAppMsg(chat, 0)
 }
 
 // openDualPair sends info then nav. On failure closes orphans.
@@ -132,6 +136,7 @@ func editDualSlot(token string, chat int64, slot string, html, cd, shell string)
 	}
 	err := editWidgetData(token, chat, id, cd)
 	if err != nil {
+		time.Sleep(400 * time.Millisecond)
 		err = editWidgetData(token, chat, id, cd)
 	}
 	if err == nil {
@@ -214,8 +219,8 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 
 	p, ok := getDual(chat)
 	if !ok {
-		// recover: open pair from scratch
-		_ = openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTML(), navCD, infoShell, shellHub)
+		// No live pair: do not auto-reopen (orphan info "r" used to resurrect
+		// a closed menu). Explicit /start or menu open creates a new pair.
 		return
 	}
 

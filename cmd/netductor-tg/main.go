@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/PavelNeyman/netductor/internal/ndconfig"
@@ -52,9 +53,11 @@ func readOptional(path string) string {
 	return strings.TrimSpace(string(b))
 }
 
+var tgHTTP = &http.Client{Timeout: 25 * time.Second}
+
 func apiPost(token, method string, payload any) ([]byte, error) {
 	body, _ := json.Marshal(payload)
-	resp, err := http.Post("https://api.telegram.org/bot"+token+"/"+method, "application/json", bytes.NewReader(body))
+	resp, err := tgHTTP.Post("https://api.telegram.org/bot"+token+"/"+method, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +93,7 @@ func apiPost(token, method string, payload any) ([]byte, error) {
 
 func apiGet(token, method string, v url.Values) ([]byte, error) {
 	u := "https://api.telegram.org/bot" + token + "/" + method + "?" + v.Encode()
-	resp, err := http.Get(u)
+	resp, err := tgHTTP.Get(u)
 	if err != nil {
 		return nil, err
 	}
@@ -823,7 +826,9 @@ func netductorBin() string {
 
 func runVPN(args ...string) string {
 	full := append([]string{"vpn"}, args...)
-	cmd := exec.Command(netductorBin(), full...)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, netductorBin(), full...)
 	// stdout only — CLI writes diagnostics (e.g. "via relay:...") to stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -842,7 +847,9 @@ func runVPN(args ...string) string {
 // shareURIFrom keeps only importable URI lines (vless/ss/trojan).
 
 func runND(args ...string) string {
-	cmd := exec.Command(netductorBin(), args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, netductorBin(), args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		msg := string(out)

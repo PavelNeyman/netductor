@@ -1,3 +1,10 @@
+## 0.9.713
+
+- Dual close: delete widget messages before forgetting pair IDs (no orphan "r").
+- Orphan dual info/nav refresh no longer reopens a closed pair; explicit menu/start only.
+- editDualSlot retry backoff 400ms.
+- Telegram HTTP client 25s timeout; runND 60s / runVPN 45s CommandContext (bot freeze on hung CLI).
+
 ## 0.9.712
 
 - TG dual info-shell: escape row labels/values before innerHTML (XSS).
