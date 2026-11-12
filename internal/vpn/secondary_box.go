@@ -23,6 +23,10 @@ func UplinkMuxMode() string {
 	return "on"
 }
 
+// uplinkMultiplexObject builds outbound multiplex for S→P public uplink.
+// sing-box: max_connections conflicts with max_streams; min_streams conflicts with max_streams.
+// Canonical form matches docs: max_connections + min_streams only (no max_streams).
+// padding stays true — primary vless-reality inbound requires padded mux clients.
 func uplinkMultiplexObject() map[string]any {
 	mode := UplinkMuxMode()
 	if mode == "off" || mode == "0" || mode == "false" || mode == "no" {
@@ -31,12 +35,15 @@ func uplinkMultiplexObject() map[string]any {
 	m := map[string]any{
 		"enabled":         true,
 		"padding":         true,
-		"max_connections": 4,
+		"max_connections": 8,
 		"min_streams":     4,
-		"max_streams":     32,
 	}
-	if mode == "h2mux" || mode == "h2" {
+	// Default protocol is h2mux in sing-box; set explicitly for "h2mux" mode and for clarity on "on".
+	if mode == "h2mux" || mode == "h2" || mode == "on" || mode == "" {
 		m["protocol"] = "h2mux"
+	}
+	if mode == "smux" {
+		m["protocol"] = "smux"
 	}
 	return m
 }

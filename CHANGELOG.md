@@ -1,3 +1,8 @@
+## 0.9.720
+
+### Fixed
+- Secondary public uplink multiplex: remove conflicting `max_streams` alongside `max_connections`/`min_streams` (sing-box docs). Default `max_connections` 8, protocol `h2mux`. Keeps `padding: true` to match primary `vless-reality` inbound.
+
 ## 0.9.719
 
 - C11: do not treat clash metadata.host as VPN user (it is destination). Fall back to client:sourceIP when user/uuid absent.
