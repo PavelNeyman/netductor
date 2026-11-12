@@ -192,9 +192,9 @@ If stats API unavailable: ship **aggregate** C1–C8 only; document C11 as “be
 | **T2** | Secondary agent reports C1/C8 rates + uplink RTT | T1 |
 | **T3** | Alerts wired to notify | T1–T2 |
 | **T4** | API `/api/channel` + `/api/channel/history` | T1 |
-| **T5** | Web graphs + TG dual info sparks + classic Channel table | T4 |
-| **T6** | On-demand `--bw` probe | T1 |
-| **T7** | Per-user C11 if stats available | T4 |
+| **T5** | Web graphs + TG dual info sparks + classic Channel table | T4 | **code 0.9.716** |
+| **T6** | On-demand `--bw` probe | T1 | **code 0.9.716** |
+| **T7** | Per-user C11 if stats available | T4 | **code 0.9.716** |
 
 **Release policy:** each phase shippable; flag `NETDUCTOR_CHANNEL_SAMPLE=1` until soak (mirror widgets gate).
 
@@ -212,6 +212,9 @@ If stats API unavailable: ship **aggregate** C1–C8 only; document C11 as “be
 ---
 
 ## 9. Acceptance
+
+Code complete **0.9.716** (sampler/API/UI/probe/users). Checkboxes below need fleet soak.
+
 
 - [ ] `channel status --json` lists C2–C6 with rtt_ms and rx_bps/tx_bps when traffic present  
 - [ ] history ≥ 1h queryable after soak  
