@@ -211,3 +211,64 @@ Verified, no bugs found:
 **Reviewed by:** Qwen3  
 **Date:** 2026-11-13  
 **Methodology:** Static analysis, code reading, pattern detection (no code modifications)
+
+
+---
+
+## UPDATE (2026-11-13, HEAD f35b30a5)
+
+**Связанный документ:** [Повторное ревью](REPEAT-REVIEW-2026-11-13.md)
+
+### Проверка критичных багов
+
+| Баг | Статус | Детали |
+|-----|--------|--------|
+| P1-1 (SetRegion) | НЕ ИСПРАВЛЕН | `internal/secondary/store.go:901-907` — функция всё ещё без `mu.Lock()` или `acquireRegistryLock()` |
+| P4-SV1 (Tick) | НЕ ИСПРАВЛЕН | `cmd/netductor/collect.go:209` — `svcpaths.Tick()` вызывается без `acquireFailoverLock()` |
+| P3-R7 (ApplyConfig) | НЕ ИСПРАВЛЕН | `internal/vpn/apply.go:92,128,131` — прямая запись через `os.WriteFile`, нет атомарности (tmp+rename) |
+| P3-R9 (bumpSecondary) | НЕ ИСПРАВЛЕН | `internal/vpn/apply.go:148-156` — функция без flock, может перетереть heartbeat |
+| P2-F1 (Firewall DROP) | НЕ ИСПРАВЛЕН | `internal/firewall/firewall.go:2192-2217` — проверяет только `-j DROP`, не REJECT |
+| P2-F2 (Firewall -s/-i) | НЕ ИСПРАВЛЕН | `internal/firewall/firewall.go:2219-2237` — `hostAcceptsTCPPort` игнорирует квалификаторы `-s`/`-i`/`-d` |
+
+**Итог:** 6 из 6 проверенных багов НЕ ИСПРАВЛЕНЫ
+
+### Новая находка: P10-C1 (MEDIUM)
+
+**Файл:** `internal/channels/path_e2e.go:80`  
+**Функция:** `icmpProbe` (строки 74-82)  
+**Проблема:** Command injection через `PublicIP`
+
+**Детали:**
+- Строка 45: `ip` берётся из `d.PublicIP` (из `secondary.List()`)
+- Строка 51: передаётся в `icmpProbe(ip, 3*time.Second)`
+- Строка 80: используется напрямую в `exec.Command("ping", "-c", "1", "-W", strconv.Itoa(sec), host)`
+- Нет валидации через `net.ParseIP`
+
+**Риск:** Если `PublicIP` содержит shell metacharacters (например, `8.8.8.8; rm -rf /`), возможна command injection
+
+**Сценарий эксплуатации:**
+1. Злоумышленник с доступом к API/CLI изменяет `secondary/devices.json`
+2. `CollectPathE2E` вызывается автоматически (через collect/serve)
+3. `icmpProbe` вызывает ping с невалидным IP
+
+**Фикс:** Добавить валидацию `if net.ParseIP(host) == nil { return false }` в начале функции `icmpProbe`
+
+**Severity:** MEDIUM (требует доступ к API/CLI для изменения devices.json)
+
+### Другие находки в internal/channels/
+
+**Безопасные паттерны:**
+- `internal/channels/health.go:100` — `exec.Command("journalctl", ...)` — безопасный argv
+- `internal/channels/sample.go:203` — `ifaceMu sync.Mutex` — корректные блокировки
+- `internal/channels/sample.go:241` — `ifaceMu.Lock()` — правильное использование
+
+**Статистика:**
+- `exec.Command`: 2 использования (health.go:100, path_e2e.go:80)
+- `sync.Mutex`: 2 использования (sample.go)
+- `atomic`: 2 использования
+- `http.Client`: 2 использования
+
+---
+
+**Дата обновления:** 2026-11-13  
+**HEAD:** f35b30a5b2b06f55ded94e7f52282a7ed9cfc2d2
