@@ -152,6 +152,84 @@ func agentEgressRates() (rx, tx float64) {
 	return agentIfaceRateBps(iface)
 }
 
+// scrapeLocalUserTraffic reads sing-box clash_api on loopback (C11). Best-effort.
+func scrapeLocalUserTraffic() []UserTraffic {
+	addr := "127.0.0.1:9090"
+	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_CLASH_API")); v != "" && v != "off" && v != "0" {
+		if strings.Contains(v, ":") && !strings.HasPrefix(v, "0.0.0.0") {
+			addr = v
+			if strings.HasPrefix(addr, "127.0.0.1:") || strings.HasPrefix(addr, "localhost:") {
+				// ok
+			} else if i := strings.LastIndex(v, ":"); i > 0 {
+				addr = "127.0.0.1" + v[i:]
+			}
+		}
+	}
+	client := &http.Client{Timeout: 600 * time.Millisecond}
+	req, err := http.NewRequest(http.MethodGet, "http://"+addr+"/connections", nil)
+	if err != nil {
+		return nil
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil
+	}
+	var raw map[string]any
+	if json.Unmarshal(body, &raw) != nil {
+		return nil
+	}
+	conns, _ := raw["connections"].([]any)
+	byUser := map[string]*UserTraffic{}
+	for _, c := range conns {
+		m, _ := c.(map[string]any)
+		if m == nil {
+			continue
+		}
+		user := "unknown"
+		if meta, _ := m["metadata"].(map[string]any); meta != nil {
+			if u, ok := meta["user"].(string); ok && u != "" {
+				user = u
+			}
+		}
+		var up, down int64
+		switch v := m["upload"].(type) {
+		case float64:
+			up = int64(v)
+		case int64:
+			up = v
+		}
+		switch v := m["download"].(type) {
+		case float64:
+			down = int64(v)
+		case int64:
+			down = v
+		}
+		if p := byUser[user]; p != nil {
+			p.Up += up
+			p.Down += down
+		} else {
+			byUser[user] = &UserTraffic{User: user, Up: up, Down: down}
+		}
+	}
+	out := make([]UserTraffic, 0, len(byUser))
+	for _, p := range byUser {
+		out = append(out, *p)
+	}
+	// keep heartbeat small
+	if len(out) > 32 {
+		out = out[:32]
+	}
+	return out
+}
+
 func AgentLoop(coreBase, token string, interval time.Duration) {
 	go StartRecoveryServer()
 	if interval < 10*time.Second {
@@ -256,11 +334,13 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	// T2 metrics: S→P face RTT (independent of SP/PS control path) + egress rates.
 	_, faceRTT := probePrimaryUplink(coreBase)
 	rxBps, txBps := agentEgressRates()
+	users := scrapeLocalUserTraffic()
 	body, _ := json.Marshal(HeartbeatIn{
 		PublicIP: ip, PBK: pub, SID: sid, SNI: sni,
 		Version: version.Release, SingBoxOK: sbOK, UplinkOK: upOK, ConfigVer: *applied,
 		UplinkRTTMs: faceRTT, EgressRxBps: rxBps, EgressTxBps: txBps,
-		CPUPercent: cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
+		UserTraffic: users,
+		CPUPercent:  cpu, MemUsedMB: memU, MemTotalMB: memT, Load1: load1,
 		CmdDone: *lastDone, CmdOK: *lastOK, CmdLog: *lastLog,
 		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
 		RecoveryFP: readRecoveryFingerprint(),

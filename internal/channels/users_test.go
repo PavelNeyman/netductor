@@ -2,13 +2,14 @@ package channels
 
 import "testing"
 
-func TestCollectUsersUnsupported(t *testing.T) {
+func TestCollectUsersWhenNoAPI(t *testing.T) {
 	r := CollectUsers()
-	if r.Available {
-		t.Skip("local stats API unexpectedly up")
+	// Without local clash_api and without secondary traffic in registry, unavailable.
+	if r.Available && len(r.Users) == 0 && r.Source == "" {
+		// ambiguous
 	}
-	if r.Note == "" {
-		t.Fatal("expected unsupported note")
+	if !r.Available && r.Note == "" {
+		t.Fatal("expected note when unavailable")
 	}
 	s := FormatUsersText(r)
 	if s == "" {

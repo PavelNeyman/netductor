@@ -1,3 +1,9 @@
+## 0.9.717
+
+- C11: sing-box `experimental.clash_api` on **127.0.0.1:9090** is written on every primary Apply and secondary WriteSecondarySingBox (never dropped; `NETDUCTOR_CLASH_API=off` to disable).
+- UFW: deny **9090/tcp** on WAN (primary + secondary) — stats stay loopback-only.
+- Secondary agent scrapes local `/connections` and reports `user_traffic` in heartbeat; `channel users` merges primary + online secondaries.
+
 ## 0.9.716
 
 - Channel T5: TG classic Channel table shows uplink RTT, egress Mbps, RTT spark; widget uses live channel status + spark.

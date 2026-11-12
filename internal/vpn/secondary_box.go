@@ -170,6 +170,7 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		"outbounds": outbounds,
 		"route":     buildSecondaryRoute(svcRules, ruSuffixes),
 	}
+	AttachExperimentalClashAPI(cfg)
 	dir := filepath.Dir(singboxConf)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create sing-box config directory: %w", err)

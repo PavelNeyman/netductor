@@ -75,6 +75,8 @@ func ApplyConfig() error {
 			"final": finalOut, "auto_detect_interface": true, "default_domain_resolver": "blocky",
 		},
 	}
+	// C11: localhost clash_api — rewritten on every Apply so it is never dropped.
+	AttachExperimentalClashAPI(cfg)
 
 	work, err := os.MkdirTemp("", "nd-sb-")
 	if err != nil {

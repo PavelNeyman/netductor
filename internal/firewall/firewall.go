@@ -1472,6 +1472,9 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		if err := must("deny", "8788/tcp", "comment", "no-plain-agent"); err != nil {
 			return err
 		}
+		if err := must("deny", "9090/tcp", "comment", "no-clash-api-wan"); err != nil {
+			return err
+		}
 		mtls := ndconfig.AgentMTLSPort()
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			if err := must("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api"); err != nil {
@@ -1513,6 +1516,9 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 		}
 		if err := must("deny", "80/tcp", "comment", "no-http-secondary"); err != nil {
 			return fmt.Errorf("deny secondary HTTP port: %w", err)
+		}
+		if err := must("deny", "9090/tcp", "comment", "no-clash-api-wan"); err != nil {
+			return err
 		}
 	}
 
@@ -2036,9 +2042,9 @@ func Collect(role string) Status {
 				st.Restricted = append(st.Restricted, ndconfig.AgentMTLSPort()+"/tcp ← "+source)
 			}
 		}
-		st.DenyWAN = append(st.DenyWAN, "8788/tcp")
+		st.DenyWAN = append(st.DenyWAN, "8788/tcp", "9090/tcp")
 	} else {
-		st.DenyWAN = append(st.DenyWAN, "8787/tcp", "8788/tcp", "8789/tcp", "80/tcp")
+		st.DenyWAN = append(st.DenyWAN, "8787/tcp", "8788/tcp", "8789/tcp", "80/tcp", "9090/tcp")
 	}
 	if wss, err := wssExpectations(role); err != nil {
 		st.Warnings = append(st.Warnings, "WSS peer inventory: "+err.Error())

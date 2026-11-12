@@ -21,6 +21,13 @@ import (
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
 
+type UserTraffic struct {
+	User string `json:"user,omitempty"`
+	UUID string `json:"uuid,omitempty"`
+	Up   int64  `json:"up_bytes,omitempty"`
+	Down int64  `json:"down_bytes,omitempty"`
+}
+
 type Device struct {
 	ID            string         `json:"id"`
 	Token         string         `json:"token"` // agent auth
@@ -36,6 +43,7 @@ type Device struct {
 	UplinkRTTMs   float64        `json:"uplink_rtt_ms,omitempty"` // T2: S→P :443 dial RTT
 	EgressRxBps   float64        `json:"egress_rx_bps,omitempty"` // T2: default-route iface rate
 	EgressTxBps   float64        `json:"egress_tx_bps,omitempty"`
+	UserTraffic   []UserTraffic  `json:"user_traffic,omitempty"` // C11 from local clash_api
 	ConfigVer     int            `json:"config_ver"`
 	CPUPercent    float64        `json:"cpu_percent"`
 	MemUsedMB     int64          `json:"mem_used_mb"`
@@ -321,6 +329,7 @@ type HeartbeatIn struct {
 	UplinkRTTMs   float64        `json:"uplink_rtt_ms,omitempty"`
 	EgressRxBps   float64        `json:"egress_rx_bps,omitempty"`
 	EgressTxBps   float64        `json:"egress_tx_bps,omitempty"`
+	UserTraffic   []UserTraffic  `json:"user_traffic,omitempty"`
 	ConfigVer     int            `json:"config_ver"`
 	CPUPercent    float64        `json:"cpu_percent"`
 	MemUsedMB     int64          `json:"mem_used_mb"`
@@ -376,6 +385,7 @@ func HeartbeatWithTLSIdentity(token string, in HeartbeatIn, tlsSerial string) (*
 		r.Devices[i].UplinkRTTMs = in.UplinkRTTMs
 		r.Devices[i].EgressRxBps = in.EgressRxBps
 		r.Devices[i].EgressTxBps = in.EgressTxBps
+		r.Devices[i].UserTraffic = in.UserTraffic
 		r.Devices[i].ConfigVer = in.ConfigVer
 		r.Devices[i].CPUPercent = in.CPUPercent
 		r.Devices[i].MemUsedMB = in.MemUsedMB
