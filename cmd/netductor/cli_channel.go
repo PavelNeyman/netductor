@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/channels"
@@ -16,7 +17,9 @@ func runChannel(args []string) {
 		fmt.Fprintln(os.Stderr, `usage:
   netductor channel status [--json]
   netductor channel history [--minutes N] [--id C2] [--json]
-  netductor channel sample [--json]   # one sample + append history (T1)`)
+  netductor channel sample [--json]
+  netductor channel probe [--bw] [--target host[:port]] [--json]
+  netductor channel users [--json]`)
 		os.Exit(0)
 	}
 	sub := "status"
@@ -33,6 +36,15 @@ func runChannel(args []string) {
 			return
 		}
 		fmt.Print(channels.FormatText(r))
+		if sp := channels.SparkRTT(24); sp != "" {
+			fmt.Printf("rtt_spark_c2 %s\n", sp)
+		}
+		ur := channels.CollectUsers()
+		if !ur.Available {
+			fmt.Printf("users: %s\n", ur.Note)
+		} else {
+			fmt.Print(channels.FormatUsersText(ur))
+		}
 	case "sample":
 		pt, err := channels.SampleOnce()
 		if err != nil {
@@ -61,13 +73,13 @@ func runChannel(args []string) {
 				i++
 				idFilter = o.Rest[i]
 			}
-			if len(a) > 10 && a[:10] == "--minutes=" {
-				if n, err := strconv.Atoi(a[10:]); err == nil && n > 0 {
+			if strings.HasPrefix(a, "--minutes=") {
+				if n, err := strconv.Atoi(a[len("--minutes="):]); err == nil && n > 0 {
 					mins = n
 				}
 			}
-			if len(a) > 5 && a[:5] == "--id=" {
-				idFilter = a[5:]
+			if strings.HasPrefix(a, "--id=") {
+				idFilter = a[len("--id="):]
 			}
 		}
 		since := time.Now().UTC().Add(-time.Duration(mins) * time.Minute)
@@ -83,8 +95,57 @@ func runChannel(args []string) {
 			return
 		}
 		fmt.Print(channels.FormatHistoryText(pts))
+		if sp := channels.Sparkline(channels.HistorySeries(pts, idFilter, "", "rtt", 48)); sp != "" {
+			fmt.Printf("spark %s\n", sp)
+		}
+	case "probe":
+		withBW := false
+		target := ""
+		for i := 0; i < len(o.Rest); i++ {
+			a := o.Rest[i]
+			if a == "--bw" {
+				withBW = true
+			}
+			if a == "--target" && i+1 < len(o.Rest) {
+				i++
+				target = o.Rest[i]
+			}
+			if strings.HasPrefix(a, "--target=") {
+				target = a[len("--target="):]
+			}
+		}
+		var list []channels.ProbeResult
+		if target != "" {
+			host, port := channels.ParseProbeTarget(target)
+			if withBW {
+				list = []channels.ProbeResult{channels.ProbeBW(host, port, 2 * time.Second)}
+			} else {
+				list = []channels.ProbeResult{channels.ProbeTCP(host, port, 3 * time.Second)}
+			}
+		} else {
+			list = channels.ProbeSecondaries(withBW)
+			if len(list) == 0 && withBW {
+				list = []channels.ProbeResult{channels.ProbeBW("", 443, 2 * time.Second)}
+			}
+		}
+		if o.JSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(list)
+			return
+		}
+		fmt.Print(channels.FormatProbeText(list))
+	case "users":
+		ur := channels.CollectUsers()
+		if o.JSON {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(ur)
+			return
+		}
+		fmt.Print(channels.FormatUsersText(ur))
 	default:
-		fmt.Fprintln(os.Stderr, "usage: netductor channel status|sample|history [--json]")
+		fmt.Fprintln(os.Stderr, "usage: netductor channel status|sample|history|probe|users [--json]")
 		os.Exit(2)
 	}
 }

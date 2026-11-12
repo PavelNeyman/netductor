@@ -1,3 +1,10 @@
+## 0.9.716
+
+- Channel T5: TG classic Channel table shows uplink RTT, egress Mbps, RTT spark; widget uses live channel status + spark.
+- Channel T6: `channel probe [--bw] [--target host[:port]]` + GET `/api/channel/probe` (passive iface rates, no sustained load).
+- Channel T7: `channel users` + `/api/channel/users` — sing-box localhost stats if present, else explicit unsupported.
+- Web: Channel API buttons under Nodes; statusbar `sbCh` polls `/api/channel`.
+
 ## 0.9.715
 
 - Channel T2: secondary agent reports uplink RTT (S→P :443) and default-route egress rates in heartbeat.

@@ -487,8 +487,11 @@ type channelReportJSON struct {
 		HeartbeatAgeSec int     `json:"heartbeat_age_sec"`
 		SingBoxOK       bool    `json:"singbox_ok"`
 		UplinkOK        bool    `json:"uplink_ok"`
+		UplinkRTTMs     float64 `json:"uplink_rtt_ms"`
 		TCP443OK        bool    `json:"tcp443_ok"`
 		TCP443ms        float64 `json:"tcp443_ms"`
+		EgressRxBps     float64 `json:"egress_rx_bps"`
+		EgressTxBps     float64 `json:"egress_tx_bps"`
 		Mismatch30m     int     `json:"mismatch_30m"`
 	} `json:"secondaries"`
 	Path []struct {
@@ -588,6 +591,65 @@ func formatChannelDetailHTML() string {
 		b.WriteString(`<tr><td colspan="6"><i>—</i></td></tr>`)
 	}
 	b.WriteString(`</table>`)
+	if spark := channelHistorySpark(); spark != "" {
+		b.WriteString(nl + nl + "<b>RTT</b> <code>" + esc(spark) + "</code>")
+	}
+	return b.String()
+}
+
+func channelHistorySpark() string {
+	out, err := exec.Command(netductorBin(), "channel", "history", "--minutes", "60", "--id", "C2", "--json").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		return ""
+	}
+	var pts []struct {
+		Channels []struct {
+			ID    string  `json:"id"`
+			RTTMs float64 `json:"rtt_ms"`
+		} `json:"channels"`
+	}
+	if json.Unmarshal(out, &pts) != nil {
+		return ""
+	}
+	vals := make([]float64, 0, 24)
+	for _, pt := range pts {
+		for _, c := range pt.Channels {
+			if c.ID == "C2" && c.RTTMs > 0 {
+				vals = append(vals, c.RTTMs)
+			}
+		}
+	}
+	if len(vals) > 24 {
+		vals = vals[len(vals)-24:]
+	}
+	if len(vals) < 2 {
+		return ""
+	}
+	bars := []rune("▁▂▃▄▅▆▇█")
+	minV, maxV := vals[0], vals[0]
+	for _, v := range vals[1:] {
+		if v < minV {
+			minV = v
+		}
+		if v > maxV {
+			maxV = v
+		}
+	}
+	span := maxV - minV
+	if span < 1e-9 {
+		span = 1
+	}
+	var b strings.Builder
+	for _, v := range vals {
+		idx := int((v - minV) / span * float64(len(bars)-1))
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= len(bars) {
+			idx = len(bars) - 1
+		}
+		b.WriteRune(bars[idx])
+	}
 	return b.String()
 }
 

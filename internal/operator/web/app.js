@@ -1303,6 +1303,11 @@ const BTN = {
     ['nodes-self','b_self','GET','/api/nodes/self'],
     ['secondary','b_sec_st','GET','/api/secondary/status'],
     ['secondary-links','b_sec_links','GET','/api/secondary/links'],
+    ['channel','Channel','GET','/api/channel'],
+    ['channel-hist','Channel hist','GET','/api/channel/history?minutes=60'],
+    ['channel-sample','Channel sample','POST','/api/channel/sample'],
+    ['channel-probe','Channel probe','GET','/api/channel/probe'],
+    ['channel-users','Channel users','GET','/api/channel/users'],
     ['ssh-hosts','b_ssh_hosts','GET','/api/ssh-hosts'],
     ['ssh-clear','b_ssh_clear','POST','/api/ssh-hosts/clear','{}'],
     ['mtls-certs','b_mtls','GET','/api/mtls/certs'],
@@ -3186,6 +3191,27 @@ function initShell(){
     }
   }
   pollOpHealth(); setInterval(pollOpHealth, 15000);
+  async function pollChannelBar(){
+    try{
+      const res=await fetch('/api/channel',{headers:{'X-Netductor-Token':ND_TOKEN}});
+      if(!res.ok) return;
+      const j=await res.json();
+      const el=document.getElementById('sbCh');
+      const secs=j.secondaries||[];
+      let ok=0;
+      secs.forEach(s=>{ if(s.online && s.uplink_ok) ok++; });
+      if(el) el.textContent = secs.length ? (ok+'/'+secs.length) : '—';
+      const dSec=document.getElementById('sbSec');
+      if(dSec) dSec.className='sb-dot'+(ok>0?'':' off');
+      const paths=(j.path_e2e||j.path||[]);
+      let pok=0;
+      paths.forEach(p=>{ if(p.path_ok) pok++; });
+      const dPath=document.getElementById('sbPath');
+      if(dPath) dPath.className='sb-dot'+(pok>0?'':' off');
+    }catch(e){}
+  }
+  pollChannelBar(); setInterval(pollChannelBar, 30000);
+
   // default home = Servers cards
   showServersOverview();
   setTimeout(showServersOverview, 0);
