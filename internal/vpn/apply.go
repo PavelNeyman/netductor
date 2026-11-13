@@ -90,6 +90,7 @@ func ApplyConfig() error {
 	if eps := primaryUplinkABEndpoints(); len(eps) > 0 {
 		cfg["endpoints"] = eps
 	}
+	openUplinkABFirewall()
 
 	work, err := os.MkdirTemp("", "nd-sb-")
 	if err != nil {

@@ -72,6 +72,8 @@ type SecondaryBundle struct {
 	CoreAgentURL    string      `json:"core_agent_url,omitempty"`
 	ExitUUID        string      `json:"exit_uuid,omitempty"`
 	ExitPort        int         `json:"exit_port,omitempty"`
+	// UplinkAB: experimental S→P matrix; nil when disabled.
+	UplinkAB *UplinkABConfig `json:"uplink_ab,omitempty"`
 }
 
 type RelayUser struct {
@@ -143,6 +145,7 @@ func ExportSecondaryBundle(relaySNI string) (*SecondaryBundle, error) {
 		b.ExitUUID = genUUID()
 		_ = os.WriteFile(filepath.Join(paths.EtcDir(), "secrets", "secondary_exit_uuid"), append([]byte(b.ExitUUID), 10), 0o600)
 	}
+	b.UplinkAB = SnapshotUplinkAB()
 	if b.CorePBK == "" || b.CoreSID == "" {
 		return nil, fmt.Errorf("core Reality secrets missing")
 	}
@@ -154,7 +157,11 @@ func ExportSecondaryBundle(relaySNI string) (*SecondaryBundle, error) {
 }
 
 func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
+	if b != nil && b.UplinkAB != nil {
+		_ = ApplyUplinkABFromBundle(b.UplinkAB)
+	}
 	_ = EnsureUplinkABMaterial()
+	openUplinkABFirewall()
 	if b == nil {
 		return fmt.Errorf("nil bundle")
 	}

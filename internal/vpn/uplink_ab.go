@@ -1,15 +1,19 @@
 package vpn
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"golang.org/x/crypto/curve25519"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -19,12 +23,12 @@ import (
 const (
 	uplinkABEnv      = "NETDUCTOR_UPLINK_AB"
 	uplinkABUsersEnv = "NETDUCTOR_UPLINK_AB_USERS"
-	uplinkABBasePort = 9444 // client → secondary steer ports
-	// Primary ports for S→P exp underlays (not client-facing).
+	uplinkABBasePort = 9444
 	primaryABPortWS     = 10443
 	primaryABPortGRPC   = 10444
 	primaryABPortAnyTLS = 10445
 	primaryABPortWG     = 51820
+	abSSHSystemUser     = "nd-ab-uplink"
 )
 
 // UplinkABProfile is one experimental path id.
@@ -32,30 +36,29 @@ type UplinkABProfile struct {
 	ID          string
 	InboundTag  string
 	OutboundTag string
-	Port        int // secondary listen (client→S)
+	Port        int
 	Fragment    string
-	PrimaryPort int // S→P dial port on primary (0 = default core vless)
+	PrimaryPort int
 }
 
-// UplinkABConfig file + env.
+// UplinkABConfig file + env + embedded in SecondaryBundle.
 type UplinkABConfig struct {
 	Enabled  bool     `json:"enabled"`
 	Users    []string `json:"users"`
 	Profiles []string `json:"profiles"`
 	BasePort int      `json:"base_port"`
 
-	// WG: primary holds server key; secondary holds client key (auto-filled by EnsureUplinkABMaterial).
 	WGPrimaryPrivateKey   string `json:"wg_primary_private_key,omitempty"`
 	WGPrimaryPublicKey    string `json:"wg_primary_public_key,omitempty"`
 	WGSecondaryPrivateKey string `json:"wg_secondary_private_key,omitempty"`
 	WGSecondaryPublicKey  string `json:"wg_secondary_public_key,omitempty"`
-	WGPrimaryAddress      string `json:"wg_primary_address,omitempty"`   // 10.87.90.1/30
-	WGSecondaryAddress    string `json:"wg_secondary_address,omitempty"` // 10.87.90.2/30
+	WGPrimaryAddress      string `json:"wg_primary_address,omitempty"`
+	WGSecondaryAddress    string `json:"wg_secondary_address,omitempty"`
 	WGListenPort          int    `json:"wg_listen_port,omitempty"`
-	WGEndpoint            string `json:"wg_endpoint,omitempty"` // host:port secondary dials (defaults publicIP:listen)
+	WGEndpoint            string `json:"wg_endpoint,omitempty"`
 	WGMTU                 int    `json:"wg_mtu,omitempty"`
 
-	// Legacy aliases accepted on load
+	// Legacy aliases
 	WGPrivateKey    string `json:"wg_private_key,omitempty"`
 	WGPeerPublicKey string `json:"wg_peer_public_key,omitempty"`
 	WGLocalAddress  string `json:"wg_local_address,omitempty"`
@@ -63,6 +66,7 @@ type UplinkABConfig struct {
 
 	SSHUser           string `json:"ssh_user,omitempty"`
 	SSHPrivateKeyPath string `json:"ssh_private_key_path,omitempty"`
+	SSHPrivateKey     string `json:"ssh_private_key,omitempty"`
 	SSHHost           string `json:"ssh_host,omitempty"`
 	SSHPort           int    `json:"ssh_port,omitempty"`
 }
@@ -71,20 +75,42 @@ func uplinkABConfigPath() string {
 	return filepath.Join(paths.EtcDir(), "uplink_ab.json")
 }
 
-// LoadUplinkABConfig merges file + env (env wins for enabled/users).
-func LoadUplinkABConfig() UplinkABConfig {
-	cfg := UplinkABConfig{
+func defaultUplinkABConfig() UplinkABConfig {
+	return UplinkABConfig{
 		Profiles:           []string{"nomux", "wg", "anytls", "ws", "grpc", "ssh"},
 		BasePort:           uplinkABBasePort,
 		WGPrimaryAddress:   "10.87.90.1/30",
 		WGSecondaryAddress: "10.87.90.2/30",
 		WGListenPort:       primaryABPortWG,
 		WGMTU:              1280,
+		SSHPort:            22,
+		SSHUser:            abSSHSystemUser,
 	}
+}
+
+// LoadUplinkABConfig merges file + env (env wins for enabled/users).
+func LoadUplinkABConfig() UplinkABConfig {
+	cfg := defaultUplinkABConfig()
 	if b, err := os.ReadFile(uplinkABConfigPath()); err == nil {
 		_ = json.Unmarshal(b, &cfg)
 	}
-	// legacy field mapping
+	normalizeUplinkAB(&cfg)
+	if v := strings.TrimSpace(os.Getenv(uplinkABEnv)); v != "" {
+		cfg.Enabled = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
+	}
+	if v := strings.TrimSpace(os.Getenv(uplinkABUsersEnv)); v != "" {
+		cfg.Users = nil
+		for _, p := range strings.Split(v, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				cfg.Users = append(cfg.Users, p)
+			}
+		}
+	}
+	return cfg
+}
+
+func normalizeUplinkAB(cfg *UplinkABConfig) {
 	if cfg.WGSecondaryPrivateKey == "" && cfg.WGPrivateKey != "" {
 		cfg.WGSecondaryPrivateKey = cfg.WGPrivateKey
 	}
@@ -99,18 +125,6 @@ func LoadUplinkABConfig() UplinkABConfig {
 			cfg.WGPrimaryAddress = cfg.WGPeerAddress + "/30"
 		} else {
 			cfg.WGPrimaryAddress = cfg.WGPeerAddress
-		}
-	}
-	if v := strings.TrimSpace(os.Getenv(uplinkABEnv)); v != "" {
-		cfg.Enabled = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
-	}
-	if v := strings.TrimSpace(os.Getenv(uplinkABUsersEnv)); v != "" {
-		cfg.Users = nil
-		for _, p := range strings.Split(v, ",") {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				cfg.Users = append(cfg.Users, p)
-			}
 		}
 	}
 	if cfg.BasePort < 1024 || cfg.BasePort > 60000 {
@@ -131,7 +145,12 @@ func LoadUplinkABConfig() UplinkABConfig {
 	if len(cfg.Profiles) == 0 {
 		cfg.Profiles = []string{"nomux", "wg", "anytls", "ws", "grpc", "ssh"}
 	}
-	return cfg
+	if cfg.SSHPort <= 0 {
+		cfg.SSHPort = 22
+	}
+	if cfg.SSHUser == "" {
+		cfg.SSHUser = abSSHSystemUser
+	}
 }
 
 func saveUplinkABConfig(cfg UplinkABConfig) error {
@@ -147,31 +166,49 @@ func saveUplinkABConfig(cfg UplinkABConfig) error {
 	return os.Rename(tmp, uplinkABConfigPath())
 }
 
-// UplinkABEnabled reports feature flag.
+// ApplyUplinkABFromBundle writes AB config carried in secondary bundle (keys + flags).
+func ApplyUplinkABFromBundle(cfg *UplinkABConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	normalizeUplinkAB(cfg)
+	return saveUplinkABConfig(*cfg)
+}
+
 func UplinkABEnabled() bool {
 	return LoadUplinkABConfig().Enabled
 }
 
-// UplinkABUserAllowed reports whether name gets exp URIs / may use exp inbounds.
+// UplinkABUserAllowed: explicit list, or operator / sub_profile=both.
 func UplinkABUserAllowed(name string) bool {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled {
 		return false
 	}
 	name = strings.TrimSpace(name)
-	if name == "" {
+	if name == "" || name == RelayUplinkName {
 		return false
 	}
-	users := cfg.Users
-	if len(users) == 0 {
-		return strings.EqualFold(name, "operator")
-	}
-	for _, u := range users {
-		if strings.EqualFold(strings.TrimSpace(u), name) {
-			return true
+	if len(cfg.Users) > 0 {
+		for _, u := range cfg.Users {
+			if strings.EqualFold(strings.TrimSpace(u), name) {
+				return true
+			}
 		}
+		return false
 	}
-	return false
+	if strings.EqualFold(name, "operator") {
+		return true
+	}
+	r, err := loadRegistry()
+	if err != nil {
+		return false
+	}
+	u := findUser(r, name)
+	if u == nil {
+		return false
+	}
+	return EffectiveSubProfile(u) == SubBoth
 }
 
 func knownUplinkABOrder() []string {
@@ -187,40 +224,142 @@ func profileWants(cfg UplinkABConfig, id string) bool {
 	return false
 }
 
-// EnsureUplinkABMaterial generates WG keypairs when wg profile is enabled and keys missing.
+func isLikelyPrimaryHost() bool {
+	// Secondary agent unit or role marker.
+	if _, err := os.Stat("/etc/systemd/system/netductor-agent.service"); err == nil {
+		return false
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "role")); err == nil {
+		return strings.TrimSpace(string(b)) == "primary"
+	}
+	return true
+}
+
+// EnsureUplinkABMaterial generates WG + SSH material and persists config.
 func EnsureUplinkABMaterial() error {
 	cfg := LoadUplinkABConfig()
-	if !cfg.Enabled || !profileWants(cfg, "wg") {
+	if !cfg.Enabled {
 		return nil
 	}
 	changed := false
-	if cfg.WGPrimaryPrivateKey == "" || cfg.WGPrimaryPublicKey == "" {
-		priv, pub, err := generateWGKeypair()
-		if err != nil {
-			return err
-		}
-		cfg.WGPrimaryPrivateKey = priv
-		cfg.WGPrimaryPublicKey = pub
-		changed = true
-	}
-	if cfg.WGSecondaryPrivateKey == "" || cfg.WGSecondaryPublicKey == "" {
-		priv, pub, err := generateWGKeypair()
-		if err != nil {
-			return err
-		}
-		cfg.WGSecondaryPrivateKey = priv
-		cfg.WGSecondaryPublicKey = pub
-		changed = true
-	}
-	if cfg.WGEndpoint == "" {
-		if ip := publicIP(); ip != "" {
-			cfg.WGEndpoint = fmt.Sprintf("%s:%d", ip, cfg.WGListenPort)
+
+	if profileWants(cfg, "wg") {
+		if cfg.WGPrimaryPrivateKey == "" || cfg.WGPrimaryPublicKey == "" {
+			priv, pub, err := generateWGKeypair()
+			if err != nil {
+				return err
+			}
+			cfg.WGPrimaryPrivateKey = priv
+			cfg.WGPrimaryPublicKey = pub
 			changed = true
 		}
+		if cfg.WGSecondaryPrivateKey == "" || cfg.WGSecondaryPublicKey == "" {
+			priv, pub, err := generateWGKeypair()
+			if err != nil {
+				return err
+			}
+			cfg.WGSecondaryPrivateKey = priv
+			cfg.WGSecondaryPublicKey = pub
+			changed = true
+		}
+		if cfg.WGEndpoint == "" {
+			if ip := publicIP(); ip != "" {
+				cfg.WGEndpoint = fmt.Sprintf("%s:%d", ip, cfg.WGListenPort)
+				changed = true
+			}
+		}
 	}
+
+	if profileWants(cfg, "ssh") {
+		keyPath := filepath.Join(paths.EtcDir(), "secrets", "uplink_ab_ssh")
+		if cfg.SSHPrivateKeyPath == "" {
+			cfg.SSHPrivateKeyPath = keyPath
+			changed = true
+		}
+		if cfg.SSHHost == "" {
+			if ip := publicIP(); ip != "" {
+				cfg.SSHHost = ip
+				changed = true
+			}
+		}
+		if cfg.SSHUser == "" {
+			cfg.SSHUser = abSSHSystemUser
+			changed = true
+		}
+		if err := ensureABSSHKeypair(cfg.SSHPrivateKeyPath); err != nil {
+			return err
+		}
+		if raw, err := os.ReadFile(cfg.SSHPrivateKeyPath); err == nil {
+			if cfg.SSHPrivateKey != string(raw) {
+				cfg.SSHPrivateKey = string(raw)
+				changed = true
+			}
+		}
+		if isLikelyPrimaryHost() {
+			if err := ensureABSSHSystemUser(cfg.SSHPrivateKeyPath + ".pub"); err != nil {
+				// non-fatal in tests / non-root
+				fmt.Fprintln(os.Stderr, "uplink-ab ssh user:", err)
+			}
+		}
+	}
+
 	if changed {
 		return saveUplinkABConfig(cfg)
 	}
+	return nil
+}
+
+func ensureABSSHKeypair(privPath string) error {
+	if privPath == "" {
+		return fmt.Errorf("empty ssh key path")
+	}
+	_ = os.MkdirAll(filepath.Dir(privPath), 0o700)
+	if st, err := os.Stat(privPath); err == nil && st.Size() > 0 {
+		return nil
+	}
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		return err
+	}
+	block, err := ssh.MarshalPrivateKey(priv, "nd-ab-uplink")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(privPath, pem.EncodeToMemory(block), 0o600); err != nil {
+		return err
+	}
+	auth := ssh.MarshalAuthorizedKey(sshPub)
+	return os.WriteFile(privPath+".pub", auth, 0o644)
+}
+
+func ensureABSSHSystemUser(pubPath string) error {
+	pub, err := os.ReadFile(pubPath)
+	if err != nil {
+		return err
+	}
+	// useradd -r -m -s /usr/sbin/nologin
+	if _, err := exec.LookPath("useradd"); err != nil {
+		return err
+	}
+	_ = exec.Command("useradd", "-r", "-m", "-s", "/usr/sbin/nologin", abSSHSystemUser).Run()
+	home := filepath.Join("/home", abSSHSystemUser)
+	if st, err := os.Stat(filepath.Join("/var/lib", abSSHSystemUser)); err == nil && st.IsDir() {
+		home = filepath.Join("/var/lib", abSSHSystemUser)
+	}
+	// Debian system users often /var/lib or /
+	if _, err := os.Stat(home); err != nil {
+		home = filepath.Join("/var/lib", abSSHSystemUser)
+		_ = os.MkdirAll(home, 0o700)
+	}
+	sshDir := filepath.Join(home, ".ssh")
+	_ = os.MkdirAll(sshDir, 0o700)
+	ak := filepath.Join(sshDir, "authorized_keys")
+	_ = os.WriteFile(ak, pub, 0o600)
+	_ = exec.Command("chown", "-R", abSSHSystemUser+":"+abSSHSystemUser, home).Run()
 	return nil
 }
 
@@ -229,7 +368,6 @@ func generateWGKeypair() (privB64, pubB64 string, err error) {
 	if _, err = rand.Read(priv[:]); err != nil {
 		return "", "", err
 	}
-	// curve25519 clamp
 	priv[0] &= 248
 	priv[31] &= 127
 	priv[31] |= 64
@@ -237,7 +375,7 @@ func generateWGKeypair() (privB64, pubB64 string, err error) {
 	return base64.StdEncoding.EncodeToString(priv[:]), base64.StdEncoding.EncodeToString(pub[:]), nil
 }
 
-// ResolveUplinkABProfiles returns concrete profiles that can be generated now.
+// ResolveUplinkABProfiles — after Ensure, all wanted profiles should resolve.
 func ResolveUplinkABProfiles(cfg UplinkABConfig) []UplinkABProfile {
 	if !cfg.Enabled {
 		return nil
@@ -258,20 +396,17 @@ func ResolveUplinkABProfiles(cfg UplinkABConfig) []UplinkABProfile {
 				continue
 			}
 		case "ssh":
-			if cfg.SSHHost == "" || cfg.SSHUser == "" {
+			if cfg.SSHHost == "" || cfg.SSHUser == "" || cfg.SSHPrivateKeyPath == "" {
 				continue
 			}
 		}
 		p := UplinkABProfile{
-			ID:          id,
-			InboundTag:  "ab-in-" + id,
-			OutboundTag: "uplink-ab-" + id,
-			Port:        port,
-			Fragment:    "nd-up-" + id,
+			ID: id, InboundTag: "ab-in-" + id, OutboundTag: "uplink-ab-" + id,
+			Port: port, Fragment: "nd-up-" + id,
 		}
 		switch id {
 		case "nomux":
-			p.PrimaryPort = 0 // core vless
+			p.PrimaryPort = 0
 		case "ws":
 			p.PrimaryPort = primaryABPortWS
 		case "grpc":
@@ -281,9 +416,8 @@ func ResolveUplinkABProfiles(cfg UplinkABConfig) []UplinkABProfile {
 		case "wg":
 			p.PrimaryPort = cfg.WGListenPort
 		case "ssh":
-			if cfg.SSHPort > 0 {
-				p.PrimaryPort = cfg.SSHPort
-			} else {
+			p.PrimaryPort = cfg.SSHPort
+			if p.PrimaryPort <= 0 {
 				p.PrimaryPort = 22
 			}
 		}
@@ -293,7 +427,6 @@ func ResolveUplinkABProfiles(cfg UplinkABConfig) []UplinkABProfile {
 	return out
 }
 
-// StatusUplinkAB is CLI/JSON summary.
 func StatusUplinkAB() map[string]any {
 	_ = EnsureUplinkABMaterial()
 	cfg := LoadUplinkABConfig()
@@ -308,11 +441,11 @@ func StatusUplinkAB() map[string]any {
 		"profiles":  ids,
 		"base_port": cfg.BasePort,
 		"wg_ready":  cfg.WGPrimaryPrivateKey != "" && cfg.WGSecondaryPrivateKey != "",
+		"ssh_ready": cfg.SSHPrivateKeyPath != "" && cfg.SSHHost != "",
 		"config":    uplinkABConfigPath(),
 	}
 }
 
-// appendUplinkABInbounds adds steer inbounds on secondary (allowlisted users only).
 func appendUplinkABInbounds(inbounds []any, b *SecondaryBundle, privKey, shortID string, allUsers []secondaryUser) []any {
 	cfg := LoadUplinkABConfig()
 	profs := ResolveUplinkABProfiles(cfg)
@@ -326,6 +459,7 @@ func appendUplinkABInbounds(inbounds []any, b *SecondaryBundle, privKey, shortID
 		}
 	}
 	if len(abUsers) == 0 {
+		// allow any listed UUID from bundle if names missing — still need someone
 		return inbounds
 	}
 	for _, p := range profs {
@@ -356,7 +490,6 @@ func coreDialHost(b *SecondaryBundle) string {
 	return h
 }
 
-// appendUplinkABOutbounds adds experimental S→P outbounds on secondary.
 func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 	cfg := LoadUplinkABConfig()
 	profs := ResolveUplinkABProfiles(cfg)
@@ -365,6 +498,11 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 	}
 	uplinkTLS := buildSecondaryUplinkTLS(b)
 	coreHost := coreDialHost(b)
+	// For public underlays (ws/grpc/anytls/wg/ssh) dial CoreIP not SP VIP when available
+	publicCore := strings.TrimSpace(b.CoreIP)
+	if publicCore == "" {
+		publicCore = coreHost
+	}
 	for _, p := range profs {
 		var ob map[string]any
 		switch p.ID {
@@ -376,11 +514,10 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 			}
 		case "wg":
 			ob = map[string]any{
-				"type":            "wireguard",
-				"tag":             p.OutboundTag,
-				"private_key":     cfg.WGSecondaryPrivateKey,
-				"local_address":   []string{cfg.WGSecondaryAddress},
-				"mtu":             cfg.WGMTU,
+				"type": "wireguard", "tag": p.OutboundTag,
+				"private_key":   cfg.WGSecondaryPrivateKey,
+				"local_address": []string{cfg.WGSecondaryAddress},
+				"mtu":           cfg.WGMTU,
 				"peers": []any{
 					map[string]any{
 						"public_key":  cfg.WGPrimaryPublicKey,
@@ -392,7 +529,7 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 		case "anytls":
 			ob = map[string]any{
 				"type": "anytls", "tag": p.OutboundTag,
-				"server": coreHost, "server_port": primaryABPortAnyTLS,
+				"server": publicCore, "server_port": primaryABPortAnyTLS,
 				"password": b.UplinkUUID,
 				"tls": map[string]any{
 					"enabled": true, "server_name": b.CoreSNI,
@@ -402,22 +539,18 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 		case "ws":
 			ob = map[string]any{
 				"type": "vless", "tag": p.OutboundTag,
-				"server": coreHost, "server_port": primaryABPortWS,
+				"server": publicCore, "server_port": primaryABPortWS,
 				"uuid": b.UplinkUUID,
-				"transport": map[string]any{
-					"type": "ws", "path": "/nd-up-ws",
-				},
-				"tls": uplinkTLS,
+				"transport": map[string]any{"type": "ws", "path": "/nd-up-ws"},
+				"tls":       uplinkTLS,
 			}
 		case "grpc":
 			ob = map[string]any{
 				"type": "vless", "tag": p.OutboundTag,
-				"server": coreHost, "server_port": primaryABPortGRPC,
+				"server": publicCore, "server_port": primaryABPortGRPC,
 				"uuid": b.UplinkUUID,
-				"transport": map[string]any{
-					"type": "grpc", "service_name": "nd-up-grpc",
-				},
-				"tls": uplinkTLS,
+				"transport": map[string]any{"type": "grpc", "service_name": "nd-up-grpc"},
+				"tls":       uplinkTLS,
 			}
 		case "ssh":
 			port := cfg.SSHPort
@@ -426,14 +559,16 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 			}
 			host := cfg.SSHHost
 			if host == "" {
-				host = coreHost
+				host = publicCore
 			}
 			ob = map[string]any{
 				"type": "ssh", "tag": p.OutboundTag,
 				"server": host, "server_port": port,
 				"user": cfg.SSHUser,
 			}
-			if cfg.SSHPrivateKeyPath != "" {
+			if cfg.SSHPrivateKey != "" {
+				ob["private_key"] = cfg.SSHPrivateKey
+			} else if cfg.SSHPrivateKeyPath != "" {
 				ob["private_key_path"] = cfg.SSHPrivateKeyPath
 			}
 		default:
@@ -456,7 +591,6 @@ func uplinkABRouteRules() []any {
 	return rules
 }
 
-// appendPrimaryUplinkABInbounds adds primary terminators for ws/grpc/anytls (uplink UUID only, no vision).
 func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid string) []any {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled || uplinkUUID == "" {
@@ -474,21 +608,13 @@ func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid
 	if profileWants(cfg, "ws") {
 		inbounds = append(inbounds, map[string]any{
 			"type": "vless", "tag": "ab-vless-ws", "listen": "::", "listen_port": primaryABPortWS,
-			"users": u,
-			"transport": map[string]any{
-				"type": "ws", "path": "/nd-up-ws",
-			},
-			"tls": tlsReality,
+			"users": u, "transport": map[string]any{"type": "ws", "path": "/nd-up-ws"}, "tls": tlsReality,
 		})
 	}
 	if profileWants(cfg, "grpc") {
 		inbounds = append(inbounds, map[string]any{
 			"type": "vless", "tag": "ab-vless-grpc", "listen": "::", "listen_port": primaryABPortGRPC,
-			"users": u,
-			"transport": map[string]any{
-				"type": "grpc", "service_name": "nd-up-grpc",
-			},
-			"tls": tlsReality,
+			"users": u, "transport": map[string]any{"type": "grpc", "service_name": "nd-up-grpc"}, "tls": tlsReality,
 		})
 	}
 	if profileWants(cfg, "anytls") {
@@ -497,7 +623,6 @@ func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid
 			"users": []map[string]any{{"name": RelayUplinkName, "password": uplinkUUID}},
 			"tls": map[string]any{
 				"enabled": true, "server_name": sniVal,
-				// anytls typically needs real cert; use reality only if supported — fallback plain tls insecure for AB lab
 				"reality": map[string]any{
 					"enabled":     true,
 					"handshake":   map[string]any{"server": sniVal, "server_port": 443},
@@ -509,7 +634,6 @@ func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid
 	return inbounds
 }
 
-// primaryUplinkABEndpoints returns sing-box endpoints (WireGuard server for AB).
 func primaryUplinkABEndpoints() []any {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled || !profileWants(cfg, "wg") {
@@ -520,14 +644,14 @@ func primaryUplinkABEndpoints() []any {
 	}
 	return []any{
 		map[string]any{
-			"type":         "wireguard",
-			"tag":          "ab-wg",
-			"system":       false,
-			"name":         "nd-ab-wg",
-			"private_key":  cfg.WGPrimaryPrivateKey,
-			"listen_port":  cfg.WGListenPort,
-			"address":      []string{cfg.WGPrimaryAddress},
-			"mtu":          cfg.WGMTU,
+			"type":        "wireguard",
+			"tag":         "ab-wg",
+			"system":      false,
+			"name":        "nd-ab-wg",
+			"private_key": cfg.WGPrimaryPrivateKey,
+			"listen_port": cfg.WGListenPort,
+			"address":     []string{cfg.WGPrimaryAddress},
+			"mtu":         cfg.WGMTU,
 			"peers": []any{
 				map[string]any{
 					"public_key":  cfg.WGSecondaryPublicKey,
@@ -538,11 +662,35 @@ func primaryUplinkABEndpoints() []any {
 	}
 }
 
+// openUplinkABFirewall best-effort ufw rules (primary + secondary ports).
+func openUplinkABFirewall() {
+	if _, err := exec.LookPath("ufw"); err != nil {
+		return
+	}
+	cfg := LoadUplinkABConfig()
+	if !cfg.Enabled {
+		return
+	}
+	if isLikelyPrimaryHost() {
+		for _, p := range []int{primaryABPortWS, primaryABPortGRPC, primaryABPortAnyTLS} {
+			_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", p), "comment", "nd-uplink-ab").Run()
+		}
+		if profileWants(cfg, "wg") {
+			_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/udp", cfg.WGListenPort), "comment", "nd-uplink-ab-wg").Run()
+		}
+		return
+	}
+	for _, p := range ResolveUplinkABProfiles(cfg) {
+		_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", p.Port), "comment", "nd-uplink-ab-steer").Run()
+	}
+}
+
 // UplinkABSubscriptionLinks returns extra VLESS URIs for allowlisted user.
 func UplinkABSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName string) []string {
 	if !UplinkABUserAllowed(name) {
 		return nil
 	}
+	_ = EnsureUplinkABMaterial()
 	cfg := LoadUplinkABConfig()
 	profs := ResolveUplinkABProfiles(cfg)
 	if len(profs) == 0 {
@@ -568,4 +716,45 @@ func UplinkABSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName string) []
 		))
 	}
 	return links
+}
+
+// SnapshotUplinkAB returns config pointer for SecondaryBundle (after Ensure).
+func SnapshotUplinkAB() *UplinkABConfig {
+	if err := EnsureUplinkABMaterial(); err != nil {
+		fmt.Fprintln(os.Stderr, "uplink-ab ensure:", err)
+	}
+	cfg := LoadUplinkABConfig()
+	if !cfg.Enabled {
+		return nil
+	}
+	c := cfg
+	return &c
+}
+
+
+// EnableUplinkAB turns on the matrix, optional explicit users (else operator + sub_both).
+func EnableUplinkAB(users ...string) error {
+	cfg := LoadUplinkABConfig()
+	cfg.Enabled = true
+	if len(users) > 0 {
+		cfg.Users = users
+	}
+	if len(cfg.Profiles) == 0 {
+		cfg.Profiles = knownUplinkABOrder()
+	}
+	if err := saveUplinkABConfig(cfg); err != nil {
+		return err
+	}
+	if err := EnsureUplinkABMaterial(); err != nil {
+		return err
+	}
+	openUplinkABFirewall()
+	return nil
+}
+
+// DisableUplinkAB turns off experimental underlays (next apply drops inbounds).
+func DisableUplinkAB() error {
+	cfg := LoadUplinkABConfig()
+	cfg.Enabled = false
+	return saveUplinkABConfig(cfg)
 }
