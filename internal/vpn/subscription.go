@@ -97,6 +97,7 @@ func SubscriptionBody(name string) (string, error) {
 	var secondaries []string
 	seen := make(map[string]bool)
 	usedLabels := make(map[string]int)
+	var abRelayIP, abPBK, abSID, abSNI string
 	for i, sec := range loadOnlineSecondarys() {
 		label := uniqueProfileLabel(secondaryProfileLabel(sec.PublicIP, i), usedLabels)
 		link := strings.TrimSpace(ClientLinkForSecondaryProfile(
@@ -108,6 +109,20 @@ func SubscriptionBody(name string) (string, error) {
 		}
 		seen[link] = true
 		secondaries = append(secondaries, link)
+		if abRelayIP == "" {
+			abRelayIP, abPBK, abSID, abSNI = sec.Host, sec.PBK, sec.SID, sec.SNI
+		}
+	}
+	// Operator uplink A/B profiles (extra ports on secondary → exp S→P underlays)
+	if abRelayIP != "" {
+		for _, link := range UplinkABSubscriptionLinks(name, u.UUID, abRelayIP, abPBK, abSID, abSNI) {
+			link = strings.TrimSpace(link)
+			if link == "" || seen[link] {
+				continue
+			}
+			seen[link] = true
+			secondaries = append(secondaries, link)
+		}
 	}
 	var parts []string
 	switch EffectiveSubProfile(u) {

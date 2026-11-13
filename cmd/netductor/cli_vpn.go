@@ -26,6 +26,27 @@ func runVPN(args []string) {
 	cmd := o.Rest[0]
 	rest := o.Rest[1:]
 	switch cmd {
+	case "uplink-ab":
+		// netductor vpn uplink-ab status
+		sub := "status"
+		if len(rest) > 0 {
+			sub = rest[0]
+		}
+		switch sub {
+		case "status", "list":
+			st := vpn.StatusUplinkAB()
+			if o.JSON {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				_ = enc.Encode(st)
+			} else {
+				fmt.Printf("uplink-ab enabled=%v users=%v profiles=%v\n", st["enabled"], st["users"], st["profiles"])
+				fmt.Printf("  config %s\n", st["config"])
+			}
+		default:
+			fmt.Fprintln(os.Stderr, "usage: netductor vpn uplink-ab status")
+			os.Exit(2)
+		}
 	case "ensure-relay-uplink":
 		uuid, err := vpn.EnsureRelayUplink()
 		if err != nil {

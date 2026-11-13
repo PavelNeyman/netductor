@@ -53,6 +53,7 @@ func buildSecondaryInbounds(b *SecondaryBundle, privKey, shortID string, users [
 			},
 		})
 	}
+	inbounds = appendUplinkABInbounds(inbounds, b, privKey, shortID, users)
 	return inbounds
 }
 
@@ -114,6 +115,7 @@ func buildSecondaryOutboundsAndSvcRules(b *SecondaryBundle) (outbounds []any, sv
 		"ip_cidr":  []string{"10.88.0.0/24"},
 		"outbound": "block",
 	})
+	outbounds = appendUplinkABOutbounds(outbounds, b)
 	outbounds = append(outbounds,
 		map[string]any{"type": "direct", "tag": "direct"},
 		map[string]any{"type": "block", "tag": "block"},
@@ -168,6 +170,7 @@ func buildSecondaryRoute(svcRules []any, ruSuffixes []string) map[string]any {
 // assembleSecondaryRouteRules keeps rule order explicit (R1 / R11b): service → sniff → DNS → geo → uplink.
 func assembleSecondaryRouteRules(svcRules []any, ruSuffixes []string, hasGeo bool) []any {
 	rules := append([]any{}, svcRules...)
+	rules = append(rules, uplinkABRouteRules()...)
 	rules = append(rules,
 		map[string]any{"action": "sniff"},
 		map[string]any{"protocol": "dns", "action": "hijack-dns"},

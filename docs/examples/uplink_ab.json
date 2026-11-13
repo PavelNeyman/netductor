@@ -1,0 +1,16 @@
+{
+  "enabled": false,
+  "users": ["operator"],
+  "profiles": ["nomux", "wg", "anytls", "ws", "grpc", "ssh"],
+  "base_port": 9444,
+  "wg_private_key": "",
+  "wg_peer_public_key": "",
+  "wg_local_address": "10.87.90.2/30",
+  "wg_peer_address": "10.87.90.1",
+  "wg_endpoint": "PRIMARY_IP:51820",
+  "wg_mtu": 1280,
+  "ssh_user": "",
+  "ssh_host": "",
+  "ssh_port": 22,
+  "ssh_private_key_path": ""
+}

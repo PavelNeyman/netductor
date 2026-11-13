@@ -205,3 +205,20 @@ Switch profiles when path degrades; log which profile was up.
 | CLI | `vpn uplink-ab …` |
 
 **Principle:** raise the **matrix harness** once; underlays are plugins in a list — easy to delete after soak.
+
+
+---
+
+## Implementation status
+
+| Phase | Status |
+|-------|--------|
+| Phase 1 harness | **in tree** — `internal/vpn/uplink_ab.go`, builders + subscription + `netductor vpn uplink-ab status` |
+| Enable | `/etc/netductor/uplink_ab.json` `enabled:true` or `NETDUCTOR_UPLINK_AB=1` |
+| Allowlist | `users` or `NETDUCTOR_UPLINK_AB_USERS` (default operator) |
+| nomux | generated when enabled |
+| wg / ssh | only if material fields set |
+| anytls / ws / grpc | secondary outbounds generated; **primary inbounds still required** for non-nomux paths to work end-to-end |
+| Example | `docs/examples/uplink_ab.json` |
+
+After enable: rewrite secondary sing-box + refresh operator subscription; open exp ports on S firewall if used.
