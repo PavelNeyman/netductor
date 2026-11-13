@@ -573,9 +573,11 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 			ob = map[string]any{
 				"type": "vless", "tag": p.OutboundTag,
 				"server": publicCore, "server_port": primaryABPortWS,
-				"uuid": b.UplinkUUID,
+				"uuid": b.UplinkUUID, // no vision: transport is ws
 				"transport": map[string]any{"type": "ws", "path": "/nd-up-ws"},
-				"tls":       uplinkTLS,
+				"tls": map[string]any{
+					"enabled": true, "server_name": b.CoreSNI, "insecure": true,
+				},
 			}
 		case "grpc":
 			ob = map[string]any{
@@ -583,7 +585,9 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 				"server": publicCore, "server_port": primaryABPortGRPC,
 				"uuid": b.UplinkUUID,
 				"transport": map[string]any{"type": "grpc", "service_name": "nd-up-grpc"},
-				"tls":       uplinkTLS,
+				"tls": map[string]any{
+					"enabled": true, "server_name": b.CoreSNI, "insecure": true,
+				},
 			}
 		case "ssh":
 			port := cfg.SSHPort
@@ -630,37 +634,30 @@ func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid
 		return inbounds
 	}
 	u := []map[string]any{{"name": RelayUplinkName, "uuid": uplinkUUID, "flow": ""}}
-	tlsReality := map[string]any{
-		"enabled": true, "server_name": sniVal,
-		"reality": map[string]any{
-			"enabled":     true,
-			"handshake":   map[string]any{"server": sniVal, "server_port": 443},
-			"private_key": priv, "short_id": []string{sid},
-		},
+	// WS/gRPC/AnyTLS: standard TLS cert (Reality is TCP-oriented; unknown fields / handshake mismatch break apply).
+	certPath, keyPath, certErr := ensureABTLSCerts()
+	tlsCert := map[string]any{"enabled": true, "server_name": sniVal}
+	if certErr == nil {
+		tlsCert["certificate_path"] = certPath
+		tlsCert["key_path"] = keyPath
 	}
-	if profileWants(cfg, "ws") {
+	if profileWants(cfg, "ws") && certErr == nil {
 		inbounds = append(inbounds, map[string]any{
 			"type": "vless", "tag": "ab-vless-ws", "listen": "::", "listen_port": primaryABPortWS,
-			"users": u, "transport": map[string]any{"type": "ws", "path": "/nd-up-ws"}, "tls": tlsReality,
+			"users": u, "transport": map[string]any{"type": "ws", "path": "/nd-up-ws"}, "tls": tlsCert,
 		})
 	}
-	if profileWants(cfg, "grpc") {
+	if profileWants(cfg, "grpc") && certErr == nil {
 		inbounds = append(inbounds, map[string]any{
 			"type": "vless", "tag": "ab-vless-grpc", "listen": "::", "listen_port": primaryABPortGRPC,
-			"users": u, "transport": map[string]any{"type": "grpc", "service_name": "nd-up-grpc"}, "tls": tlsReality,
+			"users": u, "transport": map[string]any{"type": "grpc", "service_name": "nd-up-grpc"}, "tls": tlsCert,
 		})
 	}
-	if profileWants(cfg, "anytls") {
-		certPath, keyPath, cerr := ensureABTLSCerts()
-		tlsAny := map[string]any{"enabled": true, "server_name": sniVal}
-		if cerr == nil {
-			tlsAny["certificate_path"] = certPath
-			tlsAny["key_path"] = keyPath
-		}
+	if profileWants(cfg, "anytls") && certErr == nil {
 		inbounds = append(inbounds, map[string]any{
 			"type": "anytls", "tag": "ab-anytls", "listen": "::", "listen_port": primaryABPortAnyTLS,
 			"users": []map[string]any{{"name": RelayUplinkName, "password": uplinkUUID}},
-			"tls":   tlsAny,
+			"tls":   tlsCert,
 		})
 	}
 	return inbounds
@@ -673,6 +670,12 @@ func primaryUplinkABEndpoints() []any {
 	}
 	if cfg.WGPrimaryPrivateKey == "" || cfg.WGSecondaryPublicKey == "" {
 		return nil
+	}
+	peerIP := cfg.WGSecondaryAddress
+	if i := strings.IndexByte(peerIP, '/'); i > 0 {
+		peerIP = peerIP[:i] + "/32"
+	} else if peerIP != "" && !strings.Contains(peerIP, "/") {
+		peerIP = peerIP + "/32"
 	}
 	return []any{
 		map[string]any{
@@ -687,7 +690,7 @@ func primaryUplinkABEndpoints() []any {
 			"peers": []any{
 				map[string]any{
 					"public_key":  cfg.WGSecondaryPublicKey,
-					"allowed_ips": []string{cfg.WGSecondaryAddress},
+					"allowed_ips": []string{peerIP},
 				},
 			},
 		},

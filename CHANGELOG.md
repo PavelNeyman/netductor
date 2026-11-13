@@ -1,3 +1,11 @@
+## 0.9.726
+
+### Fixed
+- Uplink AB aligned with sing-box 1.12 docs: WG peers `address`+`port` (never `endpoint`); WG only as `endpoints[]`.
+- AB WS/gRPC/AnyTLS use self-signed TLS certs (not Reality on non-TCP transports).
+- Primary WG peer `allowed_ips` normalized to /32.
+- Secondary/primary `sing-box check` keeps default path if AB config is invalid.
+
 ## 0.9.725
 
 ### Fixed

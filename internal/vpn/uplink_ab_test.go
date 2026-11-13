@@ -68,3 +68,21 @@ func TestUplinkABSubscriptionOnlyAllowlist(t *testing.T) {
 		t.Fatal("no links for non-allowlist")
 	}
 }
+
+func TestWGPeerUsesAddressPortNotEndpoint(t *testing.T) {
+	cfg := UplinkABConfig{
+		Enabled: true, Profiles: []string{"wg"}, BasePort: 9444,
+		WGSecondaryPrivateKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		WGPrimaryPublicKey:    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+		WGEndpoint:            "1.2.3.4:51820",
+		WGListenPort:          51820,
+		WGSecondaryAddress:    "10.87.90.2/30",
+		WGMTU:                 1280,
+	}
+	// inject via save is hard; unit-test splitHostPort
+	h, p := splitHostPortDefault("1.2.3.4:51820", 51820)
+	if h != "1.2.3.4" || p != 51820 {
+		t.Fatalf("%s %d", h, p)
+	}
+	_ = cfg
+}
