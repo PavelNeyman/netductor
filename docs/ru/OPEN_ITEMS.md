@@ -8,6 +8,12 @@
 
 # Открытые пункты
 
+## Ложный fail offsite backup при stack apply (2026-11-13) — разобрать
+
+Консоль: `acked=0 pending=1`. TG и диск secondary: `backup_pull` **ok**, `key=ok`, sha совпадает. Фикс 0.9.727 (таймаут 3m, cmd_id) **не снял** рассинхрон на живом apply. Не считать offsite сломанным без проверки ack/файла. Детали: [EN OPEN_ITEMS](../OPEN_ITEMS.md), [audit note](../audits/2026-11-13-backup-offsite-false-fail.md).
+
+
+
 План: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
 ## Стоп-линия

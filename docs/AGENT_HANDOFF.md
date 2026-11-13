@@ -1,4 +1,6 @@
 
+**2026-11-13:** Backup offsite false fail on stack apply (console pending vs TG key=ok) — note only, investigate later: [OPEN_ITEMS](OPEN_ITEMS.md), [audits/2026-11-13-backup-offsite-false-fail.md](audits/2026-11-13-backup-offsite-false-fail.md).
+
 ## Mandatory rules for any coding agent (do not skip)
 
 ### CF-15 — upgrade floors

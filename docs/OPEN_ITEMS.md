@@ -10,6 +10,32 @@
 Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
 
+## Backup offsite false fail during stack apply (2026-11-13) — investigate
+
+**Do not treat as “offsite broken” without checking agent ack.**
+
+Observed on **v0.9.727** primary after `netductor stack apply v0.9.727`:
+
+| Source | What happened |
+|--------|----------------|
+| Console (pre-backup + post-apply) | `🔴 Backup offsite: … acked=0 pending=1 offline=0` |
+| Telegram | `✅ Secondary cmd backup_pull:<cmd_id> … key=ok sha=… cmd_id=…` within ~1 min |
+| Disk on secondary | Full `*.ndenc` present under `backups/peers/core/` with matching sha |
+
+So the **pull succeeded**; **WaitForBackupPull / RetryBackupOffsite on primary still reported pending**.
+
+Already attempted in **0.9.727** (`e351c69`): 3m wait, accept `LastCmd == backup_pull:<id>`, wait only online agents. **Still reproduced** on live stack apply (both pre-backup and post-apply paths).
+
+### Investigate next (no code change until root cause)
+
+1. Whether `secondary.List()` / heartbeat path updates `LastCmd*` **before** wait deadline during stack apply (API restart window).
+2. Whether pre-backup runs against **old** binary still using 45s / strict `cmd_id` only in log.
+3. Race: wait ends → fail mark written → agent report arrives → TG success, console already failed.
+4. Align success criteria with “file+sha on peer” or extend wait / re-check after API up (post-apply).
+5. Clear `backup_offsite_fail` when a later heartbeat shows matching `cmd_id` + `key=ok`.
+
+Related: `internal/install/backup.go` (`WaitForBackupPull`, `Backup`, `RetryBackupOffsite`), agent `backup_pull:` + heartbeat `CmdDone`/`CmdLog`.
+
 ## Blue-Green Secondary (2026-10-24)
 
 - [x] R1 blockers (0.9.497): validate, WSS isolation, promote/remove, material fail-closed
