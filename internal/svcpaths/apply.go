@@ -396,7 +396,7 @@ func RunSecondaryCycle() (State, string, error) {
 	if err := ProbeHealth(); err != nil {
 		return State{}, "", fmt.Errorf("probe health: %w", err)
 	}
-	s, sum, err := Tick()
+	s, sum, err := tickBody()
 	if err != nil {
 		return s, sum, err
 	}

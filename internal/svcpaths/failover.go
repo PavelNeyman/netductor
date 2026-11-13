@@ -127,9 +127,19 @@ func readHealthFile() healthSnap {
 	return h
 }
 
-// Tick updates anti-flap state from health JSON. Returns human summary.
+// Tick updates anti-flap state under failover.lock (safe for collect/timer).
 // Does not move user traffic by itself when UsersToSPOnVLESSDown is false.
 func Tick() (State, string, error) {
+	unlock, err := acquireFailoverLock()
+	if err != nil {
+		return State{}, "", err
+	}
+	defer unlock()
+	return tickBody()
+}
+
+// tickBody is Tick without lock — callers that already hold failover.lock (RunSecondaryCycle).
+func tickBody() (State, string, error) {
 	p := LoadPolicy()
 	s := LoadState()
 	h := readHealthFile()

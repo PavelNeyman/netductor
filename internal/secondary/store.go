@@ -901,6 +901,13 @@ func sanitizeID(id string) string {
 func SetRegion(id, region string) error {
 	id = strings.TrimSpace(id)
 	region = strings.TrimSpace(strings.ToLower(region))
+	mu.Lock()
+	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return lockErr
+	}
+	defer unlock()
 	r, err := load()
 	if err != nil {
 		return err

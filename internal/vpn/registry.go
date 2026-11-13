@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/skip2/go-qrcode"
@@ -17,6 +18,8 @@ import (
 	"github.com/PavelNeyman/netductor/internal/session"
 	"github.com/PavelNeyman/netductor/internal/statefile"
 )
+
+var registryMu sync.Mutex
 
 type UserRecord struct {
 	Name    string `json:"name"`
@@ -338,6 +341,8 @@ func findUser(r *registry, name string) *UserRecord {
 }
 
 func AddNative(name, note string) (string, error) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	if !ValidName(name) {
 		return "", fmt.Errorf("bad name")
 	}
@@ -365,6 +370,8 @@ func AddNative(name, note string) (string, error) {
 }
 
 func SetNoteNative(name, note string) error {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	r, err := loadRegistry()
 	if err != nil {
 		return err
@@ -378,6 +385,8 @@ func SetNoteNative(name, note string) error {
 }
 
 func SetEnabledNative(name string, enabled bool) error {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	r, err := loadRegistry()
 	if err != nil {
 		return err
@@ -399,6 +408,8 @@ func SetEnabledNative(name string, enabled bool) error {
 }
 
 func RevokeNative(name string) error {
+	registryMu.Lock()
+	defer registryMu.Unlock()
 	r, err := loadRegistry()
 	if err != nil {
 		return err

@@ -82,6 +82,10 @@ func Collect() Report {
 }
 
 func tcpProbe(host string, port int, timeout time.Duration) (bool, float64) {
+	host = strings.TrimSpace(host)
+	if host == "" || net.ParseIP(host) == nil {
+		return false, 0
+	}
 	t0 := time.Now()
 	c, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
 	ms := float64(time.Since(t0).Milliseconds())

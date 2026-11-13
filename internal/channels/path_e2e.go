@@ -73,6 +73,10 @@ func CollectPathE2E() []PathE2E {
 
 func icmpProbe(host string, timeout time.Duration) bool {
 	// best-effort; may require cap_net_raw
+	host = strings.TrimSpace(host)
+	if host == "" || net.ParseIP(host) == nil {
+		return false
+	}
 	sec := int(timeout.Seconds())
 	if sec < 1 {
 		sec = 1
