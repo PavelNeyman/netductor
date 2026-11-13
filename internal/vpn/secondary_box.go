@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -185,6 +186,9 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 		"outbounds": outbounds,
 		"route":     buildSecondaryRoute(svcRules, ruSuffixes),
 	}
+	if eps := secondaryUplinkABEndpoints(); len(eps) > 0 {
+		cfg["endpoints"] = eps
+	}
 	AttachExperimentalClashAPI(cfg)
 	dir := filepath.Dir(singboxConf)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -217,6 +221,18 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 	}
 	if closeErr != nil {
 		return fmt.Errorf("close staged sing-box config: %w", closeErr)
+	}
+	if path, err := exec.LookPath("sing-box"); err == nil {
+		if out, err := exec.Command(path, "check", "-c", tmp).CombinedOutput(); err != nil {
+			_ = os.Remove(tmp)
+			// Last resort: regenerate without uplink AB so default path stays up
+			if UplinkABEnabled() {
+				fmt.Fprintln(os.Stderr, "sing-box check failed with uplink-ab; rewriting without AB:", strings.TrimSpace(string(out)))
+				_ = DisableUplinkAB()
+				return WriteSecondarySingBox(b, privKey, shortID)
+			}
+			return fmt.Errorf("sing-box check failed (config not applied): %v (%s)", err, strings.TrimSpace(string(out)))
+		}
 	}
 	if err := os.Rename(tmp, singboxConf); err != nil {
 		return fmt.Errorf("replace sing-box config: %w", err)

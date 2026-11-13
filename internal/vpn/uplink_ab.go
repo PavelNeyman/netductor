@@ -537,19 +537,8 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 				"uuid": b.UplinkUUID, "tls": uplinkTLS,
 			}
 		case "wg":
-			ob = map[string]any{
-				"type": "wireguard", "tag": p.OutboundTag,
-				"private_key":   cfg.WGSecondaryPrivateKey,
-				"local_address": []string{cfg.WGSecondaryAddress},
-				"mtu":           cfg.WGMTU,
-				"peers": []any{
-					map[string]any{
-						"public_key":  cfg.WGPrimaryPublicKey,
-						"allowed_ips": []string{"0.0.0.0/0"},
-						"endpoint":    cfg.WGEndpoint,
-					},
-				},
-			}
+			// WireGuard is an endpoint in sing-box 1.11+ (not outbound). See secondaryUplinkABEndpoints.
+			continue
 		case "anytls":
 			ob = map[string]any{
 				"type": "anytls", "tag": p.OutboundTag,
@@ -792,4 +781,34 @@ func DisableUplinkAB() error {
 	cfg := LoadUplinkABConfig()
 	cfg.Enabled = false
 	return saveUplinkABConfig(cfg)
+}
+
+
+// secondaryUplinkABEndpoints — WG client endpoint (sing-box 1.12); tag matches route outbound.
+func secondaryUplinkABEndpoints() []any {
+	cfg := LoadUplinkABConfig()
+	if !cfg.Enabled || !profileWants(cfg, "wg") {
+		return nil
+	}
+	if cfg.WGSecondaryPrivateKey == "" || cfg.WGPrimaryPublicKey == "" || cfg.WGEndpoint == "" {
+		return nil
+	}
+	return []any{
+		map[string]any{
+			"type":        "wireguard",
+			"tag":         "uplink-ab-wg",
+			"system":      false,
+			"name":        "nd-ab-wg-s",
+			"private_key": cfg.WGSecondaryPrivateKey,
+			"address":     []string{cfg.WGSecondaryAddress},
+			"mtu":         cfg.WGMTU,
+			"peers": []any{
+				map[string]any{
+					"public_key":  cfg.WGPrimaryPublicKey,
+					"allowed_ips": []string{"0.0.0.0/0"},
+					"endpoint":    cfg.WGEndpoint,
+				},
+			},
+		},
+	}
 }

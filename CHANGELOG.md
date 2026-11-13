@@ -1,3 +1,9 @@
+## 0.9.725
+
+### Fixed
+- Uplink AB: WireGuard as sing-box **endpoint** (not outbound) — invalid WG outbound took down whole secondary sing-box including default path.
+- Secondary WriteSecondarySingBox: `sing-box check` before replace; auto-disable AB and rewrite if check fails.
+
 ## 0.9.724
 
 ### Fixed
