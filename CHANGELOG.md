@@ -1,3 +1,13 @@
+## 0.9.721
+
+### Added
+- Channel incident snapshots on path alerts → TG document; rotation (20 / 7d / 200MiB, history ≤5MiB).
+
+### Fixed
+- Secondary SetRegion + VPN user mutators: registry locks (lost-update / revoke race).
+- Failover Tick under failover.lock; collect SP/PS alerts use anti-flap state, not single ping.
+- Probe hosts validated as IP; dual info refresh preserves ListIDs/Focus/Confirm; TG PostForm uses timed client.
+
 ## 0.9.720
 
 ### Fixed
