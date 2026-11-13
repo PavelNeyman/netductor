@@ -363,6 +363,30 @@ func ensureABSSHSystemUser(pubPath string) error {
 	return nil
 }
 
+
+func ensureABTLSCerts() (certPath, keyPath string, err error) {
+	dir := filepath.Join(paths.EtcDir(), "secrets")
+	_ = os.MkdirAll(dir, 0o700)
+	certPath = filepath.Join(dir, "uplink_ab_tls.crt")
+	keyPath = filepath.Join(dir, "uplink_ab_tls.key")
+	if st, e := os.Stat(certPath); e == nil && st.Size() > 0 {
+		if st2, e2 := os.Stat(keyPath); e2 == nil && st2.Size() > 0 {
+			return certPath, keyPath, nil
+		}
+	}
+	// openssl if present
+	if _, e := exec.LookPath("openssl"); e == nil {
+		cmd := exec.Command("openssl", "req", "-x509", "-newkey", "rsa:2048", "-keyout", keyPath,
+			"-out", certPath, "-days", "3650", "-nodes", "-subj", "/CN=nd-uplink-ab")
+		if out, e := cmd.CombinedOutput(); e != nil {
+			return "", "", fmt.Errorf("openssl: %w (%s)", e, strings.TrimSpace(string(out)))
+		}
+		_ = os.Chmod(keyPath, 0o600)
+		return certPath, keyPath, nil
+	}
+	return "", "", fmt.Errorf("openssl not found for uplink AB TLS cert")
+}
+
 func generateWGKeypair() (privB64, pubB64 string, err error) {
 	var priv, pub [32]byte
 	if _, err = rand.Read(priv[:]); err != nil {
@@ -533,7 +557,7 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 				"password": b.UplinkUUID,
 				"tls": map[string]any{
 					"enabled": true, "server_name": b.CoreSNI,
-					"utls": map[string]any{"enabled": true, "fingerprint": "firefox"},
+					"insecure": true, // AB self-signed
 				},
 			}
 		case "ws":
@@ -618,17 +642,16 @@ func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid
 		})
 	}
 	if profileWants(cfg, "anytls") {
+		certPath, keyPath, cerr := ensureABTLSCerts()
+		tlsAny := map[string]any{"enabled": true, "server_name": sniVal}
+		if cerr == nil {
+			tlsAny["certificate_path"] = certPath
+			tlsAny["key_path"] = keyPath
+		}
 		inbounds = append(inbounds, map[string]any{
 			"type": "anytls", "tag": "ab-anytls", "listen": "::", "listen_port": primaryABPortAnyTLS,
 			"users": []map[string]any{{"name": RelayUplinkName, "password": uplinkUUID}},
-			"tls": map[string]any{
-				"enabled": true, "server_name": sniVal,
-				"reality": map[string]any{
-					"enabled":     true,
-					"handshake":   map[string]any{"server": sniVal, "server_port": 443},
-					"private_key": priv, "short_id": []string{sid},
-				},
-			},
+			"tls":   tlsAny,
 		})
 	}
 	return inbounds
@@ -749,6 +772,18 @@ func EnableUplinkAB(users ...string) error {
 		return err
 	}
 	openUplinkABFirewall()
+	// refresh subscription bodies so exp URIs appear without extra CLI
+	r, err := loadRegistry()
+	if err == nil {
+		for _, u := range r.Users {
+			if !u.Enabled {
+				continue
+			}
+			if UplinkABUserAllowed(u.Name) {
+				_ = WriteSubscriptionFiles(u.Name)
+			}
+		}
+	}
 	return nil
 }
 

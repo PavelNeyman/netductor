@@ -1,3 +1,11 @@
+## 0.9.723
+
+### Added
+- Uplink A/B matrix (operator-only): nomux / wg / ws / grpc / anytls / ssh — second client URIs, primary terminators, WG auto-keys, bundle to secondary, `vpn uplink-ab status|enable|disable`.
+
+### Fixed
+- anytls AB uses self-signed TLS (not Reality) so sing-box apply stays valid.
+
 ## 0.9.722
 
 ### Fixed
