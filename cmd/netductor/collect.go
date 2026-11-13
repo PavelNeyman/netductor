@@ -43,6 +43,25 @@ func attachLogs(key, caption string) {
 	}
 }
 
+
+func attachChannelIncident(key, caption string) {
+	if !notify.AlertOnce(key+":incident", caption) {
+		return
+	}
+	path, err := channels.CaptureIncident(key + " " + caption)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "channel incident:", err)
+		return
+	}
+	if path == "" {
+		return
+	}
+	if err := notify.SendDocument(path, "📎 channel incident: "+caption); err != nil {
+		fmt.Fprintln(os.Stderr, "channel incident send:", err)
+	}
+	_, _ = logs.Rotate()
+}
+
 func runCollect() int {
 	defer func() { _ = notify.FlushAlerts(true) }()
 	dir := paths.MetricsDir()
@@ -264,10 +283,13 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 	}
 	if enabled("channel_health") {
 		ch := channels.Collect()
-		// T3: rate/RTT sample alerts (opt-in soak via NETDUCTOR_CHANNEL_SAMPLE=1)
-		if os.Getenv("NETDUCTOR_CHANNEL_SAMPLE") == "1" {
+		// Light sample + evaluate every collect when channel_health on
+		// (NETDUCTOR_CHANNEL_SAMPLE=0 disables only the sample path).
+		if os.Getenv("NETDUCTOR_CHANNEL_SAMPLE") != "0" {
 			for _, a := range channels.SampleAndEvaluate() {
-				notify.AlertOnce(a.Key, a.Msg)
+				if notify.AlertOnce(a.Key, a.Msg) {
+					attachChannelIncident(a.Key, a.Msg)
+				}
 			}
 		}
 		for _, s := range ch.Secondaries {
@@ -278,14 +300,20 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 					// Uplink (mux) is the real path; public face may be firewalled or transient.
 					notify.AlertOnce(key, fmt.Sprintf("⚠️ Channel <b>%s</b>: public :443 face unreachable (ip %s) — uplink OK, not a data-plane outage", s.Name, s.PublicIP))
 				} else {
-					notify.AlertOnce(key, fmt.Sprintf("🔴 Channel <b>%s</b>: primary→secondary:443 TCP fail (ip %s) and uplink down", s.Name, s.PublicIP))
+					msg := fmt.Sprintf("🔴 Channel <b>%s</b>: primary→secondary:443 TCP fail (ip %s) and uplink down", s.Name, s.PublicIP)
+					if notify.AlertOnce(key, msg) {
+						attachChannelIncident(key, msg)
+					}
 				}
 			} else {
 				notify.ClearAlert(key)
 			}
 			keyU := "channel:uplink:" + s.ID
 			if s.Online && !s.UplinkOK {
-				notify.AlertOnce(keyU, fmt.Sprintf("🔴 Channel <b>%s</b>: secondary→primary uplink failed (data-plane)", s.Name))
+				msg := fmt.Sprintf("🔴 Channel <b>%s</b>: secondary→primary uplink failed (data-plane)", s.Name)
+				if notify.AlertOnce(keyU, msg) {
+					attachChannelIncident(keyU, msg)
+				}
 			} else {
 				notify.ClearAlert(keyU)
 			}

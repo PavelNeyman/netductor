@@ -254,3 +254,21 @@ alert_cooldown: 5m
 ```
 
 Config target: `/etc/netductor/channel-alerts.json` (T3). Constants live in `internal/channels` until then.
+
+
+---
+
+## 11. Incident capture + rotation (2026-11-13)
+
+**Light sample:** every `collect` when `channel_health` on and `NETDUCTOR_CHANNEL_SAMPLE!=0`.
+
+**On alert (RTT/rate/uplink/face red):** `channels.CaptureIncident` → tar.gz under `/var/lib/netductor/incidents/` → TG document.
+
+**Rotation:**
+| Store | Policy |
+|-------|--------|
+| `channel-history.jsonl` | retain 24h; hard size ≤5 MiB (shrink retain) |
+| `incidents/*.tar.gz` | max **20** files, **7 days**, **200 MiB** total |
+| `log-exports/` | existing `logs.Rotate` KeepHours |
+
+No public download URL; archive is TG document or path on primary only.
