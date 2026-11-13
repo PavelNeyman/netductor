@@ -1,161 +1,207 @@
-# PLAN: Per-operator uplink A/B (S→P) without affecting other users
+# PLAN: Per-operator multi uplink A/B (S→P) — profile matrix
 
-**Date:** 2026-11-13  
-**Goal:** Test alternate **secondary→primary** data-plane underlays while family users stay on the current uplink. Operator switches path from the **VPN client** via a second subscription profile (URI), not via global `vpn apply` for everyone.
+**Date:** 2026-11-13 (rev: multi-profile matrix)  
+**Goal:** Operator gets **many** subscription URIs; each steers **only that session** to a different **secondary→primary** underlay. Family users stay on default uplink. After soak: keep winners, delete the rest.
 
-**Non-goals:** Replace SP/wstunnel (service plane). Change client→S Reality face for all users. DNS SERVFAIL work (separate).
-
----
-
-## 1. Context
-
-| Layer | Today | A/B target |
-|-------|--------|------------|
-| Client → S | VLESS + Reality :443 (shared) | Unchanged for default users |
-| **S → P (uplink)** | Single shared outbound (Reality + mux) | **Default** vs **exp** outbound |
-| Sub profile `secondary` / `primary` / `both` | Which **entry** URIs (S and/or P) | **Not** which S→P underlay |
-| Users | One secondary sing-box config | Route **by user or by inbound tag** |
-
-Without code, “switch profile in client” only changes entry host, **not** S→P protocol.
+**Non-goals:** Change client→S default Reality for everyone. Replace SP/wstunnel. DNS SERVFAIL work.
 
 ---
 
-## 2. Desired UX
+## 1. UX
 
-Operator subscription contains at least:
+One operator subscription, many nodes (names illustrative):
 
-| URI name (example) | Path |
-|--------------------|------|
-| `nd-secondary-…` | Current uplink (baseline) |
-| `nd-uplink-wg` (or `…-nomux`, `…-ssh`) | Experimental S→P |
+| Profile name | S→P underlay |
+|--------------|----------------|
+| `nd-up-default` | Current (Reality + mux) — baseline |
+| `nd-up-nomux` | Reality same path, **multiplex off** |
+| `nd-up-wg` | WireGuard UDP S↔P (plain) |
+| `nd-up-wg-tcp` | WG over TCP wrapper if available / fallback path |
+| `nd-up-anytls` | AnyTLS S→P |
+| `nd-up-xhttp` | VLESS (or equivalent) + **XHTTP** transport + TLS |
+| `nd-up-ws` | VLESS + **WebSocket** + TLS |
+| `nd-up-grpc` | VLESS + **gRPC** + TLS |
+| `nd-up-ssh` | SSH tunnel (lab only) |
+| `nd-up-tsunami` | **Optional / experimental** — only if binary supports it |
 
-Switch node in client → only **that** session uses exp underlay. Everyone else: baseline.
-
-Optional later: more exp slots (`nomux`, `hysteria`, …) — same pattern.
-
----
-
-## 3. Design (recommended)
-
-### 3.1 Outbounds on secondary
-
-- Keep existing `uplink` (or current tag) as **default**.
-- Add `uplink-exp` (configurable type):
-  - **Phase B1:** WireGuard S↔P (user egress only; not SP).
-  - **Phase B0 (fast):** same Reality host/port **without multiplex** (or mux mode off) — isolates mux EOF theory.
-  - **Phase B2 (lab):** SSH / other — operator-only, not product default.
-
-Primary must terminate the chosen underlay (WG peer, or existing Reality inbound already used for uplink).
-
-### 3.2 Steering (pick one; prefer inbound)
-
-**Option A — separate inbound (best for client profiles)**  
-- Extra inbound on S: e.g. different `listen_port` or dedicated tag/SNI path only in exp URI.  
-- Route: `inbound: [vless-exp] → outbound: uplink-exp`.  
-- Default inbound → `uplink`.  
-- Operator sub gets second VLESS link pointing at exp inbound.  
-- **Pros:** Clear A/B in client; no reliance on UUID routing. **Cons:** Extra port/firewall hole (restrict to known peers if possible).
-
-**Option B — auth_user / user list**  
-- Route: users in `uplink_exp_users` (e.g. `operator`, `pavel`) → `uplink-exp`.  
-- **Pros:** One :443. **Cons:** Cannot switch back to baseline without config change; bad A/B UX.
-
-**Recommendation:** **Option A** for productized A/B; Option B only as one-shot debug.
-
-### 3.3 Subscription
-
-- Extend body generation for allowlisted names (operator / explicit flag `uplink_ab: true` on user record **or** env `NETDUCTOR_UPLINK_AB_USERS=operator,pavel`):
-  - Always emit baseline secondary URI(s) as today.
-  - Emit **one** exp URI when exp inbound is configured and healthy.
-- Normal users: **no** exp URI (no leak of test endpoints).
-
-### 3.4 Primary side
-
-- WG: interface + peer for S, policy route **only** marked/user-plane traffic if needed (do not steal default route).  
-- Or reuse existing uplink Reality inbound (already there for today’s S→P).  
-- Do not bind exp termination to public client face in a way that opens new consumer profiles.
-
-### 3.5 Safety
-
-- Exp path **off** unless `NETDUCTOR_UPLINK_AB=1` (or feature file).  
-- Default route for all non-exp traffic unchanged.  
-- `relay-uplink` remains service identity for default uplink auth — not an end-user profile.  
-- Document: compromised secondary can still claim users (existing trust note on `auth_user`).
+In client: switch profile → watch speed/stability when “тупит”. No global apply for family.
 
 ---
 
-## 4. Phases
+## 2. Architecture
 
-### Phase 0 — measure (no multi-profile yet)
+```text
+                    ┌─ inbound-default ─► uplink-default (today)
+Client (operator) ─┼─ inbound-nomux ───► uplink-nomux
+                   ├─ inbound-wg ──────► uplink-wg
+                   ├─ inbound-anytls ──► uplink-anytls
+                   ├─ inbound-xhttp ───► uplink-xhttp
+                   ├─ …                ► …
+Family ────────────┴─ inbound-default only (no exp URIs in their sub)
+```
 
-1. From S: TCP/SSH goodput to P vs current uplink goodput.  
-2. Confirm whether underlay type matters before coding A/B.
+- **One shared client face strategy:** either  
+  - **A (preferred):** dedicated `listen_port` (or unique path/SNI) per exp inbound, URI encodes that port/path; or  
+  - **B:** single :443 + route by special UUID per profile (messier for “switch in client”).  
+- Prefer **A**: each profile = clear inbound tag → fixed outbound.
 
-### Phase 1 — code skeleton (Option A)
-
-1. Config flags: exp outbound type + params; exp inbound port.  
-2. Generate secondary box: second outbound + inbound + route.  
-3. Subscription: second URI for allowlisted users only.  
-4. CLI: `netductor vpn uplink-ab status` (default vs exp configured, users allowlist).  
-5. Tests: generated JSON has two paths; non-allowlisted sub has no exp URI.
-
-### Phase 2 — WG exp underlay
-
-1. Provision WG S↔P for user plane (separate from SP `nd-svc-*`).  
-2. Primary NAT/egress for traffic arriving via this WG.  
-3. Soak with operator profile only.
-
-### Phase 3 — optional variants
-
-1. `uplink-exp` = Reality no-mux (if Phase 0 implicated mux).  
-2. Kill switch: disable exp inbound via flag without full regenerate pain.
-
-### Phase 4 — promote or drop
-
-- If exp wins: optional migration of **default** uplink (separate change, all users).  
-- If not: remove exp URI / keep flag off.
+Primary terminates each underlay (WG peers, Reality/TLS inbounds for S-only, SSH, etc.). **Not** published as consumer VPN profiles.
 
 ---
 
-## 5. Explicitly not in v1
+## 3. Feasibility matrix (honest)
 
-- Per-user UI in TG to “toggle uplink” for family accounts.  
-- Automatic traffic split by domain across two underlays.  
-- Replacing client→S Reality.  
-- Using SP wstunnel as user data plane.
+| Underlay | In sing-box stack | Effort S→P | Notes |
+|----------|-------------------|------------|--------|
+| default (Reality+mux) | Yes | 0 | Baseline |
+| Reality **no mux** | Yes | Low | Best first A/B vs mux EOF theory |
+| **WireGuard** UDP | Yes | Low–med | Best inter-VPS candidate; separate iface from SP |
+| WG over TCP | Partial / external | Med | Only if tool exists; else skip v1 |
+| **AnyTLS** | sing-box yes | Med | TLS camouflage S→P |
+| **VLESS + WS + TLS** | Yes | Med | “Web-like”; need cert/SNI on P |
+| **VLESS + gRPC + TLS** | Yes | Med | Same |
+| **VLESS + XHTTP + TLS** | Xray-strong; sing-box varies by version | Med–high | Confirm pin supports outbound/inbound |
+| **SSH** | `ssh` outbound or external | Low lab | CPU/MTU; **operator-only**, never promote |
+| **TSUNAMI** | Proposal / fork — **not** stable mainline | High / defer | Enable only if build has it; else stub URI omitted |
+| Hysteria2 / TUIC | Yes | Med | UDP; add if WG proves UDP path is fine |
 
----
+**Ship matrix v1 (implement for real):**  
+`default | nomux | wg | anytls | ws | grpc | ssh`  
 
-## 6. Acceptance
+**v1.1 if pin allows:** `xhttp`  
 
-| Criterion | |
-|-----------|--|
-| Family users unchanged (URI + path) | |
-| Operator can switch baseline ↔ exp in client | |
-| Feature flag default off | |
-| Tests for generate + sub allowlist | |
-| Doctor/status shows which underlay exp uses | |
+**Explicit defer:** `tsunami` until upstream support; `wg-tcp` unless a clean module exists.
 
----
-
-## 7. Implementation touchpoints (code map)
-
-| Area | Files (indicative) |
-|------|---------------------|
-| Secondary generate | `internal/vpn/secondary_box.go` |
-| Primary uplink peer / WG | `internal/vpn/` apply + svc/wg helpers as needed |
-| Subscription URIs | `internal/vpn/subscription.go` |
-| Flags / allowlist | env + optional user field |
-| CLI | `cmd/netductor` vpn/channel-adjacent |
-| Tests | secondary config golden + sub body |
+Flag: `NETDUCTOR_UPLINK_AB=1` + allowlist users. Default **off** → generate zero exp inbounds.
 
 ---
 
-## 8. Order of work
+## 4. Config shape (secondary)
 
-1. Phase 0 measurements (operator).  
-2. Phase 1 skeleton + no-mux or WG behind flag.  
-3. Operator-only soak.  
-4. Decide promote vs drop — **no** silent default change.
+Conceptual:
 
-**Related:** channel telemetry / incidents measure path health; this plan changes path **choice** for one client profile only.
+```json
+"inbounds": [
+  { "tag": "in-default", ... },
+  { "tag": "in-nomux", "listen_port": 9444, ... },
+  { "tag": "in-wg-steer", "listen_port": 9445, ... },
+  ...
+],
+"outbounds": [
+  { "tag": "uplink-default", ... multiplex ... },
+  { "tag": "uplink-nomux", ... no multiplex ... },
+  { "tag": "uplink-wg", "type": "wireguard", ... },
+  { "tag": "uplink-anytls", ... },
+  { "tag": "uplink-ws", ... },
+  { "tag": "uplink-grpc", ... },
+  { "tag": "uplink-ssh", "type": "ssh", ... }
+],
+"route": {
+  "rules": [
+    { "inbound": ["in-nomux"], "outbound": "uplink-nomux" },
+    { "inbound": ["in-wg-steer"], "outbound": "uplink-wg" },
+    ...
+  ]
+}
+```
+
+Steer inbounds can be minimal VLESS (same UUID as operator or dedicated test UUID) — only purpose is **select outbound**.
+
+Ports: allocate a small range (e.g. 9444–9455) on S, firewall **not** world-open if possible (allow client IPs / or accept that Reality face is already public and exp ports are operator-risk — document).
+
+---
+
+## 5. Subscription
+
+For allowlisted users only, append one link per **enabled** exp profile:
+
+```text
+# baseline (existing)
+vless://…#nd-up-default
+vless://…@S:9444…#nd-up-nomux
+vless://…@S:9445…#nd-up-wg
+...
+```
+
+Non-allowlisted: unchanged body (no exp ports leaked).
+
+CLI: `netductor vpn uplink-ab list|enable|disable <id>` for ops without full regenerate guesswork.
+
+---
+
+## 6. Primary
+
+| Exp | Primary needs |
+|-----|----------------|
+| nomux / ws / grpc / xhttp / anytls | Matching inbound(s) or single multi-inbound; TLS/Reality material |
+| wg | `wg` iface + peer S, forwarding/NAT for user plane |
+| ssh | `sshd` restricted user / key, no password; tunnel only |
+
+Keep SP `nd-svc-*` **untouched**.
+
+---
+
+## 7. Phases
+
+### Phase 0 — measure
+SSH/TCP and current uplink goodput (inform priority).
+
+### Phase 1 — harness
+- Flag + allowlist  
+- Port range + route table codegen  
+- Sub emits N URIs  
+- `uplink-ab status`  
+
+### Phase 2 — fill underlays (parallel ok)
+Order of implementation (not test order):
+
+1. nomux  
+2. wg  
+3. ws + grpc (+ TLS)  
+4. anytls  
+5. ssh (lab)  
+6. xhttp if supported  
+7. tsunami — **gate on binary feature**
+
+### Phase 3 — operator soak
+Switch profiles when path degrades; log which profile was up.
+
+### Phase 4 — rollback
+- `NETDUCTOR_UPLINK_AB=0` removes exp inbounds/URIs on next apply  
+- Delete dead primary peers  
+- Optionally promote one winner to **default** uplink (separate change)
+
+---
+
+## 8. Risks
+
+| Risk | Mitigation |
+|------|------------|
+| Config size / sing-box complexity | Cap matrix; disable types via file list |
+| Open exp ports | Allowlist users only; optional firewall to known client nets |
+| SSH CPU | Lab profile only |
+| TSUNAMI instability | Don’t emit URI if unsupported |
+| Operator confuses family phone | Exp only on allowlisted **account** subscription |
+
+---
+
+## 9. Acceptance
+
+- Family sub identical to pre-flag.  
+- Operator sub shows all **enabled** profiles; each maps to distinct underlay.  
+- Flag off → clean default-only config.  
+- Tests: golden JSON with N routes; allowlist filter on sub body.
+
+---
+
+## 10. Code map
+
+| Area | Touch |
+|------|--------|
+| Generate S | `internal/vpn/secondary_box.go` (+ small `uplink_ab.go`) |
+| Generate P | apply / inbounds / wg provision |
+| Sub | `internal/vpn/subscription.go` |
+| Flag | env + `/etc/netductor/uplink_ab.json` (enabled types list) |
+| CLI | `vpn uplink-ab …` |
+
+**Principle:** raise the **matrix harness** once; underlays are plugins in a list — easy to delete after soak.
