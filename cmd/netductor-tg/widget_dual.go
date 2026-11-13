@@ -327,7 +327,23 @@ func buildInfoData(screen string) (string, error) {
 	if screen == "" {
 		screen = "home"
 	}
+	// Snapshot interactive fields: buildAppScreen mutates ListIDs/Screen and would
+	// race dual info auto-refresh against nav o:N selection (TOCTOU amplifier).
+	appMu.Lock()
+	prevIDs := append([]string(nil), appSessUnlocked().ListIDs...)
+	prevFocus := appSessUnlocked().Focus
+	prevConfirm := appSessUnlocked().ConfirmTarget
+	prevBackup := appSessUnlocked().BackupName
+	prevScreen := appSessUnlocked().Screen
+	appMu.Unlock()
 	full, err := buildAppScreen(screen)
+	appMu.Lock()
+	appSessUnlocked().ListIDs = prevIDs
+	appSessUnlocked().Focus = prevFocus
+	appSessUnlocked().ConfirmTarget = prevConfirm
+	appSessUnlocked().BackupName = prevBackup
+	appSessUnlocked().Screen = prevScreen
+	appMu.Unlock()
 	if err != nil {
 		// fallback status snapshot
 		d := buildStatusWidgetData()

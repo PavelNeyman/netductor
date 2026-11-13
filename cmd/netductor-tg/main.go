@@ -767,7 +767,7 @@ func apiPOST(token, method string, fields map[string]any) error {
 			form.Set(k, string(b))
 		}
 	}
-	resp, err := http.PostForm("https://api.telegram.org/bot"+token+"/"+method, form)
+	resp, err := tgHTTP.PostForm("https://api.telegram.org/bot"+token+"/"+method, form)
 	if err != nil {
 		return err
 	}

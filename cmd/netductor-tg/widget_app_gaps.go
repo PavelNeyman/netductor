@@ -236,6 +236,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "ep_inet":
 		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		p, err := edge.GetDevicePolicy(focus)
@@ -251,6 +252,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "ep_mode":
 		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		p, err := edge.GetDevicePolicy(focus)
@@ -266,6 +268,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "es_fmt":
 		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		appSetConfirmTarget(focus)
@@ -279,6 +282,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 	case "y_fmt":
 		target := appGetConfirmTarget()
 		if target == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		appSetConfirmTarget("")
@@ -289,6 +293,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "et_fb":
 		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		_, err := edge.SetTemplateVPN(focus, map[string]any{"fallback": "direct"})
@@ -301,6 +306,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "et_soft":
 		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		_, err := edge.SetTemplateVPN(focus, map[string]any{"soft": true})
