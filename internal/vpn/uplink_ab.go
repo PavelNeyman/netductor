@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net"
+	"strconv"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -385,6 +387,24 @@ func ensureABTLSCerts() (certPath, keyPath string, err error) {
 		return certPath, keyPath, nil
 	}
 	return "", "", fmt.Errorf("openssl not found for uplink AB TLS cert")
+}
+
+
+func splitHostPortDefault(ep string, defPort int) (host string, port int) {
+	host = strings.TrimSpace(ep)
+	port = defPort
+	if host == "" {
+		return "", defPort
+	}
+	if h, p, err := net.SplitHostPort(host); err == nil {
+		host = h
+		if n, e := strconv.Atoi(p); e == nil && n > 0 {
+			port = n
+		}
+		return host, port
+	}
+	// bare host
+	return host, defPort
 }
 
 func generateWGKeypair() (privB64, pubB64 string, err error) {
@@ -784,13 +804,21 @@ func DisableUplinkAB() error {
 }
 
 
-// secondaryUplinkABEndpoints — WG client endpoint (sing-box 1.12); tag matches route outbound.
+// secondaryUplinkABEndpoints — WG client as sing-box endpoint (1.11+).
+// Peers use address+port (NOT "endpoint" — that field does not exist in sing-box JSON).
 func secondaryUplinkABEndpoints() []any {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled || !profileWants(cfg, "wg") {
 		return nil
 	}
 	if cfg.WGSecondaryPrivateKey == "" || cfg.WGPrimaryPublicKey == "" || cfg.WGEndpoint == "" {
+		return nil
+	}
+	h, pt := splitHostPortDefault(cfg.WGEndpoint, cfg.WGListenPort)
+	if pt <= 0 {
+		pt = primaryABPortWG
+	}
+	if h == "" {
 		return nil
 	}
 	return []any{
@@ -804,11 +832,14 @@ func secondaryUplinkABEndpoints() []any {
 			"mtu":         cfg.WGMTU,
 			"peers": []any{
 				map[string]any{
+					"address":     h,
+					"port":        pt,
 					"public_key":  cfg.WGPrimaryPublicKey,
 					"allowed_ips": []string{"0.0.0.0/0"},
-					"endpoint":    cfg.WGEndpoint,
 				},
 			},
 		},
 	}
 }
+
+
