@@ -211,14 +211,15 @@ Switch profiles when path degrades; log which profile was up.
 
 ## Implementation status
 
-| Phase | Status |
-|-------|--------|
-| Phase 1 harness | **in tree** — `internal/vpn/uplink_ab.go`, builders + subscription + `netductor vpn uplink-ab status` |
-| Enable | `/etc/netductor/uplink_ab.json` `enabled:true` or `NETDUCTOR_UPLINK_AB=1` |
-| Allowlist | `users` or `NETDUCTOR_UPLINK_AB_USERS` (default operator) |
-| nomux | generated when enabled |
-| wg / ssh | only if material fields set |
-| anytls / ws / grpc | secondary outbounds generated; **primary inbounds still required** for non-nomux paths to work end-to-end |
+| Item | Status |
+|------|--------|
+| Harness + allowlist + URIs | **done** |
+| Secondary steer inbounds 9444+ | **done** |
+| Primary terminators ws **10443** / grpc **10444** / anytls **10445** | **done** (ApplyConfig) |
+| WG keys auto-gen + primary `endpoints` + secondary outbound | **done** when `wg` in profiles |
+| nomux | **done** (S→P existing :443, no mux) |
+| ssh | needs `ssh_user`+`ssh_host` in json |
+| CLI `vpn uplink-ab status` | **done** |
 | Example | `docs/examples/uplink_ab.json` |
 
-After enable: rewrite secondary sing-box + refresh operator subscription; open exp ports on S firewall if used.
+Enable: `enabled:true` in `/etc/netductor/uplink_ab.json` or `NETDUCTOR_UPLINK_AB=1` → `vpn apply` / secondary config rewrite + sub refresh. Open firewall for 9444+ on S and 10443–10445/UDP 51820 on P as needed.

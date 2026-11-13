@@ -154,6 +154,7 @@ func ExportSecondaryBundle(relaySNI string) (*SecondaryBundle, error) {
 }
 
 func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
+	_ = EnsureUplinkABMaterial()
 	if b == nil {
 		return fmt.Errorf("nil bundle")
 	}

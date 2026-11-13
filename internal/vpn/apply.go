@@ -25,6 +25,9 @@ func ApplyConfig() error {
 	if priv == "" || sid == "" {
 		return fmt.Errorf("reality secrets missing")
 	}
+	if err := EnsureUplinkABMaterial(); err != nil {
+		return fmt.Errorf("uplink AB material: %w", err)
+	}
 	r, err := loadRegistry()
 	if err != nil {
 		return err
@@ -68,7 +71,14 @@ func ApplyConfig() error {
 			},
 			"final": "blocky", "strategy": "ipv4_only",
 		},
-		"inbounds":  buildPrimaryInbounds(vusers, svcUsers, sniVal, priv, sid),
+		"inbounds":  appendPrimaryUplinkABInbounds(buildPrimaryInbounds(vusers, svcUsers, sniVal, priv, sid), func() string {
+			for _, u := range r.Users {
+				if u.Name == RelayUplinkName {
+					return u.UUID
+				}
+			}
+			return ""
+		}(), sniVal, priv, sid),
 		"outbounds": outbounds,
 		"route": map[string]any{
 			"rules": routeRules,
@@ -77,6 +87,9 @@ func ApplyConfig() error {
 	}
 	// C11: localhost clash_api — rewritten on every Apply so it is never dropped.
 	AttachExperimentalClashAPI(cfg)
+	if eps := primaryUplinkABEndpoints(); len(eps) > 0 {
+		cfg["endpoints"] = eps
+	}
 
 	work, err := os.MkdirTemp("", "nd-sb-")
 	if err != nil {

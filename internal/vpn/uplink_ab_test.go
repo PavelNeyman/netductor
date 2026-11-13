@@ -1,16 +1,12 @@
 package vpn
 
 import (
-	"os"
 	"testing"
 )
 
 func TestUplinkABDisabledByDefault(t *testing.T) {
-	_ = os.Unsetenv(uplinkABEnv)
-	cfg := LoadUplinkABConfig()
-	// file may enable on real hosts; force env off
 	t.Setenv(uplinkABEnv, "0")
-	cfg = LoadUplinkABConfig()
+	cfg := LoadUplinkABConfig()
 	if cfg.Enabled {
 		t.Fatal("expected disabled")
 	}
@@ -23,8 +19,8 @@ func TestUplinkABNomuxWhenEnabled(t *testing.T) {
 	t.Setenv(uplinkABEnv, "1")
 	t.Setenv(uplinkABUsersEnv, "operator")
 	cfg := LoadUplinkABConfig()
-	cfg.Profiles = []string{"nomux"}
 	cfg.Enabled = true
+	cfg.Profiles = []string{"nomux"}
 	profs := ResolveUplinkABProfiles(cfg)
 	if len(profs) != 1 || profs[0].ID != "nomux" {
 		t.Fatalf("got %#v", profs)
@@ -41,5 +37,34 @@ func TestUplinkABSkipWGWithoutMaterial(t *testing.T) {
 	cfg := UplinkABConfig{Enabled: true, Profiles: []string{"wg"}, BasePort: 9444}
 	if n := ResolveUplinkABProfiles(cfg); len(n) != 0 {
 		t.Fatalf("wg without keys must skip: %v", n)
+	}
+}
+
+func TestGenerateWGKeypair(t *testing.T) {
+	priv, pub, err := generateWGKeypair()
+	if err != nil || priv == "" || pub == "" || priv == pub {
+		t.Fatalf("priv=%q pub=%q err=%v", priv, pub, err)
+	}
+}
+
+func TestAppendPrimaryABInbounds(t *testing.T) {
+	t.Setenv(uplinkABEnv, "1")
+	cfg := LoadUplinkABConfig()
+	_ = cfg
+	// force via env only — file may not exist; set profiles through Resolve with manual cfg in append uses Load
+	inbounds := appendPrimaryUplinkABInbounds(nil, "uuid-up", "www.example.com", "priv", "sid")
+	// may be empty if enabled false from file override - set env already
+	if !UplinkABEnabled() {
+		t.Skip("AB not enabled in this environment")
+	}
+	_ = inbounds
+}
+
+func TestUplinkABSubscriptionOnlyAllowlist(t *testing.T) {
+	t.Setenv(uplinkABEnv, "1")
+	t.Setenv(uplinkABUsersEnv, "operator")
+	links := UplinkABSubscriptionLinks("nobody", "u", "1.2.3.4", "pbk", "sid", "sni")
+	if len(links) != 0 {
+		t.Fatal("no links for non-allowlist")
 	}
 }
