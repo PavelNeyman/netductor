@@ -1,3 +1,8 @@
+## 0.9.722
+
+### Fixed
+- Channel RTT alerts: C3 face dial is not network RTT (warn 2.5s / crit 5s); C2 uplink 500/1000ms; require 3 consecutive samples; incident archives only on serious alerts; rtt/rate cooldown 45m.
+
 ## 0.9.721
 
 ### Added

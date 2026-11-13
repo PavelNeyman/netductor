@@ -280,7 +280,7 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 		// (NETDUCTOR_CHANNEL_SAMPLE=0 disables only the sample path).
 		if os.Getenv("NETDUCTOR_CHANNEL_SAMPLE") != "0" {
 			for _, a := range channels.SampleAndEvaluate() {
-				if notify.AlertOnce(a.Key, a.Msg) {
+				if notify.AlertOnce(a.Key, a.Msg) && a.Incident {
 					attachChannelIncident(a.Key, a.Msg)
 				}
 			}

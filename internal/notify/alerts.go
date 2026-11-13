@@ -68,7 +68,9 @@ func AlertOnce(key, msg string) bool {
 		cd = 24 * time.Hour // one reminder per day per release tag
 	}
 	// Channel / mismatch: shorter re-notify while incident is ongoing (still not spam every tick).
-	if strings.HasPrefix(key, "channel:") || strings.HasPrefix(key, "mismatch:") {
+	if strings.HasPrefix(key, "channel:rtt:") || strings.HasPrefix(key, "channel:rate:") {
+		cd = 45 * time.Minute // chronic path noise; sample still records
+	} else if strings.HasPrefix(key, "channel:") || strings.HasPrefix(key, "mismatch:") {
 		cd = 5 * time.Minute
 	}
 	if strings.HasPrefix(key, "git:mac-build") {
