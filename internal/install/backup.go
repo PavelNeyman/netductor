@@ -488,7 +488,7 @@ func Backup() (string, error) {
 	if len(targetIDs) > 0 && n > 0 {
 		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d/%d secondary agent(s) (offline=%d)\n", n, len(targetIDs), offline)
 		started := time.Now().UTC().Add(-2 * time.Second)
-		acked, pending := WaitForBackupPull(90*time.Second, started, pullID, targetIDs)
+		acked, pending := WaitForBackupPull(45*time.Second, started, pullID, targetIDs)
 		if acked == len(targetIDs) && pending == 0 {
 			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d/%d secondary acked backup_pull with key)\n", acked, len(targetIDs))
 			notify.ClearAlert("backup-offsite")
@@ -508,6 +508,41 @@ func Backup() (string, error) {
 	}
 	pruneBackups(dir, BackupKeepCount())
 	return out, nil
+}
+
+// RetryBackupOffsite re-queues backup_pull after stack apply (API was likely restarting during pre-backup pull).
+func RetryBackupOffsite() (acked, pending, offline int, err error) {
+	pullID := newBackupPullCmdID()
+	var targetIDs []string
+	n := 0
+	for _, d := range secondary.List() {
+		targetIDs = append(targetIDs, d.ID)
+		if !secondary.Online(d, 3*time.Minute) {
+			offline++
+			continue
+		}
+		if e := secondary.EnqueueCmd(d.ID, "backup_pull:"+pullID); e == nil {
+			n++
+		}
+	}
+	if n == 0 {
+		if offline > 0 {
+			return 0, offline, offline, fmt.Errorf("no online secondary for backup_pull")
+		}
+		return 0, 0, 0, nil
+	}
+	fmt.Fprintf(os.Stderr, "backup: post-apply backup_pull queued on %d agent(s)\n", n)
+	acked, pending = WaitForBackupPull(120*time.Second, time.Now().UTC().Add(-2*time.Second), pullID, targetIDs)
+	if acked == len(targetIDs) && pending == 0 {
+		fmt.Fprintf(os.Stderr, "backup: offsite confirmed post-apply (%d/%d)\n", acked, len(targetIDs))
+		notify.ClearAlert("backup-offsite")
+		_ = os.Remove(filepath.Join(paths.StateDir(), "backup_offsite_fail"))
+		return acked, 0, offline, nil
+	}
+	msg := fmt.Sprintf("🔴 Backup offsite post-apply: targets=%d queued=%d acked=%d pending=%d offline=%d", len(targetIDs), n, acked, pending, offline)
+	fmt.Fprintln(os.Stderr, msg)
+	notify.AlertOnce("backup-offsite", msg)
+	return acked, pending, offline, fmt.Errorf("%s", msg)
 }
 
 // Restore unpacks backup into paths.EtcDir parent (expects tar of etc dir name).

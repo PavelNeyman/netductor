@@ -1192,36 +1192,49 @@ func secondaryBackupPull() (bool, string) {
 		return false, "missing secondary_agent_token or secondary_core_url"
 	}
 	core = strings.TrimRight(core, "/")
-	client := &http.Client{Timeout: 10 * time.Minute}
 	tlsCfg, err := mtls.ClientTLSConfig()
 	if err != nil {
 		return false, "mtls client material missing/unreadable (need secrets/mtls ca+client cert+key): " + err.Error()
 	}
-	client.Transport = &http.Transport{TLSClientConfig: tlsCfg}
-	req, err := http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/latest", nil)
+	client := &http.Client{
+		Timeout: 10 * time.Minute,
+		Transport: &http.Transport{TLSClientConfig: tlsCfg},
+	}
+	url := core + "/api/secondary/agent/backup/latest"
+	var lastErr string
+	const maxAttempts = 8
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		ok, msg := secondaryBackupPullOnce(client, url, tok, core)
+		if ok {
+			return true, msg
+		}
+		lastErr = msg
+		// Primary API restart / EOF during stack apply — backoff and retry whole transfer
+		low := strings.ToLower(msg)
+		transient := strings.Contains(low, "eof") || strings.Contains(low, "reset") ||
+			strings.Contains(low, "connection refused") || strings.Contains(low, "timeout") ||
+			strings.Contains(low, "broken pipe") || strings.Contains(low, "http 5")
+		if !transient && attempt >= 3 {
+			break
+		}
+		time.Sleep(time.Duration(attempt*2) * time.Second)
+	}
+	return false, fmt.Sprintf("after %d attempts: %s", maxAttempts, lastErr)
+}
+
+func secondaryBackupPullOnce(client *http.Client, url, tok, core string) (bool, string) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return false, err.Error()
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
-	var resp *http.Response
-	var lastErr error
-	for attempt := 1; attempt <= 3; attempt++ {
-		resp, lastErr = client.Do(req)
-		if lastErr == nil {
-			break
-		}
-		// Primary may restart API during stack apply — brief EOF/reset is common.
-		time.Sleep(time.Duration(attempt*2) * time.Second)
-		// rebuild request (Body was nil; URL reusable)
-		req, _ = http.NewRequest(http.MethodGet, core+"/api/secondary/agent/backup/latest", nil)
-		req.Header.Set("Authorization", "Bearer "+tok)
-	}
-	if lastErr != nil {
-		return false, fmt.Sprintf("after retries: %v", lastErr)
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, err.Error()
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return false, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(b))
 	}
 	name := resp.Header.Get("X-Netductor-Backup-Name")
@@ -1262,7 +1275,6 @@ func secondaryBackupPull() (bool, string) {
 		_ = os.Remove(tmpName)
 		return false, "empty backup download"
 	}
-	// verify SHA before promoting (headers required)
 	wantSHA := strings.ToLower(strings.TrimSpace(resp.Header.Get("X-Netductor-Backup-SHA256")))
 	if len(wantSHA) != 64 {
 		_ = os.Remove(tmpName)

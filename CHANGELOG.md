@@ -1,3 +1,8 @@
+## 0.9.724
+
+### Fixed
+- backup_pull: full transfer retries on EOF/reset (stack apply API restart race); post-apply offsite re-queue when pre-backup pull fails.
+
 ## 0.9.723
 
 ### Added

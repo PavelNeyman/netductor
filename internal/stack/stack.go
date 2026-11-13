@@ -983,6 +983,12 @@ func ApplyOpts(tag string, noBackup bool) error {
 		fmt.Fprintln(os.Stderr, "warn: write integrity manifest after commit:", err)
 	}
 	notify.AlertOnce("stack:apply-ok:"+tag, "✅ Stack apply committed <code>"+tag+"</code> (secondary: manual upgrade:v"+strings.TrimPrefix(tag, "v")+")")
+	if !noBackup {
+		fmt.Fprintln(os.Stderr, "stack apply: post-apply backup_pull (API stable)")
+		if _, _, _, err := install.RetryBackupOffsite(); err != nil {
+			fmt.Fprintln(os.Stderr, "backup post-apply:", err)
+		}
+	}
 	printSecondaryUpgradeHint(tag)
 	_ = notify.FlushAlerts(true)
 	if err := cleanupTerminalAttempt(attemptDir()); err != nil {
