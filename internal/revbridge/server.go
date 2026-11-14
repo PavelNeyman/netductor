@@ -2,6 +2,7 @@ package revbridge
 
 import (
 	"fmt"
+	"os"
 	"net"
 	"strings"
 	"sync"
@@ -44,22 +45,35 @@ func (s *Server) SetAllowFrom(ip string) {
 func (s *Server) Start() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	var started int
+	var lastErr error
 	for _, p := range s.plans {
 		pln, err := net.Listen("tcp", fmt.Sprintf(":%d", p.PublicPort))
 		if err != nil {
-			s.stopLocked()
-			return fmt.Errorf("revbridge public :%d: %w", p.PublicPort, err)
+			lastErr = fmt.Errorf("revbridge public :%d: %w", p.PublicPort, err)
+			fmt.Fprintln(os.Stderr, lastErr)
+			continue
 		}
 		s.ln = append(s.ln, pln)
 		go s.acceptPrimary(pln, p)
 
 		lln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p.LocalPort))
 		if err != nil {
-			s.stopLocked()
-			return fmt.Errorf("revbridge local :%d: %w", p.LocalPort, err)
+			_ = pln.Close()
+			lastErr = fmt.Errorf("revbridge local :%d: %w", p.LocalPort, err)
+			fmt.Fprintln(os.Stderr, lastErr)
+			continue
 		}
 		s.ln = append(s.ln, lln)
 		go s.acceptLocal(lln, p)
+		started++
+		fmt.Fprintf(os.Stderr, "revbridge: listen kind=%s public=:%d local=127.0.0.1:%d\n", p.Kind, p.PublicPort, p.LocalPort)
+	}
+	if started == 0 {
+		if lastErr != nil {
+			return lastErr
+		}
+		return fmt.Errorf("revbridge: no plans to listen")
 	}
 	return nil
 }
@@ -87,10 +101,12 @@ func (s *Server) handlePrimary(c net.Conn, p PortPlan) {
 			host = c.RemoteAddr().String()
 		}
 		if host != s.allowFrom {
+			fmt.Fprintf(os.Stderr, "revbridge: reject %s kind=%s (allowFrom=%s)\n", host, p.Kind, s.allowFrom)
 			_ = c.Close()
 			return
 		}
 	}
+	fmt.Fprintf(os.Stderr, "revbridge: primary session kind=%s from %s\n", p.Kind, c.RemoteAddr().String())
 	uc := net.Conn(c)
 	var err error
 	if p.Transport == "ws" {

@@ -410,6 +410,10 @@ func backupPullAcked(d secondary.Device, notBefore time.Time, cmdID string) bool
 	if d.LastCmd == "backup_pull" && strings.Contains(log, "stored ") {
 		return true
 	}
+	// Recent successful pull (key=ok + stored) even if cmd_id mismatched after API restart mid-pull.
+	if strings.Contains(log, "stored ") && !d.LastCmdAt.Before(notBefore) {
+		return true
+	}
 	return false
 }
 func newBackupPullCmdID() string {
@@ -513,8 +517,8 @@ func Backup() (string, error) {
 	if n > 0 {
 		fmt.Fprintf(os.Stderr, "backup: queued backup_pull on %d secondary agent(s) (offline=%d)\n", n, offline)
 		started := time.Now().UTC().Add(-2 * time.Second)
-		// 3m: full encrypted archive is often ~20–30 MiB over SP
-		acked, pending := WaitForBackupPull(3*time.Minute, started, pullID, targetIDs)
+		// 5m: large archives over SP / slow peer can exceed 3m
+		acked, pending := WaitForBackupPull(5*time.Minute, started, pullID, targetIDs)
 		if acked == n && pending == 0 {
 			fmt.Fprintf(os.Stderr, "backup: offsite confirmed (%d/%d secondary acked backup_pull with key)\n", acked, n)
 			notify.ClearAlert("backup-offsite")

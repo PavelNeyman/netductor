@@ -2,6 +2,7 @@ package revbridge
 
 import (
 	"fmt"
+	"os"
 	"net"
 	"sync"
 	"time"
@@ -72,16 +73,19 @@ func (c *Client) sessionOnce(p PortPlan) error {
 	addr := fmt.Sprintf("%s:%d", c.host, p.PublicPort)
 	conn, err := net.DialTimeout("tcp", addr, 15*time.Second)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "revbridge: dial %s kind=%s: %v\n", addr, p.Kind, err)
 		return err
 	}
 	uc := net.Conn(conn)
 	if p.Transport == "ws" {
 		uc, err = dialClientWS(conn, c.host)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "revbridge: ws upgrade %s: %v\n", addr, err)
 			_ = conn.Close()
 			return err
 		}
 	}
+	fmt.Fprintf(os.Stderr, "revbridge: session up kind=%s -> %s dial=%s\n", p.Kind, addr, p.PrimaryDial)
 	// Block until session dies (readLoop → Close).
 	done := make(chan struct{})
 	sess := newSession(uc, true, func(id uint32) (net.Conn, error) {

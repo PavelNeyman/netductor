@@ -40,7 +40,11 @@ func runVPN(args []string) {
 				enc.SetIndent("", "  ")
 				_ = enc.Encode(st)
 			} else {
-				fmt.Printf("uplink-ab enabled=%v users=%v profiles=%v\n", st["enabled"], st["users"], st["profiles"])
+				fmt.Printf("uplink-ab enabled=%v users=%v\n", st["enabled"], st["users"])
+				fmt.Printf("  forward %v\n", st["profiles"])
+				fmt.Printf("  reverse_enabled=%v reverse %v\n", st["reverse_enabled"], st["reverse_profiles"])
+				fmt.Printf("  primary_public_ip=%v wg_rev_ready=%v endpoint=%v\n", st["primary_public_ip"], st["wg_rev_ready"], st["wg_rev_endpoint"])
+				fmt.Printf("  revbridge %v\n", st["revbridge"])
 				fmt.Printf("  config %s\n", st["config"])
 			}
 		case "enable":

@@ -18,6 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/revbridge"
 )
 
 // Uplink AB: operator-only experimental S→P underlays (PLAN-UPLINK-AB-PROFILE).
@@ -586,20 +587,23 @@ func StatusUplinkAB() map[string]any {
 	for _, p := range ResolveUplinkABReverseProfiles(cfg) {
 		rids = append(rids, fmt.Sprintf("%s:s%d→vip/p%d", p.ID, p.Port, p.PrimaryPort))
 	}
-	return map[string]any{
-		"enabled":          cfg.Enabled,
-		"users":            cfg.Users,
-		"profiles":         ids,
-		"reverse_enabled":  cfg.ReverseEnabled,
-		"reverse_profiles": rids,
-		"base_port":        cfg.BasePort,
+	st := map[string]any{
+		"enabled":           cfg.Enabled,
+		"users":             cfg.Users,
+		"profiles":          ids,
+		"reverse_enabled":   cfg.ReverseEnabled,
+		"reverse_profiles":  rids,
+		"base_port":         cfg.BasePort,
 		"reverse_base_port": cfg.ReverseBasePort,
-		"wg_ready":         cfg.WGPrimaryPrivateKey != "" && cfg.WGSecondaryPrivateKey != "",
-		"wg_rev_ready":     reverseWGReady(cfg),
-		"wg_rev_endpoint":  cfg.WGRevEndpoint,
-		"ssh_ready":        cfg.SSHPrivateKeyPath != "" && cfg.SSHHost != "",
-		"config":           uplinkABConfigPath(),
+		"wg_ready":          cfg.WGPrimaryPrivateKey != "" && cfg.WGSecondaryPrivateKey != "",
+		"wg_rev_ready":      reverseWGReady(cfg),
+		"wg_rev_endpoint":   cfg.WGRevEndpoint,
+		"primary_public_ip": cfg.PrimaryPublicIP,
+		"ssh_ready":         cfg.SSHPrivateKeyPath != "" && cfg.SSHHost != "",
+		"config":            uplinkABConfigPath(),
+		"revbridge":         revbridge.Status(),
 	}
+	return st
 }
 
 func appendUplinkABInbounds(inbounds []any, b *SecondaryBundle, privKey, shortID string, allUsers []secondaryUser) []any {
