@@ -237,7 +237,9 @@ func UplinkABEnabled() bool {
 	return LoadUplinkABConfig().Enabled
 }
 
-// UplinkABUserAllowed: explicit list, or operator / sub_profile=both.
+// UplinkABUserAllowed: only when AB enabled.
+// If Users is non-empty — exact match only (other VPN users never see AB).
+// If Users is empty — only the name "operator" (no SubBoth auto-include).
 func UplinkABUserAllowed(name string) bool {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled {
@@ -255,18 +257,7 @@ func UplinkABUserAllowed(name string) bool {
 		}
 		return false
 	}
-	if strings.EqualFold(name, "operator") {
-		return true
-	}
-	r, err := loadRegistry()
-	if err != nil {
-		return false
-	}
-	u := findUser(r, name)
-	if u == nil {
-		return false
-	}
-	return EffectiveSubProfile(u) == SubBoth
+	return strings.EqualFold(name, "operator")
 }
 
 func knownUplinkABOrder() []string {
@@ -886,7 +877,7 @@ func SnapshotUplinkAB() *UplinkABConfig {
 }
 
 
-// EnableUplinkAB turns on the matrix, optional explicit users (else operator + sub_both).
+// EnableUplinkAB turns on the matrix. Pass explicit users for isolation; empty Users → only "operator".
 func EnableUplinkAB(users ...string) error {
 	cfg := LoadUplinkABConfig()
 	cfg.Enabled = true

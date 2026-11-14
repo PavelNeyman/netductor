@@ -227,7 +227,7 @@ Enable: `enabled:true` in `/etc/netductor/uplink_ab.json` or `NETDUCTOR_UPLINK_A
 
 ---
 
-## Reverse underlays (P→S initiator) — 0.9.734+
+## Reverse underlays (P→S initiator) — 0.9.735+
 
 **Model:** Primary **dials** Secondary and keeps a reverse session; client traffic enters on Secondary and is **injected into that session** toward Primary (egress).
 
@@ -262,4 +262,15 @@ systemctl restart netductor-api
 ```
 
 Subscription: `nd-up-rev-wg` … `nd-up-rev-nomux` for allowlisted user only.
+
+
+
+## Isolation (other users)
+
+- Default `enabled=false` — no AB ports, no revbridge, no extra sub links.
+- AB Reality inbounds on S list **only allowlisted UUIDs**.
+- Sub/TG links: `UplinkABSubscriptionLinks` only if `UplinkABUserAllowed`.
+- Main `:443` / relay path for all other users **unchanged**.
+- `users` empty → only name `operator` (not every SubBoth account).
+- Upgrade with test left on: OK; only allowlisted user gets new `nd-up-rev-*`. Others: no profile change. Brief sing-box restart on apply is global (normal for any vpn apply).
 
