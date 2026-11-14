@@ -163,6 +163,7 @@ func WriteSecondarySingBox(b *SecondaryBundle, privKey, shortID string) error {
 	}
 	_ = EnsureUplinkABMaterial()
 	openUplinkABFirewall()
+	EnsureReverseBridge()
 	if b == nil {
 		return fmt.Errorf("nil bundle")
 	}

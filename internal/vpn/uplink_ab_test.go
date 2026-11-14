@@ -90,30 +90,25 @@ func TestWGPeerUsesAddressPortNotEndpoint(t *testing.T) {
 
 func TestResolveUplinkABReverseProfiles(t *testing.T) {
 	cfg := UplinkABConfig{
-		Enabled:         true,
-		ReverseEnabled:  true,
-		ReverseProfiles: []string{"ws", "wg", "nomux", "ps"}, // ws/nomux must be dropped
+		Enabled: true, ReverseEnabled: true,
+		ReverseProfiles: []string{"ws", "wg", "nomux", "ps", "grpc"},
 		ReverseBasePort: 9544,
-		WGRevPrimaryPrivateKey:   "p",
-		WGRevPrimaryPublicKey:    "P",
-		WGRevSecondaryPrivateKey: "s",
-		WGRevSecondaryPublicKey:  "S",
-		WGRevPrimaryAddress:      "10.87.91.1/30",
-		WGRevSecondaryAddress:    "10.87.91.2/30",
-		WGRevListenPort:          51821,
+		WGRevPrimaryPrivateKey: "p", WGRevPrimaryPublicKey: "P",
+		WGRevSecondaryPrivateKey: "s", WGRevSecondaryPublicKey: "S",
+		WGRevPrimaryAddress: "10.87.91.1/30", WGRevSecondaryAddress: "10.87.91.2/30",
+		WGRevListenPort: 51821,
 	}
-	// normalize strips fake profiles
 	normalizeUplinkAB(&cfg)
 	profs := ResolveUplinkABReverseProfiles(cfg)
-	if len(profs) != 2 {
-		t.Fatalf("want wg+ps only, got %d %+v", len(profs), profs)
+	if len(profs) < 3 {
+		t.Fatalf("want real reverse profiles, got %d %+v", len(profs), profs)
 	}
 	for _, p := range profs {
-		if !p.Reverse || (p.ID != "wg" && p.ID != "ps") {
+		if !p.Reverse || !strings.HasPrefix(p.Fragment, "nd-up-rev-") {
 			t.Fatalf("bad profile %+v", p)
 		}
-		if !strings.HasPrefix(p.Fragment, "nd-up-rev-") {
-			t.Fatalf("fragment %s", p.Fragment)
+		if p.ID == "ps" {
+			t.Fatal("ps must not appear")
 		}
 	}
 }

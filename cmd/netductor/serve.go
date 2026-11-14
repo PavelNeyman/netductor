@@ -24,6 +24,7 @@ import (
 
 func buildAPIMux() http.Handler {
 	policy.ApplyHook = vpn.ApplyAccessPolicies
+	vpn.EnsureReverseBridge()
 	edge.EnsureDefaultTemplate()
 	mux := http.NewServeMux()
 

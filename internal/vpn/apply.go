@@ -91,6 +91,7 @@ func ApplyConfig() error {
 		cfg["endpoints"] = eps
 	}
 	openUplinkABFirewall()
+	EnsureReverseBridge()
 
 	work, err := os.MkdirTemp("", "nd-sb-")
 	if err != nil {

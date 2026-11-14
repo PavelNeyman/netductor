@@ -187,12 +187,18 @@ func normalizeUplinkAB(cfg *UplinkABConfig) {
 	if cfg.ReverseEnabled && len(cfg.ReverseProfiles) == 0 {
 		cfg.ReverseProfiles = knownReverseUplinkOrder()
 	}
-	// Drop legacy fake reverse transports (rev-ws etc. were labels on one WG).
 	if len(cfg.ReverseProfiles) > 0 {
+		allow := map[string]bool{}
+		for _, id := range knownReverseUplinkOrder() {
+			allow[id] = true
+		}
 		var keep []string
 		for _, id := range cfg.ReverseProfiles {
 			id = strings.ToLower(strings.TrimSpace(id))
-			if id == revSteerWG || id == revSteerPS {
+			if id == "ps" {
+				continue // removed: was not a real reverse underlay
+			}
+			if allow[id] {
 				keep = append(keep, id)
 			}
 		}

@@ -3,33 +3,31 @@ package vpn
 import (
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/revbridge"
 )
 
-// Reverse uplink A/B — only underlays that are truly P→S on the wire.
+// Reverse uplink: Primary initiates underlay toward Secondary; client traffic
+// enters on Secondary and is injected into those sessions toward Primary.
 //
-// Plan (PLAN-UPLINK-AB-PROFILE): forward matrix stays S→P dial.
-// Reverse is for A/B "who initiates inter-VPS path", not labels on one WG.
-//
-// Real reverse paths shipped:
-//
-//  1. rev-wg — WireGuard listen on Secondary; Primary dials S (endpoint on P).
-//     Client → S:reverseBasePort → endpoint uplink-ab-rev-wg → P → egress.
-//
-//  2. rev-ps — user bulk via existing service-plane PS (Primary-initiated WSS/WG
-//     between P and S). Outbound VLESS to primary PS VIP when material is present.
-//     Outer path is the same PS plane already used for control; initiator is P.
-//
-// Fake "rev-ws / rev-grpc / … inside reverse WG" were removed: outside the
-// path is still one WG and A/B of transport is meaningless for DPI tests.
-// True reverse-WS/gRPC (P dials S, S injects user into that session) needs a
-// reverse-bridge (frp/ssh -R/custom mux) — not sing-box outbound flip.
+// Paths:
+//   - wg: sing-box WireGuard (listen S, dial P) — no revbridge
+//   - ws/grpc/anytls/nomux: revbridge mux (P dials S public port; S local port for sing-box)
 
 const (
-	revSteerWG = "wg"
-	revSteerPS = "ps"
+	revSteerWG     = "wg"
+	revSteerWS     = "ws"
+	revSteerGRPC   = "grpc"
+	revSteerAnyTLS = "anytls"
+	revSteerNomux  = "nomux"
 )
+
+func knownReverseUplinkOrder() []string {
+	return []string{revSteerWG, revSteerWS, revSteerGRPC, revSteerAnyTLS, revSteerNomux}
+}
 
 func reverseProfileWants(cfg UplinkABConfig, id string) bool {
 	if !cfg.Enabled || !cfg.ReverseEnabled {
@@ -49,20 +47,15 @@ func reverseWGReady(cfg UplinkABConfig) bool {
 		cfg.WGRevPrimaryPublicKey != "" && cfg.WGRevSecondaryPublicKey != ""
 }
 
-func revPrimaryVIP(cfg UplinkABConfig) string {
-	a := cfg.WGRevPrimaryAddress
-	if i := strings.IndexByte(a, '/'); i > 0 {
-		return a[:i]
+func revKindsFromConfig(cfg UplinkABConfig) []revbridge.Kind {
+	list := cfg.ReverseProfiles
+	if len(list) == 0 {
+		list = knownReverseUplinkOrder()
 	}
-	return strings.TrimSpace(a)
+	return revbridge.ParseKinds(list)
 }
 
-// knownReverseUplinkOrder — only real P-initiated paths.
-func knownReverseUplinkOrder() []string {
-	return []string{revSteerWG, revSteerPS}
-}
-
-// ResolveUplinkABReverseProfiles — steer ports on S for real reverse paths only.
+// ResolveUplinkABReverseProfiles — client steer ports on Secondary.
 func ResolveUplinkABReverseProfiles(cfg UplinkABConfig) []UplinkABProfile {
 	if !cfg.Enabled || !cfg.ReverseEnabled {
 		return nil
@@ -71,7 +64,6 @@ func ResolveUplinkABReverseProfiles(cfg UplinkABConfig) []UplinkABProfile {
 	for _, id := range cfg.ReverseProfiles {
 		want[strings.ToLower(strings.TrimSpace(id))] = true
 	}
-	// Default when reverse on but list empty / legacy junk: only real paths.
 	if len(want) == 0 {
 		for _, id := range knownReverseUplinkOrder() {
 			want[id] = true
@@ -93,22 +85,19 @@ func ResolveUplinkABReverseProfiles(cfg UplinkABConfig) []UplinkABProfile {
 			}
 			out = append(out, UplinkABProfile{
 				ID: id, Reverse: true,
-				InboundTag:  "ab-in-rev-wg",
-				OutboundTag: "uplink-ab-rev-wg",
-				Port:        port,
-				Fragment:    "nd-up-rev-wg",
-				PrimaryPort: cfg.WGRevListenPort,
+				InboundTag: "ab-in-rev-wg", OutboundTag: "uplink-ab-rev-wg",
+				Port: port, Fragment: "nd-up-rev-wg", PrimaryPort: cfg.WGRevListenPort,
 			})
 			port++
-		case revSteerPS:
-			// PS VIP path; material checked when building outbound.
+		case revSteerWS, revSteerGRPC, revSteerAnyTLS, revSteerNomux:
+			plan, ok := revbridge.PlanFor(revbridge.Kind(id))
+			if !ok {
+				continue
+			}
 			out = append(out, UplinkABProfile{
 				ID: id, Reverse: true,
-				InboundTag:  "ab-in-rev-ps",
-				OutboundTag: "uplink-ab-rev-ps",
-				Port:        port,
-				Fragment:    "nd-up-rev-ps",
-				PrimaryPort: 0,
+				InboundTag: "ab-in-rev-" + id, OutboundTag: "uplink-ab-rev-" + id,
+				Port: port, Fragment: "nd-up-rev-" + id, PrimaryPort: plan.PublicPort,
 			})
 			port++
 		}
@@ -132,12 +121,6 @@ func appendUplinkABReverseInbounds(inbounds []any, b *SecondaryBundle, privKey, 
 		return inbounds
 	}
 	for _, p := range profs {
-		// Skip PS inbound if we cannot build outbound (no VIP).
-		if p.ID == revSteerPS {
-			if _, _, ok := reversePSDialTarget(b); !ok {
-				continue
-			}
-		}
 		inbounds = append(inbounds, map[string]any{
 			"type": "vless", "tag": p.InboundTag, "listen": "::", "listen_port": p.Port,
 			"users": abUsers,
@@ -145,9 +128,7 @@ func appendUplinkABReverseInbounds(inbounds []any, b *SecondaryBundle, privKey, 
 				"enabled": true, "server_name": b.SecondarySNI,
 				"reality": map[string]any{
 					"enabled": true,
-					"handshake": map[string]any{
-						"server": b.SecondarySNI, "server_port": 443,
-					},
+					"handshake": map[string]any{"server": b.SecondarySNI, "server_port": 443},
 					"private_key": privKey,
 					"short_id":    []string{shortID},
 				},
@@ -155,20 +136,6 @@ func appendUplinkABReverseInbounds(inbounds []any, b *SecondaryBundle, privKey, 
 		})
 	}
 	return inbounds
-}
-
-// reversePSDialTarget — primary address reachable over P-initiated PS plane.
-func reversePSDialTarget(b *SecondaryBundle) (host string, port int, ok bool) {
-	// Slot-0 PS primary VIP (svcpaths.AddrP_PS). Hardcoded to avoid vpn↔svcpaths import cycle.
-	host = "10.87.11.1"
-	if net.ParseIP(host) == nil {
-		return "", 0, false
-	}
-	port = 443
-	if b != nil && b.CoreVless > 0 {
-		port = b.CoreVless
-	}
-	return host, port, true
 }
 
 func appendUplinkABReverseOutbounds(outbounds []any, b *SecondaryBundle) []any {
@@ -179,18 +146,47 @@ func appendUplinkABReverseOutbounds(outbounds []any, b *SecondaryBundle) []any {
 	}
 	uplinkTLS := buildSecondaryUplinkTLS(b)
 	for _, p := range profs {
-		switch p.ID {
-		case revSteerWG:
-			// endpoint, not outbound
+		if p.ID == revSteerWG {
+			continue // endpoint
+		}
+		plan, ok := revbridge.PlanFor(revbridge.Kind(p.ID))
+		if !ok {
 			continue
-		case revSteerPS:
-			host, port, ok := reversePSDialTarget(b)
-			if !ok || b.UplinkUUID == "" {
-				continue
-			}
+		}
+		// Dial local revbridge; through tunnel Primary terminates real underlay.
+		switch p.ID {
+		case revSteerWS:
 			outbounds = append(outbounds, map[string]any{
 				"type": "vless", "tag": p.OutboundTag,
-				"server": host, "server_port": port,
+				"server": "127.0.0.1", "server_port": plan.LocalPort,
+				"uuid": b.UplinkUUID,
+				"transport": map[string]any{"type": "ws", "path": "/nd-up-ws"},
+				"tls": map[string]any{"enabled": true, "server_name": b.CoreSNI, "insecure": true},
+			})
+		case revSteerGRPC:
+			outbounds = append(outbounds, map[string]any{
+				"type": "vless", "tag": p.OutboundTag,
+				"server": "127.0.0.1", "server_port": plan.LocalPort,
+				"uuid": b.UplinkUUID,
+				"transport": map[string]any{"type": "grpc", "service_name": "nd-up-grpc"},
+				"tls": map[string]any{"enabled": true, "server_name": b.CoreSNI, "insecure": true},
+			})
+		case revSteerAnyTLS:
+			outbounds = append(outbounds, map[string]any{
+				"type": "anytls", "tag": p.OutboundTag,
+				"server": "127.0.0.1", "server_port": plan.LocalPort,
+				"password": b.UplinkUUID,
+				"tls": map[string]any{"enabled": true, "server_name": b.CoreSNI, "insecure": true},
+			})
+		case revSteerNomux:
+			port := b.CoreVless
+			if port <= 0 {
+				port = 443
+			}
+			_ = port // actual port is primary side of bridge (443); local is plan.LocalPort
+			outbounds = append(outbounds, map[string]any{
+				"type": "vless", "tag": p.OutboundTag,
+				"server": "127.0.0.1", "server_port": plan.LocalPort,
 				"uuid": b.UplinkUUID, "tls": uplinkTLS,
 			})
 		}
@@ -199,15 +195,9 @@ func appendUplinkABReverseOutbounds(outbounds []any, b *SecondaryBundle) []any {
 }
 
 func uplinkABReverseRouteRules() []any {
-	cfg := LoadUplinkABConfig()
-	profs := ResolveUplinkABReverseProfiles(cfg)
+	profs := ResolveUplinkABReverseProfiles(LoadUplinkABConfig())
 	var rules []any
 	for _, p := range profs {
-		if p.ID == revSteerPS {
-			if _, _, ok := reversePSDialTarget(nil); !ok {
-				continue
-			}
-		}
 		rules = append(rules, map[string]any{
 			"inbound":  []string{p.InboundTag},
 			"outbound": p.OutboundTag,
@@ -216,67 +206,46 @@ func uplinkABReverseRouteRules() []any {
 	return rules
 }
 
-// secondaryUplinkABReverseEndpoints — WG listen on S; Primary dials (no peer endpoint).
 func secondaryUplinkABReverseEndpoints() []any {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled || !cfg.ReverseEnabled || !reverseWGReady(cfg) {
 		return nil
 	}
-	if !reverseProfileWants(cfg, revSteerWG) && !reverseListImpliesWG(cfg) {
-		return nil
-	}
-	// Always ship endpoint if reverse-wg profile resolves.
-	ok := false
+	has := false
 	for _, p := range ResolveUplinkABReverseProfiles(cfg) {
 		if p.ID == revSteerWG {
-			ok = true
+			has = true
 			break
 		}
 	}
-	if !ok {
+	if !has {
 		return nil
 	}
 	return []any{
 		map[string]any{
-			"type":        "wireguard",
-			"tag":         "uplink-ab-rev-wg",
-			"system":      false,
-			"name":        "nd-ab-rev-wg-s",
-			"private_key": cfg.WGRevSecondaryPrivateKey,
-			"listen_port": cfg.WGRevListenPort,
-			"address":     []string{cfg.WGRevSecondaryAddress},
-			"mtu":         cfg.WGMTU,
+			"type": "wireguard", "tag": "uplink-ab-rev-wg", "system": false, "name": "nd-ab-rev-wg-s",
+			"private_key": cfg.WGRevSecondaryPrivateKey, "listen_port": cfg.WGRevListenPort,
+			"address": []string{cfg.WGRevSecondaryAddress}, "mtu": cfg.WGMTU,
 			"peers": []any{
-				map[string]any{
-					"public_key":  cfg.WGRevPrimaryPublicKey,
-					"allowed_ips": []string{"0.0.0.0/0"},
-				},
+				map[string]any{"public_key": cfg.WGRevPrimaryPublicKey, "allowed_ips": []string{"0.0.0.0/0"}},
 			},
 		},
 	}
 }
 
-func reverseListImpliesWG(cfg UplinkABConfig) bool {
-	if len(cfg.ReverseProfiles) == 0 {
-		return true
-	}
-	return reverseProfileWants(cfg, revSteerWG)
-}
-
-// primaryUplinkABReverseEndpoints — Primary dials Secondary (P→S initiator).
 func primaryUplinkABReverseEndpoints() []any {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled || !cfg.ReverseEnabled || !reverseWGReady(cfg) {
 		return nil
 	}
-	hasWG := false
+	has := false
 	for _, p := range ResolveUplinkABReverseProfiles(cfg) {
 		if p.ID == revSteerWG {
-			hasWG = true
+			has = true
 			break
 		}
 	}
-	if !hasWG {
+	if !has {
 		return nil
 	}
 	h, pt := splitHostPortDefault(cfg.WGRevEndpoint, cfg.WGRevListenPort)
@@ -294,18 +263,11 @@ func primaryUplinkABReverseEndpoints() []any {
 	}
 	return []any{
 		map[string]any{
-			"type":        "wireguard",
-			"tag":         "ab-rev-wg",
-			"system":      false,
-			"name":        "nd-ab-rev-wg-p",
-			"private_key": cfg.WGRevPrimaryPrivateKey,
-			"address":     []string{cfg.WGRevPrimaryAddress},
-			"mtu":         cfg.WGMTU,
+			"type": "wireguard", "tag": "ab-rev-wg", "system": false, "name": "nd-ab-rev-wg-p",
+			"private_key": cfg.WGRevPrimaryPrivateKey, "address": []string{cfg.WGRevPrimaryAddress}, "mtu": cfg.WGMTU,
 			"peers": []any{
 				map[string]any{
-					"address":     h,
-					"port":        pt,
-					"public_key":  cfg.WGRevSecondaryPublicKey,
+					"address": h, "port": pt, "public_key": cfg.WGRevSecondaryPublicKey,
 					"allowed_ips": []string{peerIP},
 				},
 			},
@@ -330,9 +292,13 @@ func openUplinkABReverseFirewall() {
 	if reverseWGReady(cfg) {
 		_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/udp", cfg.WGRevListenPort), "comment", "nd-uplink-ab-rev-wg").Run()
 	}
+	for _, k := range revKindsFromConfig(cfg) {
+		if plan, ok := revbridge.PlanFor(k); ok {
+			_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", plan.PublicPort), "comment", "nd-revbridge").Run()
+		}
+	}
 }
 
-// UplinkABReverseSubscriptionLinks — nd-up-rev-wg / nd-up-rev-ps only.
 func UplinkABReverseSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName string) []string {
 	if !UplinkABUserAllowed(name) {
 		return nil
@@ -352,15 +318,51 @@ func UplinkABReverseSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName str
 	}
 	var links []string
 	for _, p := range profs {
-		if p.ID == revSteerPS {
-			if _, _, ok := reversePSDialTarget(nil); !ok {
-				continue
-			}
-		}
 		links = append(links, fmt.Sprintf(
 			"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=firefox&pbk=%s&sid=%s&type=tcp#%s",
 			uuid, host, p.Port, sniName, pbk, sid, p.Fragment,
 		))
 	}
 	return links
+}
+
+// EnsureReverseBridge starts in-process bridge on this host (primary client or secondary server).
+func EnsureReverseBridge() {
+	cfg := LoadUplinkABConfig()
+	if !cfg.Enabled || !cfg.ReverseEnabled {
+		return
+	}
+	kinds := revKindsFromConfig(cfg)
+	if isLikelyPrimaryHost() {
+		host := ""
+		if h, _, err := net.SplitHostPort(cfg.WGRevEndpoint); err == nil {
+			host = h
+		}
+		if host == "" {
+			host = strings.TrimSpace(cfg.WGRevEndpoint)
+		}
+		if host == "" {
+			for _, sec := range loadOnlineSecondarys() {
+				ip := strings.TrimSpace(sec.PublicIP)
+				if ip == "" {
+					ip = strings.TrimSpace(sec.Host)
+				}
+				if ip != "" && net.ParseIP(ip) != nil {
+					host = ip
+					break
+				}
+			}
+		}
+		if host == "" {
+			fmt.Fprintln(os.Stderr, "revbridge: primary: no secondary host yet")
+			return
+		}
+		if err := revbridge.StartClientPrimary(host, kinds); err != nil {
+			fmt.Fprintln(os.Stderr, "revbridge primary:", err)
+		}
+		return
+	}
+	if err := revbridge.StartServerSecondary(kinds); err != nil {
+		fmt.Fprintln(os.Stderr, "revbridge secondary:", err)
+	}
 }

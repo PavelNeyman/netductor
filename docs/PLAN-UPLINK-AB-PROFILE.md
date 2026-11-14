@@ -227,45 +227,35 @@ Enable: `enabled:true` in `/etc/netductor/uplink_ab.json` or `NETDUCTOR_UPLINK_A
 
 ---
 
-## Reverse underlays (P→S initiator) — 0.9.730+
+## Reverse underlays (P→S initiator) — 0.9.731+
 
-**Goal:** Operator A/B of **who initiates** the inter-VPS path. Client still hits Secondary; allowlist unchanged.
+**Model:** Primary **dials** Secondary and keeps a reverse session; client traffic enters on Secondary and is **injected into that session** toward Primary (egress).
 
-### What is real on the wire
+| Profile | Outer path (who dials) | Mechanism |
+|---------|------------------------|-----------|
+| `nd-up-rev-wg` | UDP WG; **P → S** | sing-box endpoints (listen S, peer endpoint on P) |
+| `nd-up-rev-ws` | **WS P → S** :11543 | `internal/revbridge` mux; local :12543 → Primary :10443 |
+| `nd-up-rev-grpc` | **TCP P → S** :11544 | revbridge; local :12544 → Primary :10444 |
+| `nd-up-rev-anytls` | **TCP P → S** :11545 | revbridge; local :12545 → Primary :10445 |
+| `nd-up-rev-nomux` | **TCP P → S** :11546 | revbridge; local :12546 → Primary :443 |
 
-| Profile | Outer path | Initiator |
-|---------|------------|-----------|
-| `nd-up-rev-wg` | WireGuard UDP; S listens, **P dials S** | Primary |
-| `nd-up-rev-ps` | Existing service-plane **PS** (P-initiated WSS/WG); user VLESS to PS VIP `10.87.11.1` | Primary (PS plane) |
+Forward `nd-up-*` unchanged (S dials public Primary underlay ports).
 
-Forward matrix (`nd-up-ws`, `nd-up-grpc`, …) stays **S dials P** on public underlay ports.
+### Runtime
 
-### What was removed (0.9.730)
-
-`nd-up-rev-ws` / `rev-grpc` / `rev-anytls` / `rev-nomux` / `rev-ssh` as labels that only dialed Primary **inside** the reverse WG. Outside the path was still one WG — useless for DPI/transport A/B.
-
-### Config
-
-```json
-"reverse_enabled": true,
-"reverse_profiles": ["wg", "ps"],
-"reverse_base_port": 9544,
-"wg_rev_listen_port": 51821,
-"wg_rev_*": "auto keys + endpoint S:51821 on primary"
-```
-
-Legacy values in `reverse_profiles` (ws, grpc, …) are **stripped** on load; only `wg` and `ps` remain.
-
-### True reverse-WS/gRPC (not implemented)
-
-Requires reverse-bridge: Primary dials Secondary underlay and Secondary injects user streams into that session (frp / ssh -R / custom mux). sing-box outbound cannot “flip” dial direction. Track as follow-up if WG+PS A/B is insufficient.
+- Primary long-running API: `vpn.EnsureReverseBridge()` → revbridge **client**
+- Secondary agent: `EnsureReverseBridge()` → revbridge **server**
+- Also on `vpn apply` / secondary sing-box rewrite
 
 ### Enable
 
 ```bash
 netductor vpn uplink-ab enable <allowlisted-user>
 netductor vpn apply
-# secondary pulls config / sync
+# restart API on primary if already running so client starts:
+systemctl restart netductor-api
+# secondary agent already loops; or restart agent after config pull
 ```
 
-Subscription shows `nd-up-rev-wg` and `nd-up-rev-ps` next to forward `nd-up-*`.
+Subscription: `nd-up-rev-wg` … `nd-up-rev-nomux` for allowlisted user only.
+
