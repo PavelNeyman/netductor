@@ -284,7 +284,8 @@ func primaryUplinkABReverseEndpoints() []any {
 					"address":     h,
 					"port":        pt,
 					"public_key":  cfg.WGRevSecondaryPublicKey,
-					"allowed_ips": []string{peerIP, "0.0.0.0/0"},
+					// Only secondary VIP — never 0.0.0.0/0 on primary (would blackhole default route).
+					"allowed_ips": []string{peerIP},
 				},
 			},
 		},

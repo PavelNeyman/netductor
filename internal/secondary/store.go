@@ -406,6 +406,10 @@ func HeartbeatWithTLSIdentity(token string, in HeartbeatIn, tlsSerial string) (*
 			r.Devices[i].LastCmdOK = in.CmdOK
 			r.Devices[i].LastCmdLog = in.CmdLog
 			r.Devices[i].LastCmdAt = time.Now().UTC()
+			// Clear sticky offsite-fail mark so doctor/TG stop nagging after late ack.
+			if in.CmdOK && strings.HasPrefix(in.CmdDone, "backup_pull") && strings.Contains(in.CmdLog, "key=ok") {
+				_ = os.Remove(filepath.Join(paths.StateDir(), "backup_offsite_fail"))
+			}
 		}
 		now := time.Now().UTC()
 		r.Devices[i].LastSeen = now

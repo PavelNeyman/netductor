@@ -10,7 +10,11 @@
 Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
 
-## Backup offsite false fail during stack apply (2026-11-13) — investigate
+## Backup offsite false fail during stack apply (2026-11-13) — mitigated 0.9.729
+
+**Mitigations in 0.9.729:** agent keeps `CmdDone` until heartbeat/report succeeds; `WaitForBackupPull` 5m + clearer ack match; heartbeat with `backup_pull`+`key=ok` removes `backup_offsite_fail`. Still watch stack-apply windows if pull >5m.
+
+### Was (investigate)
 
 **Do not treat as “offsite broken” without checking agent ack.**
 

@@ -344,10 +344,10 @@ func decryptFile(inPath, outPath, pass string) error {
 // Default timeout is long enough for ~25–50 MiB over the service plane.
 func WaitForBackupPull(timeout time.Duration, notBefore time.Time, cmdID string, targetIDs []string) (acked, pending int) {
 	if timeout <= 0 {
-		timeout = 3 * time.Minute
+		timeout = 5 * time.Minute
 	}
 	if notBefore.IsZero() {
-		notBefore = time.Now().UTC().Add(-30 * time.Second)
+		notBefore = time.Now().UTC().Add(-2 * time.Minute)
 	}
 	if len(targetIDs) == 0 {
 		return 0, 0
@@ -369,15 +369,7 @@ func WaitForBackupPull(timeout time.Duration, notBefore time.Time, cmdID string,
 				pending++
 				continue
 			}
-			cmdOK := strings.HasPrefix(d.LastCmd, "backup_pull") && d.LastCmdOK &&
-				!d.LastCmdAt.Before(notBefore) &&
-				strings.Contains(d.LastCmdLog, "key=ok")
-			if cmdOK && cmdID != "" {
-				cmdOK = strings.Contains(d.LastCmdLog, "cmd_id="+cmdID) ||
-					d.LastCmd == "backup_pull:"+cmdID ||
-					strings.HasPrefix(d.LastCmd, "backup_pull:"+cmdID)
-			}
-			if cmdOK {
+			if backupPullAcked(d, notBefore, cmdID) {
 				acked++
 				continue
 			}
@@ -386,9 +378,39 @@ func WaitForBackupPull(timeout time.Duration, notBefore time.Time, cmdID string,
 		if pending == 0 && acked > 0 {
 			return acked, 0
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	return acked, pending
+}
+
+// backupPullAcked matches a successful offsite pull. Accepts:
+// - exact cmd_id when present in LastCmd / log
+// - fallback: recent backup_pull with key=ok (API restart may drop intermediate reports)
+func backupPullAcked(d secondary.Device, notBefore time.Time, cmdID string) bool {
+	if !d.LastCmdOK || !strings.HasPrefix(d.LastCmd, "backup_pull") {
+		return false
+	}
+	if d.LastCmdAt.IsZero() || d.LastCmdAt.Before(notBefore) {
+		return false
+	}
+	log := d.LastCmdLog
+	if !strings.Contains(log, "key=ok") {
+		return false
+	}
+	if cmdID == "" {
+		return true
+	}
+	if d.LastCmd == "backup_pull:"+cmdID || strings.HasPrefix(d.LastCmd, "backup_pull:"+cmdID) {
+		return true
+	}
+	if strings.Contains(log, "cmd_id="+cmdID) {
+		return true
+	}
+	// Legacy agent reported plain "backup_pull" without id in LastCmd.
+	if d.LastCmd == "backup_pull" && strings.Contains(log, "stored ") {
+		return true
+	}
+	return false
 }
 func newBackupPullCmdID() string {
 	var b [8]byte

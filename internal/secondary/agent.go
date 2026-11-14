@@ -359,7 +359,6 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		MismatchTotal: mm.Total, MismatchByIP: mm.ByIP,
 		RecoveryFP: readRecoveryFingerprint(),
 	})
-	*lastDone, *lastOK, *lastLog = "", false, ""
 	req, err := http.NewRequest(http.MethodPost, coreBase+"/api/secondary/agent/heartbeat", bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -368,6 +367,7 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
+		// Keep lastDone for retry on next tick (API restart during stack apply / backup_pull).
 		return err
 	}
 	defer resp.Body.Close()
@@ -375,6 +375,8 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("heartbeat %s: %s", resp.Status, string(raw))
 	}
+	// Only clear after primary accepted heartbeat (CmdDone delivered).
+	*lastDone, *lastOK, *lastLog = "", false, ""
 	var hr struct {
 		ConfigVer             int             `json:"config_ver"`
 		NeedSync              bool            `json:"need_sync"`
@@ -402,7 +404,10 @@ func agentTick(client *http.Client, coreBase, token string, applied *int, lastDo
 		ok, log := runAgentCmd(c)
 		*lastDone, *lastOK, *lastLog = c, ok, log
 		// report immediately so core can TG-notify without waiting next tick
-		_ = reportCmdDone(client, coreBase, token, c, ok, log, ip, pub, sid, sni, sbOK, *applied, cpu, memU, memT, load1)
+		if err := reportCmdDone(client, coreBase, token, c, ok, log, ip, pub, sid, sni, sbOK, *applied, cpu, memU, memT, load1); err != nil {
+			// Keep lastDone — next heartbeat will re-send CmdDone until primary acks.
+			continue
+		}
 		*lastDone, *lastOK, *lastLog = "", false, ""
 	}
 	if hr.NeedSync || hr.ConfigVer > *applied {
