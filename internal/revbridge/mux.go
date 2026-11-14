@@ -7,28 +7,30 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
-// Simple stream mux over one net.Conn.
-// Frame: u32be length (payload only) | u32be streamID | u8 flag | payload
-// flag: 1=open 2=data 3=close
+// Frame: u32be length | u32be streamID | u8 flag | payload
+// flag: 1=open 2=data 3=close 4=open-ack
 
 const (
-	flagOpen  = 1
-	flagData  = 2
-	flagClose = 3
-	maxFrame  = 1 << 20
+	flagOpen    = 1
+	flagData    = 2
+	flagClose   = 3
+	flagOpenAck = 4
+	maxFrame    = 1 << 20
 )
 
 type session struct {
-	conn     net.Conn
-	mu       sync.Mutex
-	streams  map[uint32]net.Conn
-	nextID   uint32
-	inbound  bool // true = server (secondary)
-	onOpen   func(id uint32) (net.Conn, error)
-	closed   atomic.Bool
-	writeMu  sync.Mutex
+	conn    net.Conn
+	mu      sync.Mutex
+	streams map[uint32]net.Conn
+	nextID  uint32
+	inbound bool // true = primary (handles OPEN, dials target)
+	onOpen  func(id uint32) (net.Conn, error)
+	closed  atomic.Bool
+	writeMu sync.Mutex
+	ackWait map[uint32]chan struct{}
 }
 
 func newSession(conn net.Conn, inbound bool, onOpen func(uint32) (net.Conn, error)) *session {
@@ -38,6 +40,7 @@ func newSession(conn net.Conn, inbound bool, onOpen func(uint32) (net.Conn, erro
 		inbound: inbound,
 		onOpen:  onOpen,
 		nextID:  1,
+		ackWait: make(map[uint32]chan struct{}),
 	}
 	go s.readLoop()
 	return s
@@ -92,6 +95,17 @@ func (s *session) readLoop() {
 				continue
 			}
 			go s.handleOpen(id)
+		case flagOpenAck:
+			s.mu.Lock()
+			ch := s.ackWait[id]
+			if ch != nil {
+				select {
+				case <-ch:
+				default:
+					close(ch)
+				}
+			}
+			s.mu.Unlock()
 		case flagData:
 			s.mu.Lock()
 			c := s.streams[id]
@@ -124,21 +138,39 @@ func (s *session) handleOpen(id uint32) {
 	s.mu.Lock()
 	s.streams[id] = c
 	s.mu.Unlock()
+	// ACK before secondary sends user data
+	_ = s.writeFrame(id, flagOpenAck, nil)
 	s.pipeConn(id, c)
 }
 
-// OpenStream is used by secondary local accept: notify primary to dial target.
+// OpenStream: secondary local accept → wait OPEN-ACK → pipe.
 func (s *session) OpenStream(local net.Conn) error {
 	id := atomic.AddUint32(&s.nextID, 1)
+	ack := make(chan struct{})
 	s.mu.Lock()
 	s.streams[id] = local
+	s.ackWait[id] = ack
 	s.mu.Unlock()
 	if err := s.writeFrame(id, flagOpen, nil); err != nil {
 		s.mu.Lock()
 		delete(s.streams, id)
+		delete(s.ackWait, id)
 		s.mu.Unlock()
 		return err
 	}
+	select {
+	case <-ack:
+	case <-time.After(15 * time.Second):
+		s.mu.Lock()
+		delete(s.streams, id)
+		delete(s.ackWait, id)
+		s.mu.Unlock()
+		_ = s.writeFrame(id, flagClose, nil)
+		return fmt.Errorf("revbridge open ack timeout stream %d", id)
+	}
+	s.mu.Lock()
+	delete(s.ackWait, id)
+	s.mu.Unlock()
 	s.pipeConn(id, local)
 	return nil
 }
@@ -175,5 +207,13 @@ func (s *session) Close() {
 	for id, c := range s.streams {
 		_ = c.Close()
 		delete(s.streams, id)
+	}
+	for id, ch := range s.ackWait {
+		select {
+		case <-ch:
+		default:
+			close(ch)
+		}
+		delete(s.ackWait, id)
 	}
 }

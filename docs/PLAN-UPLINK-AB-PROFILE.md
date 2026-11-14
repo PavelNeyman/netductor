@@ -227,7 +227,7 @@ Enable: `enabled:true` in `/etc/netductor/uplink_ab.json` or `NETDUCTOR_UPLINK_A
 
 ---
 
-## Reverse underlays (P→S initiator) — 0.9.731+
+## Reverse underlays (P→S initiator) — 0.9.732+
 
 **Model:** Primary **dials** Secondary and keeps a reverse session; client traffic enters on Secondary and is **injected into that session** toward Primary (egress).
 
@@ -244,7 +244,8 @@ Forward `nd-up-*` unchanged (S dials public Primary underlay ports).
 ### Runtime
 
 - Primary long-running API: `vpn.EnsureReverseBridge()` → revbridge **client**
-- Secondary agent: `EnsureReverseBridge()` → revbridge **server**
+- Secondary agent (`netductor-secondary-agent`): `EnsureReverseBridge()` → revbridge **server**
+- Host role: `/etc/netductor/role` + unit files (secondary ≠ primary detect)
 - Also on `vpn apply` / secondary sing-box rewrite
 
 ### Enable

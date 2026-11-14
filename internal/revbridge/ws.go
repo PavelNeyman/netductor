@@ -13,14 +13,13 @@ import (
 	"strings"
 )
 
-// Minimal WebSocket (RFC6455 binary frames) for reverse control channel.
-
 const wsGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 type wsConn struct {
 	net.Conn
-	bufr *bufio.Reader
+	bufr     *bufio.Reader
 	isClient bool
+	rbuf     []byte // leftover payload from previous frame
 }
 
 func upgradeServerWS(c net.Conn) (net.Conn, error) {
@@ -57,7 +56,7 @@ func dialClientWS(c net.Conn, host string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != 101 {
 		return nil, fmt.Errorf("ws upgrade status %d", resp.StatusCode)
 	}
@@ -70,6 +69,11 @@ func wsAccept(key string) string {
 }
 
 func (w *wsConn) Read(p []byte) (int, error) {
+	if len(w.rbuf) > 0 {
+		n := copy(p, w.rbuf)
+		w.rbuf = w.rbuf[n:]
+		return n, nil
+	}
 	for {
 		b0, err := w.bufr.ReadByte()
 		if err != nil {
@@ -113,15 +117,20 @@ func (w *wsConn) Read(p []byte) (int, error) {
 			}
 		}
 		switch opcode {
-		case 0x8: // close
+		case 0x8:
 			return 0, io.EOF
-		case 0x9: // ping → pong
+		case 0x9:
 			_ = w.writeFrame(0xA, payload)
 			continue
 		case 0xA:
 			continue
-		case 0x1, 0x2: // text/binary
-			return copy(p, payload), nil
+		case 0x1, 0x2:
+			if len(payload) <= len(p) {
+				return copy(p, payload), nil
+			}
+			ncopy := copy(p, payload)
+			w.rbuf = append([]byte(nil), payload[ncopy:]...)
+			return ncopy, nil
 		default:
 			continue
 		}
@@ -129,10 +138,20 @@ func (w *wsConn) Read(p []byte) (int, error) {
 }
 
 func (w *wsConn) Write(p []byte) (int, error) {
-	if err := w.writeFrame(0x2, p); err != nil {
-		return 0, err
+	// Split large writes into frames to keep peers happy.
+	const maxChunk = 32 * 1024
+	sent := 0
+	for sent < len(p) {
+		end := sent + maxChunk
+		if end > len(p) {
+			end = len(p)
+		}
+		if err := w.writeFrame(0x2, p[sent:end]); err != nil {
+			return sent, err
+		}
+		sent = end
 	}
-	return len(p), nil
+	return sent, nil
 }
 
 func (w *wsConn) writeFrame(opcode byte, payload []byte) error {
@@ -154,6 +173,7 @@ func (w *wsConn) writeFrame(opcode byte, payload []byte) error {
 		hdr = append(hdr, ext[:]...)
 	}
 	var mask [4]byte
+	out := payload
 	if w.isClient {
 		_, _ = rand.Read(mask[:])
 		hdr = append(hdr, mask[:]...)
@@ -161,13 +181,13 @@ func (w *wsConn) writeFrame(opcode byte, payload []byte) error {
 		for i := 0; i < n; i++ {
 			buf[i] = payload[i] ^ mask[i%4]
 		}
-		payload = buf
+		out = buf
 	}
 	if _, err := w.Conn.Write(hdr); err != nil {
 		return err
 	}
 	if n > 0 {
-		_, err := w.Conn.Write(payload)
+		_, err := w.Conn.Write(out)
 		return err
 	}
 	return nil

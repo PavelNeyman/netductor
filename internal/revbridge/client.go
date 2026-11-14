@@ -9,7 +9,7 @@ import (
 
 // Client runs on Primary: dials Secondary public ports and services local targets per stream.
 type Client struct {
-	host  string // secondary IP
+	host  string
 	plans []PortPlan
 	stop  chan struct{}
 	wg    sync.WaitGroup
@@ -64,6 +64,11 @@ func (c *Client) loopKind(p PortPlan) {
 }
 
 func (c *Client) sessionOnce(p PortPlan) error {
+	select {
+	case <-c.stop:
+		return fmt.Errorf("stopped")
+	default:
+	}
 	addr := fmt.Sprintf("%s:%d", c.host, p.PublicPort)
 	conn, err := net.DialTimeout("tcp", addr, 15*time.Second)
 	if err != nil {
@@ -77,23 +82,27 @@ func (c *Client) sessionOnce(p PortPlan) error {
 			return err
 		}
 	}
+	// Block until session dies (readLoop → Close).
 	done := make(chan struct{})
 	sess := newSession(uc, true, func(id uint32) (net.Conn, error) {
 		return net.DialTimeout("tcp", p.PrimaryDial, 10*time.Second)
 	})
 	go func() {
-		// Wait until session dies (readLoop closes)
-		for !sess.closed.Load() {
-			time.Sleep(500 * time.Millisecond)
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			if sess.closed.Load() {
+				close(done)
+				return
+			}
 			select {
 			case <-c.stop:
 				sess.Close()
 				close(done)
 				return
-			default:
+			case <-ticker.C:
 			}
 		}
-		close(done)
 	}()
 	<-done
 	return fmt.Errorf("session ended")

@@ -7,32 +7,50 @@ import (
 	"time"
 )
 
-func TestMuxPipe(t *testing.T) {
-	a, b := net.Pipe()
-	done := make(chan struct{})
-	srv := newSession(a, true, func(id uint32) (net.Conn, error) {
-		// primary side: echo server via another pipe end
-		c1, c2 := net.Pipe()
-		go func() {
-			defer c1.Close()
-			io.Copy(c1, c1) // broken - use c2 as peer
-		}()
-		_ = c2
-		// simpler: return a pipe we write expected data from test
-		return c1, nil
-	})
-	_ = srv
-	cli := newSession(b, false, nil)
-	local, remote := net.Pipe()
+func TestMuxOpenAck(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
 	go func() {
-		_ = cli.OpenStream(local)
-		close(done)
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				_, _ = io.Copy(io.Discard, c)
+			}(c)
+		}
 	}()
-	time.Sleep(50 * time.Millisecond)
-	_ = remote.Close()
+	addr := ln.Addr().String()
+
+	a, b := net.Pipe()
+	_ = newSession(a, true, func(id uint32) (net.Conn, error) {
+		return net.DialTimeout("tcp", addr, 2*time.Second)
+	})
+	sec := newSession(b, false, nil)
+
+	local, peer := net.Pipe()
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		_, _ = peer.Write([]byte("ping"))
+		time.Sleep(50 * time.Millisecond)
+		_ = peer.Close()
+	}()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- sec.OpenStream(local)
+	}()
 	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("timeout")
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("OpenStream: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("OpenStream timeout")
 	}
 }

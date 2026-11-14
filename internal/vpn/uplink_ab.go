@@ -281,12 +281,24 @@ func profileWants(cfg UplinkABConfig, id string) bool {
 }
 
 func isLikelyPrimaryHost() bool {
-	// Secondary agent unit or role marker.
-	if _, err := os.Stat("/etc/systemd/system/netductor-agent.service"); err == nil {
-		return false
+	// Secondary unit is netductor-secondary-agent (not netductor-agent).
+	for _, u := range []string{
+		"/etc/systemd/system/netductor-secondary-agent.service",
+		"/lib/systemd/system/netductor-secondary-agent.service",
+		"/etc/systemd/system/netductor-agent.service", // edge agent
+		"/lib/systemd/system/netductor-agent.service",
+	} {
+		if _, err := os.Stat(u); err == nil {
+			return false
+		}
 	}
 	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "role")); err == nil {
-		return strings.TrimSpace(string(b)) == "primary"
+		switch strings.TrimSpace(string(b)) {
+		case "secondary", "edge", "build":
+			return false
+		case "primary":
+			return true
+		}
 	}
 	return true
 }
