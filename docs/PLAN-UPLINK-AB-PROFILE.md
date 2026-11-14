@@ -223,3 +223,29 @@ Switch profiles when path degrades; log which profile was up.
 | Example | `docs/examples/uplink_ab.json` |
 
 Enable: `enabled:true` in `/etc/netductor/uplink_ab.json` or `NETDUCTOR_UPLINK_AB=1` → `vpn apply` / secondary config rewrite + sub refresh. Open firewall for 9444+ on S and 10443–10445/UDP 51820 on P as needed.
+
+
+---
+
+## Reverse matrix (P→S initiator) — 0.9.728+
+
+**Goal:** Same operator allowlist, second set of URIs `nd-up-rev-*` to A/B **who initiates** the inter-VPS underlay.
+
+```text
+Client → S:9544+ (steer, Reality)
+         └─ L3: WG listen on S; Primary dials S (P→S)
+         └─ TCP underlays (ws/grpc/anytls/nomux/ssh): dial Primary via WG VIP 10.87.91.1
+            (not public Core IP) so bulk rides the reverse WG
+```
+
+| Item | Value |
+|------|--------|
+| Config | `reverse_enabled`, `reverse_profiles`, `reverse_base_port` (9544) |
+| WG | `wg_rev_*` keys; S `listen_port` 51821; P peer `address=S:51821` |
+| Sub | `nd-up-rev-nomux` … `nd-up-rev-ssh` only for allowlisted user |
+| Forward | **unchanged** `nd-up-*` on 9444+ |
+
+Enable with existing `vpn uplink-ab enable [user]` (sets reverse_enabled + default reverse_profiles).  
+Then `vpn apply` on primary and secondary config rewrite / agent sync. Refresh subscription.
+
+**Honest limit:** TCP types are not separate reverse TCP dials to foreign ports; they multiplex **inside** reverse WG. Pure reverse-TCP bridges (frp-like) are out of scope for this phase. Direction test that matters for DPI on S↔P is **WG initiator + path via VIP**.

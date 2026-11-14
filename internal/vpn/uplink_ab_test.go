@@ -1,6 +1,7 @@
 package vpn
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -85,4 +86,39 @@ func TestWGPeerUsesAddressPortNotEndpoint(t *testing.T) {
 		t.Fatalf("%s %d", h, p)
 	}
 	_ = cfg
+}
+
+func TestResolveUplinkABReverseProfiles(t *testing.T) {
+	cfg := UplinkABConfig{
+		Enabled:         true,
+		ReverseEnabled:  true,
+		ReverseProfiles: []string{"ws", "wg", "nomux"},
+		ReverseBasePort: 9544,
+		WGRevPrimaryPrivateKey:   "p",
+		WGRevPrimaryPublicKey:    "P",
+		WGRevSecondaryPrivateKey: "s",
+		WGRevSecondaryPublicKey:  "S",
+		WGRevPrimaryAddress:      "10.87.91.1/30",
+		WGRevSecondaryAddress:    "10.87.91.2/30",
+		WGRevListenPort:          51821,
+	}
+	profs := ResolveUplinkABReverseProfiles(cfg)
+	if len(profs) != 3 {
+		t.Fatalf("want 3 rev profiles, got %d", len(profs))
+	}
+	for _, p := range profs {
+		if !p.Reverse || !strings.HasPrefix(p.Fragment, "nd-up-rev-") {
+			t.Fatalf("bad profile %+v", p)
+		}
+		if p.Port < 9544 {
+			t.Fatalf("port %d", p.Port)
+		}
+	}
+}
+
+func TestUplinkABReverseSubscriptionAllowlist(t *testing.T) {
+	links := UplinkABReverseSubscriptionLinks("nobody", "u", "1.2.3.4", "pbk", "sid", "sni")
+	if len(links) != 0 {
+		t.Fatalf("expected no links for non-allowlisted user")
+	}
 }

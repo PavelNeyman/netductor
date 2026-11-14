@@ -31,6 +31,10 @@ const (
 	primaryABPortAnyTLS = 10445
 	primaryABPortWG     = 51820
 	abSSHSystemUser     = "nd-ab-uplink"
+
+	// Reverse (P→S initiator) — client still hits S; L3 reverse WG, TCP underlays via WG VIP.
+	uplinkABReverseBasePort = 9544
+	secondaryRevWGPort      = 51821
 )
 
 // UplinkABProfile is one experimental path id.
@@ -41,6 +45,7 @@ type UplinkABProfile struct {
 	Port        int
 	Fragment    string
 	PrimaryPort int
+	Reverse     bool // P-initiated underlay (via reverse WG)
 }
 
 // UplinkABConfig file + env + embedded in SecondaryBundle.
@@ -65,6 +70,20 @@ type UplinkABConfig struct {
 	WGPeerPublicKey string `json:"wg_peer_public_key,omitempty"`
 	WGLocalAddress  string `json:"wg_local_address,omitempty"`
 	WGPeerAddress   string `json:"wg_peer_address,omitempty"`
+
+	// Reverse matrix (operator-only, same allowlist). Client → S:9544+; underlay initiator Primary.
+	ReverseEnabled  bool     `json:"reverse_enabled"`
+	ReverseProfiles []string `json:"reverse_profiles,omitempty"`
+	ReverseBasePort int      `json:"reverse_base_port,omitempty"`
+
+	WGRevPrimaryPrivateKey   string `json:"wg_rev_primary_private_key,omitempty"`
+	WGRevPrimaryPublicKey    string `json:"wg_rev_primary_public_key,omitempty"`
+	WGRevSecondaryPrivateKey string `json:"wg_rev_secondary_private_key,omitempty"`
+	WGRevSecondaryPublicKey  string `json:"wg_rev_secondary_public_key,omitempty"`
+	WGRevPrimaryAddress      string `json:"wg_rev_primary_address,omitempty"`
+	WGRevSecondaryAddress    string `json:"wg_rev_secondary_address,omitempty"`
+	WGRevListenPort          int    `json:"wg_rev_listen_port,omitempty"` // listen on secondary
+	WGRevEndpoint            string `json:"wg_rev_endpoint,omitempty"`    // host:port primary dials (S public)
 
 	SSHUser           string `json:"ssh_user,omitempty"`
 	SSHPrivateKeyPath string `json:"ssh_private_key_path,omitempty"`
@@ -152,6 +171,21 @@ func normalizeUplinkAB(cfg *UplinkABConfig) {
 	}
 	if cfg.SSHUser == "" {
 		cfg.SSHUser = abSSHSystemUser
+	}
+	if cfg.ReverseBasePort < 1024 || cfg.ReverseBasePort > 60000 {
+		cfg.ReverseBasePort = uplinkABReverseBasePort
+	}
+	if cfg.WGRevListenPort <= 0 {
+		cfg.WGRevListenPort = secondaryRevWGPort
+	}
+	if cfg.WGRevPrimaryAddress == "" {
+		cfg.WGRevPrimaryAddress = "10.87.91.1/30"
+	}
+	if cfg.WGRevSecondaryAddress == "" {
+		cfg.WGRevSecondaryAddress = "10.87.91.2/30"
+	}
+	if cfg.ReverseEnabled && len(cfg.ReverseProfiles) == 0 {
+		cfg.ReverseProfiles = []string{"nomux", "wg", "anytls", "ws", "grpc", "ssh"}
 	}
 }
 
@@ -268,6 +302,41 @@ func EnsureUplinkABMaterial() error {
 			if ip := publicIP(); ip != "" {
 				cfg.WGEndpoint = fmt.Sprintf("%s:%d", ip, cfg.WGListenPort)
 				changed = true
+			}
+		}
+	}
+
+	if reverseProfileWants(cfg, "wg") || (cfg.ReverseEnabled && len(cfg.ReverseProfiles) > 0) {
+		if cfg.WGRevPrimaryPrivateKey == "" || cfg.WGRevPrimaryPublicKey == "" {
+			priv, pub, err := generateWGKeypair()
+			if err != nil {
+				return err
+			}
+			cfg.WGRevPrimaryPrivateKey = priv
+			cfg.WGRevPrimaryPublicKey = pub
+			changed = true
+		}
+		if cfg.WGRevSecondaryPrivateKey == "" || cfg.WGRevSecondaryPublicKey == "" {
+			priv, pub, err := generateWGKeypair()
+			if err != nil {
+				return err
+			}
+			cfg.WGRevSecondaryPrivateKey = priv
+			cfg.WGRevSecondaryPublicKey = pub
+			changed = true
+		}
+		if cfg.WGRevEndpoint == "" && isLikelyPrimaryHost() {
+			// Prefer online secondary public IP for P→S dial.
+			for _, sec := range loadOnlineSecondarys() {
+				ip := strings.TrimSpace(sec.PublicIP)
+				if ip == "" {
+					ip = strings.TrimSpace(sec.Host)
+				}
+				if ip != "" && net.ParseIP(ip) != nil {
+					cfg.WGRevEndpoint = fmt.Sprintf("%s:%d", ip, cfg.WGRevListenPort)
+					changed = true
+					break
+				}
 			}
 		}
 	}
@@ -479,32 +548,37 @@ func StatusUplinkAB() map[string]any {
 	for _, p := range profs {
 		ids = append(ids, fmt.Sprintf("%s:s%d→p%d", p.ID, p.Port, p.PrimaryPort))
 	}
+	rids := []string{}
+	for _, p := range ResolveUplinkABReverseProfiles(cfg) {
+		rids = append(rids, fmt.Sprintf("%s:s%d→vip/p%d", p.ID, p.Port, p.PrimaryPort))
+	}
 	return map[string]any{
-		"enabled":   cfg.Enabled,
-		"users":     cfg.Users,
-		"profiles":  ids,
-		"base_port": cfg.BasePort,
-		"wg_ready":  cfg.WGPrimaryPrivateKey != "" && cfg.WGSecondaryPrivateKey != "",
-		"ssh_ready": cfg.SSHPrivateKeyPath != "" && cfg.SSHHost != "",
-		"config":    uplinkABConfigPath(),
+		"enabled":          cfg.Enabled,
+		"users":            cfg.Users,
+		"profiles":         ids,
+		"reverse_enabled":  cfg.ReverseEnabled,
+		"reverse_profiles": rids,
+		"base_port":        cfg.BasePort,
+		"reverse_base_port": cfg.ReverseBasePort,
+		"wg_ready":         cfg.WGPrimaryPrivateKey != "" && cfg.WGSecondaryPrivateKey != "",
+		"wg_rev_ready":     reverseWGReady(cfg),
+		"wg_rev_endpoint":  cfg.WGRevEndpoint,
+		"ssh_ready":        cfg.SSHPrivateKeyPath != "" && cfg.SSHHost != "",
+		"config":           uplinkABConfigPath(),
 	}
 }
 
 func appendUplinkABInbounds(inbounds []any, b *SecondaryBundle, privKey, shortID string, allUsers []secondaryUser) []any {
 	cfg := LoadUplinkABConfig()
 	profs := ResolveUplinkABProfiles(cfg)
-	if len(profs) == 0 {
-		return inbounds
-	}
 	var abUsers []secondaryUser
 	for _, u := range allUsers {
 		if UplinkABUserAllowed(u.Name) {
 			abUsers = append(abUsers, u)
 		}
 	}
-	if len(abUsers) == 0 {
-		// allow any listed UUID from bundle if names missing — still need someone
-		return inbounds
+	if len(profs) == 0 || len(abUsers) == 0 {
+		return appendUplinkABReverseInbounds(inbounds, b, privKey, shortID, allUsers)
 	}
 	for _, p := range profs {
 		inbounds = append(inbounds, map[string]any{
@@ -523,7 +597,7 @@ func appendUplinkABInbounds(inbounds []any, b *SecondaryBundle, privKey, shortID
 			},
 		})
 	}
-	return inbounds
+	return appendUplinkABReverseInbounds(inbounds, b, privKey, shortID, allUsers)
 }
 
 func coreDialHost(b *SecondaryBundle) string {
@@ -538,7 +612,7 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 	cfg := LoadUplinkABConfig()
 	profs := ResolveUplinkABProfiles(cfg)
 	if len(profs) == 0 {
-		return outbounds
+		return appendUplinkABReverseOutbounds(outbounds, b)
 	}
 	uplinkTLS := buildSecondaryUplinkTLS(b)
 	coreHost := coreDialHost(b)
@@ -625,6 +699,7 @@ func uplinkABRouteRules() []any {
 			"outbound": p.OutboundTag,
 		})
 	}
+	rules = append(rules, uplinkABReverseRouteRules()...)
 	return rules
 }
 
@@ -665,20 +740,15 @@ func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid
 
 func primaryUplinkABEndpoints() []any {
 	cfg := LoadUplinkABConfig()
-	if !cfg.Enabled || !profileWants(cfg, "wg") {
-		return nil
-	}
-	if cfg.WGPrimaryPrivateKey == "" || cfg.WGSecondaryPublicKey == "" {
-		return nil
-	}
-	peerIP := cfg.WGSecondaryAddress
-	if i := strings.IndexByte(peerIP, '/'); i > 0 {
-		peerIP = peerIP[:i] + "/32"
-	} else if peerIP != "" && !strings.Contains(peerIP, "/") {
-		peerIP = peerIP + "/32"
-	}
-	return []any{
-		map[string]any{
+	var eps []any
+	if cfg.Enabled && profileWants(cfg, "wg") && cfg.WGPrimaryPrivateKey != "" && cfg.WGSecondaryPublicKey != "" {
+		peerIP := cfg.WGSecondaryAddress
+		if i := strings.IndexByte(peerIP, '/'); i > 0 {
+			peerIP = peerIP[:i] + "/32"
+		} else if peerIP != "" && !strings.Contains(peerIP, "/") {
+			peerIP = peerIP + "/32"
+		}
+		eps = append(eps, map[string]any{
 			"type":        "wireguard",
 			"tag":         "ab-wg",
 			"system":      false,
@@ -693,8 +763,10 @@ func primaryUplinkABEndpoints() []any {
 					"allowed_ips": []string{peerIP},
 				},
 			},
-		},
+		})
 	}
+	eps = append(eps, primaryUplinkABReverseEndpoints()...)
+	return eps
 }
 
 // openUplinkABFirewall best-effort ufw rules (primary + secondary ports).
@@ -718,7 +790,9 @@ func openUplinkABFirewall() {
 	for _, p := range ResolveUplinkABProfiles(cfg) {
 		_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", p.Port), "comment", "nd-uplink-ab-steer").Run()
 	}
+	openUplinkABReverseFirewall()
 }
+
 
 // UplinkABSubscriptionLinks returns extra VLESS URIs for allowlisted user.
 func UplinkABSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName string) []string {
@@ -728,8 +802,9 @@ func UplinkABSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName string) []
 	_ = EnsureUplinkABMaterial()
 	cfg := LoadUplinkABConfig()
 	profs := ResolveUplinkABProfiles(cfg)
+	rev := UplinkABReverseSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName)
 	if len(profs) == 0 {
-		return nil
+		return rev
 	}
 	if sniName == "" {
 		sniName = DefaultRealitySNI
@@ -750,6 +825,7 @@ func UplinkABSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName string) []
 			uuid, host, p.Port, sniName, pbk, sid, p.Fragment,
 		))
 	}
+	links = append(links, rev...)
 	return links
 }
 
@@ -776,6 +852,10 @@ func EnableUplinkAB(users ...string) error {
 	}
 	if len(cfg.Profiles) == 0 {
 		cfg.Profiles = knownUplinkABOrder()
+	}
+	cfg.ReverseEnabled = true
+	if len(cfg.ReverseProfiles) == 0 {
+		cfg.ReverseProfiles = knownUplinkABOrder()
 	}
 	if err := saveUplinkABConfig(cfg); err != nil {
 		return err
@@ -811,38 +891,34 @@ func DisableUplinkAB() error {
 // Peers use address+port (NOT "endpoint" — that field does not exist in sing-box JSON).
 func secondaryUplinkABEndpoints() []any {
 	cfg := LoadUplinkABConfig()
-	if !cfg.Enabled || !profileWants(cfg, "wg") {
-		return nil
-	}
-	if cfg.WGSecondaryPrivateKey == "" || cfg.WGPrimaryPublicKey == "" || cfg.WGEndpoint == "" {
-		return nil
-	}
-	h, pt := splitHostPortDefault(cfg.WGEndpoint, cfg.WGListenPort)
-	if pt <= 0 {
-		pt = primaryABPortWG
-	}
-	if h == "" {
-		return nil
-	}
-	return []any{
-		map[string]any{
-			"type":        "wireguard",
-			"tag":         "uplink-ab-wg",
-			"system":      false,
-			"name":        "nd-ab-wg-s",
-			"private_key": cfg.WGSecondaryPrivateKey,
-			"address":     []string{cfg.WGSecondaryAddress},
-			"mtu":         cfg.WGMTU,
-			"peers": []any{
-				map[string]any{
-					"address":     h,
-					"port":        pt,
-					"public_key":  cfg.WGPrimaryPublicKey,
-					"allowed_ips": []string{"0.0.0.0/0"},
+	var eps []any
+	if cfg.Enabled && profileWants(cfg, "wg") && cfg.WGSecondaryPrivateKey != "" && cfg.WGPrimaryPublicKey != "" && cfg.WGEndpoint != "" {
+		h, pt := splitHostPortDefault(cfg.WGEndpoint, cfg.WGListenPort)
+		if pt <= 0 {
+			pt = primaryABPortWG
+		}
+		if h != "" {
+			eps = append(eps, map[string]any{
+				"type":        "wireguard",
+				"tag":         "uplink-ab-wg",
+				"system":      false,
+				"name":        "nd-ab-wg-s",
+				"private_key": cfg.WGSecondaryPrivateKey,
+				"address":     []string{cfg.WGSecondaryAddress},
+				"mtu":         cfg.WGMTU,
+				"peers": []any{
+					map[string]any{
+						"address":     h,
+						"port":        pt,
+						"public_key":  cfg.WGPrimaryPublicKey,
+						"allowed_ips": []string{"0.0.0.0/0"},
+					},
 				},
-			},
-		},
+			})
+		}
 	}
+	eps = append(eps, secondaryUplinkABReverseEndpoints()...)
+	return eps
 }
 
 
