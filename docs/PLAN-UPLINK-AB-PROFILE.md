@@ -227,25 +227,45 @@ Enable: `enabled:true` in `/etc/netductor/uplink_ab.json` or `NETDUCTOR_UPLINK_A
 
 ---
 
-## Reverse matrix (P→S initiator) — 0.9.728+
+## Reverse underlays (P→S initiator) — 0.9.730+
 
-**Goal:** Same operator allowlist, second set of URIs `nd-up-rev-*` to A/B **who initiates** the inter-VPS underlay.
+**Goal:** Operator A/B of **who initiates** the inter-VPS path. Client still hits Secondary; allowlist unchanged.
 
-```text
-Client → S:9544+ (steer, Reality)
-         └─ L3: WG listen on S; Primary dials S (P→S)
-         └─ TCP underlays (ws/grpc/anytls/nomux/ssh): dial Primary via WG VIP 10.87.91.1
-            (not public Core IP) so bulk rides the reverse WG
+### What is real on the wire
+
+| Profile | Outer path | Initiator |
+|---------|------------|-----------|
+| `nd-up-rev-wg` | WireGuard UDP; S listens, **P dials S** | Primary |
+| `nd-up-rev-ps` | Existing service-plane **PS** (P-initiated WSS/WG); user VLESS to PS VIP `10.87.11.1` | Primary (PS plane) |
+
+Forward matrix (`nd-up-ws`, `nd-up-grpc`, …) stays **S dials P** on public underlay ports.
+
+### What was removed (0.9.730)
+
+`nd-up-rev-ws` / `rev-grpc` / `rev-anytls` / `rev-nomux` / `rev-ssh` as labels that only dialed Primary **inside** the reverse WG. Outside the path was still one WG — useless for DPI/transport A/B.
+
+### Config
+
+```json
+"reverse_enabled": true,
+"reverse_profiles": ["wg", "ps"],
+"reverse_base_port": 9544,
+"wg_rev_listen_port": 51821,
+"wg_rev_*": "auto keys + endpoint S:51821 on primary"
 ```
 
-| Item | Value |
-|------|--------|
-| Config | `reverse_enabled`, `reverse_profiles`, `reverse_base_port` (9544) |
-| WG | `wg_rev_*` keys; S `listen_port` 51821; P peer `address=S:51821` |
-| Sub | `nd-up-rev-nomux` … `nd-up-rev-ssh` only for allowlisted user |
-| Forward | **unchanged** `nd-up-*` on 9444+ |
+Legacy values in `reverse_profiles` (ws, grpc, …) are **stripped** on load; only `wg` and `ps` remain.
 
-Enable with existing `vpn uplink-ab enable [user]` (sets reverse_enabled + default reverse_profiles).  
-Then `vpn apply` on primary and secondary config rewrite / agent sync. Refresh subscription.
+### True reverse-WS/gRPC (not implemented)
 
-**Honest limit:** TCP types are not separate reverse TCP dials to foreign ports; they multiplex **inside** reverse WG. Pure reverse-TCP bridges (frp-like) are out of scope for this phase. Direction test that matters for DPI on S↔P is **WG initiator + path via VIP**.
+Requires reverse-bridge: Primary dials Secondary underlay and Secondary injects user streams into that session (frp / ssh -R / custom mux). sing-box outbound cannot “flip” dial direction. Track as follow-up if WG+PS A/B is insufficient.
+
+### Enable
+
+```bash
+netductor vpn uplink-ab enable <allowlisted-user>
+netductor vpn apply
+# secondary pulls config / sync
+```
+
+Subscription shows `nd-up-rev-wg` and `nd-up-rev-ps` next to forward `nd-up-*`.

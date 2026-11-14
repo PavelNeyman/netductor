@@ -4,7 +4,7 @@
   "profiles": ["nomux", "wg", "anytls", "ws", "grpc", "ssh"],
   "base_port": 9444,
   "reverse_enabled": true,
-  "reverse_profiles": ["nomux", "wg", "anytls", "ws", "grpc", "ssh"],
+  "reverse_profiles": ["wg", "ps"],
   "reverse_base_port": 9544,
   "wg_listen_port": 51820,
   "wg_primary_address": "10.87.90.1/30",

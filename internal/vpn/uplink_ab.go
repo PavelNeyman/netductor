@@ -185,7 +185,21 @@ func normalizeUplinkAB(cfg *UplinkABConfig) {
 		cfg.WGRevSecondaryAddress = "10.87.91.2/30"
 	}
 	if cfg.ReverseEnabled && len(cfg.ReverseProfiles) == 0 {
-		cfg.ReverseProfiles = []string{"nomux", "wg", "anytls", "ws", "grpc", "ssh"}
+		cfg.ReverseProfiles = knownReverseUplinkOrder()
+	}
+	// Drop legacy fake reverse transports (rev-ws etc. were labels on one WG).
+	if len(cfg.ReverseProfiles) > 0 {
+		var keep []string
+		for _, id := range cfg.ReverseProfiles {
+			id = strings.ToLower(strings.TrimSpace(id))
+			if id == revSteerWG || id == revSteerPS {
+				keep = append(keep, id)
+			}
+		}
+		if cfg.ReverseEnabled && len(keep) == 0 {
+			keep = knownReverseUplinkOrder()
+		}
+		cfg.ReverseProfiles = keep
 	}
 }
 
@@ -854,9 +868,7 @@ func EnableUplinkAB(users ...string) error {
 		cfg.Profiles = knownUplinkABOrder()
 	}
 	cfg.ReverseEnabled = true
-	if len(cfg.ReverseProfiles) == 0 {
-		cfg.ReverseProfiles = knownUplinkABOrder()
-	}
+	cfg.ReverseProfiles = knownReverseUplinkOrder()
 	if err := saveUplinkABConfig(cfg); err != nil {
 		return err
 	}
