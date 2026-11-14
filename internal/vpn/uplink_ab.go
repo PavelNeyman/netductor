@@ -75,6 +75,8 @@ type UplinkABConfig struct {
 	ReverseEnabled  bool     `json:"reverse_enabled"`
 	ReverseProfiles []string `json:"reverse_profiles,omitempty"`
 	ReverseBasePort int      `json:"reverse_base_port,omitempty"`
+	// PrimaryPublicIP written on primary, carried to secondary for revbridge UFW/accept filter.
+	PrimaryPublicIP string `json:"primary_public_ip,omitempty"`
 
 	WGRevPrimaryPrivateKey   string `json:"wg_rev_primary_private_key,omitempty"`
 	WGRevPrimaryPublicKey    string `json:"wg_rev_primary_public_key,omitempty"`
@@ -402,6 +404,15 @@ func EnsureUplinkABMaterial() error {
 			if err := ensureABSSHSystemUser(cfg.SSHPrivateKeyPath + ".pub"); err != nil {
 				// non-fatal in tests / non-root
 				fmt.Fprintln(os.Stderr, "uplink-ab ssh user:", err)
+			}
+		}
+	}
+
+	if isLikelyPrimaryHost() {
+		if ip := strings.TrimSpace(publicIP()); ip != "" && ip != "YOUR_IP" && net.ParseIP(ip) != nil {
+			if cfg.PrimaryPublicIP != ip {
+				cfg.PrimaryPublicIP = ip
+				changed = true
 			}
 		}
 	}

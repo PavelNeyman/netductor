@@ -15,7 +15,7 @@ var (
 )
 
 // StartServerSecondary starts public+local listeners for given kinds (no wg).
-func StartServerSecondary(kinds []Kind) error {
+func StartServerSecondary(kinds []Kind, allowFrom string) error {
 	supMu.Lock()
 	defer supMu.Unlock()
 	if server != nil {
@@ -27,11 +27,12 @@ func StartServerSecondary(kinds []Kind) error {
 		return nil
 	}
 	s := NewServer(filtered)
+	s.SetAllowFrom(allowFrom)
 	if err := s.Start(); err != nil {
 		return err
 	}
 	server = s
-	fmt.Fprintf(os.Stderr, "revbridge: secondary server kinds=%v\n", filtered)
+	fmt.Fprintf(os.Stderr, "revbridge: secondary server kinds=%v allowFrom=%q\n", filtered, allowFrom)
 	return nil
 }
 

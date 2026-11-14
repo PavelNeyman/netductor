@@ -3,6 +3,7 @@ package revbridge
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -11,10 +12,11 @@ import (
 //   - public port: accepts Primary reverse session (TCP or WS)
 //   - local 127.0.0.1 port: accepts sing-box outbound; opens mux stream toward Primary
 type Server struct {
-	plans []PortPlan
-	mu    sync.Mutex
-	ln    []net.Listener
-	stop  chan struct{}
+	plans     []PortPlan
+	allowFrom string
+	mu        sync.Mutex
+	ln        []net.Listener
+	stop      chan struct{}
 }
 
 var (
@@ -33,6 +35,10 @@ func NewServer(kinds []Kind) *Server {
 		}
 	}
 	return &Server{plans: plans, stop: make(chan struct{})}
+}
+
+func (s *Server) SetAllowFrom(ip string) {
+	s.allowFrom = strings.TrimSpace(ip)
 }
 
 func (s *Server) Start() error {
@@ -75,6 +81,16 @@ func (s *Server) acceptPrimary(ln net.Listener, p PortPlan) {
 }
 
 func (s *Server) handlePrimary(c net.Conn, p PortPlan) {
+	if s.allowFrom != "" {
+		host, _, err := net.SplitHostPort(c.RemoteAddr().String())
+		if err != nil {
+			host = c.RemoteAddr().String()
+		}
+		if host != s.allowFrom {
+			_ = c.Close()
+			return
+		}
+	}
 	uc := net.Conn(c)
 	var err error
 	if p.Transport == "ws" {
@@ -84,7 +100,6 @@ func (s *Server) handlePrimary(c net.Conn, p PortPlan) {
 			return
 		}
 	}
-	// Secondary initiates streams (OpenStream); primary handles onOpen.
 	sess := newSession(uc, false, nil)
 	sessMu.Lock()
 	if old := sessions[p.Kind]; old != nil {

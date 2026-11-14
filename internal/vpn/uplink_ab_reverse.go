@@ -286,15 +286,25 @@ func openUplinkABReverseFirewall() {
 	if isLikelyPrimaryHost() {
 		return
 	}
+	// Client steer ports: allow any (operator VPN clients).
 	for _, p := range ResolveUplinkABReverseProfiles(cfg) {
 		_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", p.Port), "comment", "nd-uplink-ab-rev-steer").Run()
 	}
 	if reverseWGReady(cfg) {
 		_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/udp", cfg.WGRevListenPort), "comment", "nd-uplink-ab-rev-wg").Run()
 	}
+	// Revbridge public ports: prefer allow from primary only.
+	prim := strings.TrimSpace(cfg.PrimaryPublicIP)
 	for _, k := range revKindsFromConfig(cfg) {
-		if plan, ok := revbridge.PlanFor(k); ok {
-			_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", plan.PublicPort), "comment", "nd-revbridge").Run()
+		plan, ok := revbridge.PlanFor(k)
+		if !ok {
+			continue
+		}
+		port := plan.PublicPort
+		if prim != "" && net.ParseIP(prim) != nil {
+			_ = exec.Command("ufw", "allow", "from", prim, "to", "any", "port", fmt.Sprintf("%d", port), "proto", "tcp", "comment", "nd-revbridge").Run()
+		} else {
+			_ = exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", port), "comment", "nd-revbridge-open").Run()
 		}
 	}
 }
@@ -364,7 +374,8 @@ func EnsureReverseBridge() {
 		}
 		return
 	}
-	if err := revbridge.StartServerSecondary(kinds); err != nil {
+	allow := strings.TrimSpace(cfg.PrimaryPublicIP)
+	if err := revbridge.StartServerSecondary(kinds, allow); err != nil {
 		fmt.Fprintln(os.Stderr, "revbridge secondary:", err)
 	}
 }

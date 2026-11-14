@@ -19,14 +19,22 @@ const (
 	flagClose   = 3
 	flagOpenAck = 4
 	maxFrame    = 1 << 20
+	streamQ     = 64 // per-stream ordered write queue
 )
+
+type streamSlot struct {
+	conn     net.Conn
+	wch      chan []byte
+	closed   atomic.Bool
+	closeOnce sync.Once
+}
 
 type session struct {
 	conn    net.Conn
 	mu      sync.Mutex
-	streams map[uint32]net.Conn
+	streams map[uint32]*streamSlot
 	nextID  uint32
-	inbound bool // true = primary (handles OPEN, dials target)
+	inbound bool
 	onOpen  func(id uint32) (net.Conn, error)
 	closed  atomic.Bool
 	writeMu sync.Mutex
@@ -36,7 +44,7 @@ type session struct {
 func newSession(conn net.Conn, inbound bool, onOpen func(uint32) (net.Conn, error)) *session {
 	s := &session{
 		conn:    conn,
-		streams: make(map[uint32]net.Conn),
+		streams: make(map[uint32]*streamSlot),
 		inbound: inbound,
 		onOpen:  onOpen,
 		nextID:  1,
@@ -67,6 +75,46 @@ func (s *session) writeFrame(id uint32, flag byte, payload []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (s *session) attachStream(id uint32, c net.Conn) *streamSlot {
+	slot := &streamSlot{conn: c, wch: make(chan []byte, streamQ)}
+	s.mu.Lock()
+	s.streams[id] = slot
+	s.mu.Unlock()
+	go s.streamWriter(id, slot)
+	return slot
+}
+
+func (s *session) streamWriter(id uint32, slot *streamSlot) {
+	for buf := range slot.wch {
+		if slot.closed.Load() {
+			continue
+		}
+		if _, err := slot.conn.Write(buf); err != nil {
+			slot.closed.Store(true)
+			s.mu.Lock()
+			delete(s.streams, id)
+			s.mu.Unlock()
+			_ = slot.conn.Close()
+			return
+		}
+	}
+}
+
+func (s *session) dropStream(id uint32) {
+	s.mu.Lock()
+	slot := s.streams[id]
+	delete(s.streams, id)
+	s.mu.Unlock()
+	if slot == nil {
+		return
+	}
+	slot.closed.Store(true)
+	slot.closeOnce.Do(func() {
+		close(slot.wch)
+		_ = slot.conn.Close()
+	})
 }
 
 func (s *session) readLoop() {
@@ -108,23 +156,21 @@ func (s *session) readLoop() {
 			s.mu.Unlock()
 		case flagData:
 			s.mu.Lock()
-			c := s.streams[id]
+			slot := s.streams[id]
 			s.mu.Unlock()
-			if c != nil && len(payload) > 0 {
-				// Copy payload: write async so a slow stream cannot stall the mux.
-				buf := append([]byte(nil), payload...)
-				go func(c net.Conn, buf []byte) {
-					_, _ = c.Write(buf)
-				}(c, buf)
+			if slot == nil || len(payload) == 0 {
+				continue
+			}
+			buf := append([]byte(nil), payload...)
+			select {
+			case slot.wch <- buf:
+			default:
+				// queue full — drop stream rather than stall mux or reorder
+				s.dropStream(id)
+				_ = s.writeFrame(id, flagClose, nil)
 			}
 		case flagClose:
-			s.mu.Lock()
-			c := s.streams[id]
-			delete(s.streams, id)
-			s.mu.Unlock()
-			if c != nil {
-				_ = c.Close()
-			}
+			s.dropStream(id)
 		}
 	}
 }
@@ -139,36 +185,32 @@ func (s *session) handleOpen(id uint32) {
 		_ = s.writeFrame(id, flagClose, nil)
 		return
 	}
-	s.mu.Lock()
-	s.streams[id] = c
-	s.mu.Unlock()
-	// ACK before secondary sends user data
+	s.attachStream(id, c)
 	_ = s.writeFrame(id, flagOpenAck, nil)
 	s.pipeConn(id, c)
 }
 
-// OpenStream: secondary local accept → wait OPEN-ACK → pipe.
 func (s *session) OpenStream(local net.Conn) error {
 	id := atomic.AddUint32(&s.nextID, 1)
 	ack := make(chan struct{})
 	s.mu.Lock()
-	s.streams[id] = local
 	s.ackWait[id] = ack
 	s.mu.Unlock()
+	s.attachStream(id, local)
 	if err := s.writeFrame(id, flagOpen, nil); err != nil {
 		s.mu.Lock()
-		delete(s.streams, id)
 		delete(s.ackWait, id)
 		s.mu.Unlock()
+		s.dropStream(id)
 		return err
 	}
 	select {
 	case <-ack:
 	case <-time.After(15 * time.Second):
 		s.mu.Lock()
-		delete(s.streams, id)
 		delete(s.ackWait, id)
 		s.mu.Unlock()
+		s.dropStream(id)
 		_ = s.writeFrame(id, flagClose, nil)
 		return fmt.Errorf("revbridge open ack timeout stream %d", id)
 	}
@@ -182,10 +224,7 @@ func (s *session) OpenStream(local net.Conn) error {
 func (s *session) pipeConn(id uint32, c net.Conn) {
 	defer func() {
 		_ = s.writeFrame(id, flagClose, nil)
-		s.mu.Lock()
-		delete(s.streams, id)
-		s.mu.Unlock()
-		_ = c.Close()
+		s.dropStream(id)
 	}()
 	buf := make([]byte, 32*1024)
 	for {
@@ -207,17 +246,21 @@ func (s *session) Close() {
 	}
 	_ = s.conn.Close()
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, c := range s.streams {
-		_ = c.Close()
-		delete(s.streams, id)
+	ids := make([]uint32, 0, len(s.streams))
+	for id := range s.streams {
+		ids = append(ids, id)
 	}
-	for id, ch := range s.ackWait {
+	acks := s.ackWait
+	s.ackWait = map[uint32]chan struct{}{}
+	s.mu.Unlock()
+	for _, id := range ids {
+		s.dropStream(id)
+	}
+	for _, ch := range acks {
 		select {
 		case <-ch:
 		default:
 			close(ch)
 		}
-		delete(s.ackWait, id)
 	}
 }
