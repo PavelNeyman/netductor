@@ -327,9 +327,11 @@ func UplinkABReverseSubscriptionLinks(name, uuid, relayIP, pbk, sid, sniName str
 }
 
 // EnsureReverseBridge starts in-process bridge on this host (primary client or secondary server).
+// When reverse is disabled, stops any prior client/server so sessions do not linger.
 func EnsureReverseBridge() {
 	cfg := LoadUplinkABConfig()
 	if !cfg.Enabled || !cfg.ReverseEnabled {
+		revbridge.StopAll()
 		return
 	}
 	kinds := revKindsFromConfig(cfg)

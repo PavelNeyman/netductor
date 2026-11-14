@@ -247,6 +247,7 @@ Forward `nd-up-*` unchanged (S dials public Primary underlay ports).
 - Secondary agent (`netductor-secondary-agent`): `EnsureReverseBridge()` → revbridge **server**
 - Host role: `/etc/netductor/role` + unit files (secondary ≠ primary detect)
 - Also on `vpn apply` / secondary sing-box rewrite
+- Disable (`enabled=false` or `reverse_enabled=false`) → `revbridge.StopAll()`
 
 ### Enable
 

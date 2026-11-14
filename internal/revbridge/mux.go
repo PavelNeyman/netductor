@@ -111,7 +111,11 @@ func (s *session) readLoop() {
 			c := s.streams[id]
 			s.mu.Unlock()
 			if c != nil && len(payload) > 0 {
-				_, _ = c.Write(payload)
+				// Copy payload: write async so a slow stream cannot stall the mux.
+				buf := append([]byte(nil), payload...)
+				go func(c net.Conn, buf []byte) {
+					_, _ = c.Write(buf)
+				}(c, buf)
 			}
 		case flagClose:
 			s.mu.Lock()

@@ -7,12 +7,10 @@ import (
 	"sync"
 )
 
-// In-process supervisors for primary (client) and secondary (server).
-
 var (
-	supMu     sync.Mutex
-	server    *Server
-	client    *Client
+	supMu      sync.Mutex
+	server     *Server
+	client     *Client
 	clientHost string
 )
 
@@ -40,18 +38,19 @@ func StartServerSecondary(kinds []Kind) error {
 // StartClientPrimary dials secondaryHost for given kinds.
 func StartClientPrimary(secondaryHost string, kinds []Kind) error {
 	secondaryHost = strings.TrimSpace(secondaryHost)
-	if secondaryHost == "" {
-		return fmt.Errorf("revbridge: empty secondary host")
-	}
 	supMu.Lock()
 	defer supMu.Unlock()
 	if client != nil {
 		client.Stop()
 		client = nil
+		clientHost = ""
 	}
 	filtered := nonWG(kinds)
 	if len(filtered) == 0 {
 		return nil
+	}
+	if secondaryHost == "" {
+		return fmt.Errorf("revbridge: empty secondary host")
 	}
 	cl := NewClient(secondaryHost, filtered)
 	cl.Start()
@@ -71,6 +70,7 @@ func StopAll() {
 	if client != nil {
 		client.Stop()
 		client = nil
+		clientHost = ""
 	}
 }
 
