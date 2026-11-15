@@ -3,7 +3,7 @@ package version
 // Release is the product version. Overridden at link time:
 //
 //	-X github.com/PavelNeyman/netductor/internal/version.Release=0.9.xxx
-var Release = "0.9.736"
+var Release = "0.9.737"
 
 // Commit is the git SHA when set at link time:
 //

@@ -776,6 +776,32 @@ func appendPrimaryUplinkABInbounds(inbounds []any, uplinkUUID, sniVal, priv, sid
 	return inbounds
 }
 
+// primaryUplinkABRouteRules forces AB underlay traffic to exit on primary (direct),
+// not ru-exit back to secondary — required for reverse AB and honest P-egress tests.
+func primaryUplinkABRouteRules() []any {
+	cfg := LoadUplinkABConfig()
+	if !cfg.Enabled {
+		return nil
+	}
+	var tags []string
+	if profileWants(cfg, "ws") {
+		tags = append(tags, "ab-vless-ws")
+	}
+	if profileWants(cfg, "grpc") {
+		tags = append(tags, "ab-vless-grpc")
+	}
+	if profileWants(cfg, "anytls") {
+		tags = append(tags, "ab-anytls")
+	}
+	if len(tags) == 0 {
+		return nil
+	}
+	return []any{map[string]any{
+		"inbound":  tags,
+		"outbound": "direct",
+	}}
+}
+
 func primaryUplinkABEndpoints() []any {
 	cfg := LoadUplinkABConfig()
 	var eps []any

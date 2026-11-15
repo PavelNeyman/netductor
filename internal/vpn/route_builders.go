@@ -219,6 +219,8 @@ func buildOutboundsAndRoute() (outbounds []any, routeRules []any, finalOut strin
 	// Service ACL before sniff: sniff on the vless-svc→lampac path ate the HTTP response
 	// (client saw empty reply while loopback already had 200).
 	routeRules = append([]any{}, policyServiceRules()...)
+	// AB underlay (forward + reverse pipe to 10443/44/45): exit on primary, not ru-exit hairpin.
+	routeRules = append(routeRules, primaryUplinkABRouteRules()...)
 	routeRules = append(routeRules,
 		map[string]any{"action": "sniff"},
 		map[string]any{"protocol": "dns", "action": "hijack-dns"},
