@@ -142,10 +142,12 @@ func (s *Server) acceptLocal(ln net.Listener, p PortPlan) {
 			sess := sessions[p.Kind]
 			sessMu.Unlock()
 			if sess == nil {
+				fmt.Fprintf(os.Stderr, "revbridge: local dial kind=%s but no primary session\n", p.Kind)
 				_ = c.Close()
 				return
 			}
 			if err := sess.OpenStream(c); err != nil {
+				fmt.Fprintf(os.Stderr, "revbridge: OpenStream kind=%s: %v\n", p.Kind, err)
 				_ = c.Close()
 			}
 		}(c)

@@ -5,27 +5,31 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 // Frame: u32be length | u32be streamID | u8 flag | payload
-// flag: 1=open 2=data 3=close 4=open-ack
+// flag: 1=open 2=data 3=close 4=open-ack 5=ping 6=pong
 
 const (
 	flagOpen    = 1
 	flagData    = 2
 	flagClose   = 3
 	flagOpenAck = 4
+	flagPing    = 5
+	flagPong    = 6
 	maxFrame    = 1 << 20
-	streamQ     = 64 // per-stream ordered write queue
+	streamQ     = 256
+	keepEvery   = 20 * time.Second
 )
 
 type streamSlot struct {
-	conn     net.Conn
-	wch      chan []byte
-	closed   atomic.Bool
+	conn      net.Conn
+	wch       chan []byte
+	closed    atomic.Bool
 	closeOnce sync.Once
 }
 
@@ -41,7 +45,16 @@ type session struct {
 	ackWait map[uint32]chan struct{}
 }
 
+func setTCPKeepAlive(c net.Conn) {
+	if tc, ok := c.(*net.TCPConn); ok {
+		_ = tc.SetKeepAlive(true)
+		_ = tc.SetKeepAlivePeriod(30 * time.Second)
+		_ = tc.SetNoDelay(true)
+	}
+}
+
 func newSession(conn net.Conn, inbound bool, onOpen func(uint32) (net.Conn, error)) *session {
+	setTCPKeepAlive(conn)
 	s := &session{
 		conn:    conn,
 		streams: make(map[uint32]*streamSlot),
@@ -51,7 +64,25 @@ func newSession(conn net.Conn, inbound bool, onOpen func(uint32) (net.Conn, erro
 		ackWait: make(map[uint32]chan struct{}),
 	}
 	go s.readLoop()
+	go s.keepAliveLoop()
 	return s
+}
+
+func (s *session) keepAliveLoop() {
+	t := time.NewTicker(keepEvery)
+	defer t.Stop()
+	for {
+		if s.closed.Load() {
+			return
+		}
+		select {
+		case <-t.C:
+			if err := s.writeFrame(0, flagPing, nil); err != nil {
+				s.Close()
+				return
+			}
+		}
+	}
 }
 
 func (s *session) writeFrame(id uint32, flag byte, payload []byte) error {
@@ -154,6 +185,10 @@ func (s *session) readLoop() {
 				}
 			}
 			s.mu.Unlock()
+		case flagPing:
+			_ = s.writeFrame(0, flagPong, nil)
+		case flagPong:
+			// idle keep-alive reply
 		case flagData:
 			s.mu.Lock()
 			slot := s.streams[id]
@@ -165,7 +200,6 @@ func (s *session) readLoop() {
 			select {
 			case slot.wch <- buf:
 			default:
-				// queue full — drop stream rather than stall mux or reorder
 				s.dropStream(id)
 				_ = s.writeFrame(id, flagClose, nil)
 			}
@@ -182,9 +216,11 @@ func (s *session) handleOpen(id uint32) {
 	}
 	c, err := s.onOpen(id)
 	if err != nil || c == nil {
+		fmt.Fprintf(os.Stderr, "revbridge: open dial failed stream=%d: %v\n", id, err)
 		_ = s.writeFrame(id, flagClose, nil)
 		return
 	}
+	setTCPKeepAlive(c)
 	s.attachStream(id, c)
 	_ = s.writeFrame(id, flagOpenAck, nil)
 	s.pipeConn(id, c)
