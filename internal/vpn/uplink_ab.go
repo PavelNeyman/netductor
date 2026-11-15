@@ -725,7 +725,10 @@ func appendUplinkABOutbounds(outbounds []any, b *SecondaryBundle) []any {
 		}
 		outbounds = append(outbounds, ob)
 	}
-	return outbounds
+	// Reverse outbounds must always be appended when reverse profiles exist.
+	// Previously only the empty-forward branch called appendUplinkABReverseOutbounds,
+	// so reverse route rules pointed at missing tags (SSL_ERROR_SYSCALL on rev-*).
+	return appendUplinkABReverseOutbounds(outbounds, b)
 }
 
 func uplinkABRouteRules() []any {
