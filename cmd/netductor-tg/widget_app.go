@@ -1414,6 +1414,10 @@ func appBuildData() (string, error) {
 
 func appPushState(token string, q *widgetQuery, cd string) {
 	screen := parseScreenFromChatData(cd)
+	// Keep session Screen in sync with visible card (ucard/ncard/…); else Back uses list parent.
+	if screen != "" {
+		appSetScreen(screen)
+	}
 	if dualEnabled() && q != nil && q.Chat != nil {
 		infoShell := infoShellForScreen(screen)
 		// Content → info; controls → nav (same screen payload split).

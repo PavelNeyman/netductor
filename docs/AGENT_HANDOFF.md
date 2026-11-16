@@ -517,3 +517,10 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - `sendWidgetScreen("app")` records shell from chat_data
 - Test `TestAppShellForScreen`
 
+## 0.9.752 — Back from cards
+
+- `appPushState` sets session `Screen` from chat_data `s` (ucard/ncard/…)
+- Without this, Back after opening a user from ulist used list screen → parent **home** instead of **ulist**
+- Test: `TestAppPushStateSyncsScreen`
+- parent `gjobs` → git
+

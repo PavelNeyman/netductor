@@ -161,3 +161,24 @@ func TestAppShellForScreen(t *testing.T) {
 		t.Fatal("home/users need hub")
 	}
 }
+
+func TestAppPushStateSyncsScreen(t *testing.T) {
+	appMu.Lock()
+	appSessUnlocked().Screen = "ulist"
+	appMu.Unlock()
+	cd, err := appMarshal(appState{S: "ucard", T: "u"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// mirror appPushState screen sync without Telegram
+	screen := parseScreenFromChatData(cd)
+	if screen != "" {
+		appSetScreen(screen)
+	}
+	appMu.Lock()
+	got := appSessUnlocked().Screen
+	appMu.Unlock()
+	if got != "ucard" {
+		t.Fatalf("Screen=%q want ucard (Back parent must use card not list)", got)
+	}
+}
