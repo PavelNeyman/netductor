@@ -213,6 +213,8 @@ func sendWidgetScreen(token string, chat int64, screenID string) bool {
 		}
 		if json.Unmarshal(raw, &wr) == nil && wr.Result.MessageID > 0 {
 			setLastAppMsg(chat, wr.Result.MessageID)
+			// Registry HTML is spark-capable; record shell so next edit/swap is correct.
+			setLastAppShell(chat, appShellForScreen(parseScreenFromChatData(cd)))
 		}
 	}
 	return true
@@ -300,7 +302,7 @@ func openAppScreen(token string, chat int64, screenID string) bool {
 	mid := lastAppMsgID[chat]
 	have := lastAppShell[chat]
 	lastAppMu.Unlock()
-	if mid > 0 && have == want {
+	if mid > 0 && (have == want || have == "") {
 		if err := editWidgetData(token, chat, mid, cd); err == nil {
 			setLastAppMsg(chat, mid)
 			setLastAppShell(chat, want)
@@ -375,6 +377,7 @@ func syncDualNavAsApp(chat int64) {
 		return
 	}
 	setLastAppMsg(chat, p.NavID)
+	setLastAppShell(chat, shellHub) // dual nav is always hub SPA
 }
 
 // tryReplyWidget: prefer SPA app shell for content screens; else legacy per-screen widget.

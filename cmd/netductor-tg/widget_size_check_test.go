@@ -152,3 +152,12 @@ func TestBuildInfoDataSize(t *testing.T) {
 		t.Fatalf("info chat_data %d", len(cd))
 	}
 }
+
+func TestAppShellForScreen(t *testing.T) {
+	if appShellForScreen("status") != shellSpark || appShellForScreen("channel") != shellSpark {
+		t.Fatal("status/channel need spark")
+	}
+	if appShellForScreen("home") != shellHub || appShellForScreen("users") != shellHub {
+		t.Fatal("home/users need hub")
+	}
+}

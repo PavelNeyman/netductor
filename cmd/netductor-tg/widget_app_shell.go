@@ -42,14 +42,15 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	have := lastAppShell[chat]
 	lastAppMu.Unlock()
 
-	sameShell := mid != 0 && have == want
-	if sameShell {
+	// Same shell, or unknown shell after upgrade (have==""): prefer in-place edit.
+	tryEdit := mid != 0 && (have == want || have == "")
+	if tryEdit {
 		if err := editWidgetData(token, chat, mid, cd); err == nil {
 			setLastAppMsg(chat, mid)
 			setLastAppShell(chat, want)
 			return
 		}
-		fmt.Fprintln(os.Stderr, "editMessageWidgetData:", mid, "→ swap shell", have, "→", want)
+		fmt.Fprintln(os.Stderr, "editMessageWidgetData:", mid, "→ resend shell", have, "→", want)
 	} else if mid != 0 && have != want {
 		fmt.Fprintln(os.Stderr, "SPA shell change", have, "→", want, "msg", mid)
 	}

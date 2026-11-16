@@ -510,3 +510,10 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - Dual: both info+nav refreshed on every nav; nav always hub HTML
 - LAB for digest/netmap/… only on **hub** (spark at zlib budget)
 
+## 0.9.751 — multi-shell edge cases
+
+- Empty `app_shell` after upgrade: try in-place edit before send+delete
+- Dual `syncDualNavAsApp` records nav shell=`hub`
+- `sendWidgetScreen("app")` records shell from chat_data
+- Test `TestAppShellForScreen`
+
