@@ -537,3 +537,10 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - `openAppScreenDual` under `lockChatPush`
 - `swapDualSlot` returns bool; pushDualPair uses it for answer success
 
+## Release v0.9.754
+
+https://github.com/PavelNeyman/netductor/releases/tag/v0.9.754
+
+Assets: node/tg/agent multi-arch + op darwin + SHA256SUMS + upgrade.json.
+TG widget: multi-shell hub/spark, dual apply-then-answer, lockChatPush, Screen sync for Back.
+
