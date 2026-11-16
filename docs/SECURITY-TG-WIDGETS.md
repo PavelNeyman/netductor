@@ -51,3 +51,11 @@ Advisory can be relaxed when:
 - Operator accepts residual QuickJS risk, **and**
 - Widgets remain optional behind the env flag.
 
+## Telegram platform block (2026-11-13+)
+
+As of ~13 Nov 2026, Telegram returns **`INPUT_MEDIA_WIDGET_NOT_ALLOWED`** for **general bots** calling `sendWidget`, including private chats (confirmed by Bot API maintainers after client RCE reports). This is **not** a Netductor bug.
+
+- Classic keyboard remains fully functional.
+- `NETDUCTOR_TG_WIDGETS=1` is harmless: after the first API rejection the process treats widgets as off until restart.
+- When Telegram re-opens the feature (whitelist or global), restart the bot and widgets work again without code changes.
+

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -93,7 +94,30 @@ func registerWidget(s *widgetScreen) {
 	widgetRegistry[s.ID] = s
 }
 
+// widgetsAPIBlocked is set when Telegram returns INPUT_MEDIA_WIDGET_NOT_ALLOWED
+// (general bots blocked from sendWidget ~2026-11-13). Classic UI until process restart
+// after Telegram re-opens the feature.
+var widgetsAPIBlocked atomic.Bool
+
+func noteWidgetAPIError(err error) {
+	if err == nil || widgetsAPIBlocked.Load() {
+		return
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "INPUT_MEDIA_WIDGET_NOT_ALLOWED") {
+		return
+	}
+	if widgetsAPIBlocked.CompareAndSwap(false, true) {
+		fmt.Fprintln(os.Stderr, "WIDGETS: Telegram API blocked sendWidget (INPUT_MEDIA_WIDGET_NOT_ALLOWED). "+
+			"General bots cannot send HTML widgets (restriction ~2026-11-13 after client RCE reports). "+
+			"Falling back to classic keyboard for this process. Unset NETDUCTOR_TG_WIDGETS or wait for Telegram to restore access.")
+	}
+}
+
 func widgetsEnabled() bool {
+	if widgetsAPIBlocked.Load() {
+		return false
+	}
 	on := os.Getenv("NETDUCTOR_TG_WIDGETS") == "1"
 	if on {
 		widgetSecurityWarnOnce()
@@ -162,7 +186,9 @@ func apiPostWidget(token, method string, payload any) ([]byte, error) {
 			if desc == "" {
 				desc = string(data)
 			}
-			return data, fmt.Errorf("telegram %s: %s", method, desc)
+			err := fmt.Errorf("telegram %s: %s", method, desc)
+			noteWidgetAPIError(err)
+			return data, err
 		}
 		if resp.StatusCode >= 300 {
 			return data, fmt.Errorf("telegram %s HTTP %d", method, resp.StatusCode)
