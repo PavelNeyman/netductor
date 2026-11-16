@@ -1568,7 +1568,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "updates", T: appTitle("Updates", "Обновления"),
 			Lines: strings.Join(lines, "\n"),
 			B:     appTitle("do not re-tap Apply", "не жмите Apply повторно"),
-			Acts:  "v_ref,vt_p,vt_s",
+			Btns: [][2]string{{"v_ref", appTitle("Refresh", "Обновить")}, {"vt_p", appTitle("Primary", "Primary")}, {"vt_s", appTitle("Secondary", "Secondary")}},
 			Nav:   []string{"stack", "tools"},
 		})
 		appPushState(token, q, cd)

@@ -34,7 +34,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		cd, _ := appMarshal(appState{
 			S: "session", T: appTitle("Session", "Сессия"),
 			B: appTitle("token sent (auto-delete ~2m)", "токен отправлен (удалится ~2м)"),
-			Acts: "sess1,sess4,sess24,sess72,sessx",
+			Btns: [][2]string{{"sess1", appTitle("1h", "1ч")}, {"sess4", appTitle("4h", "4ч")}, {"sess24", appTitle("24h", "24ч")}, {"sess72", appTitle("72h", "72ч")}, {"sessx", appTitle("Hours…", "Часы…")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -47,7 +47,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		cd, _ := appMarshal(appState{
 			S: "session", T: appTitle("Session", "Сессия"),
 			B: appTitle("send hours in chat…", "пришлите часы в чат…"),
-			Acts: "sess1,sess4,sess24,sess72,sessx",
+			Btns: [][2]string{{"sess1", appTitle("1h", "1ч")}, {"sess4", appTitle("4h", "4ч")}, {"sess24", appTitle("24h", "24ч")}, {"sess72", appTitle("72h", "72ч")}, {"sessx", appTitle("Hours…", "Часы…")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -112,17 +112,17 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "ag_st":
 		out := runND("aptguard", "status")
-		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Acts: "ag_st,ag_prev,ag_scan"})
+		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Btns: [][2]string{{"ag_st", appTitle("Status", "Статус")}, {"ag_prev", appTitle("Preview", "Превью")}, {"ag_scan", appTitle("Scan", "Скан")}}})
 		appPushState(token, q, cd)
 		return true
 	case "ag_prev":
 		out := runND("aptguard", "preview")
-		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Acts: "ag_st,ag_prev,ag_scan"})
+		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Btns: [][2]string{{"ag_st", appTitle("Status", "Статус")}, {"ag_prev", appTitle("Preview", "Превью")}, {"ag_scan", appTitle("Scan", "Скан")}}})
 		appPushState(token, q, cd)
 		return true
 	case "ag_scan":
 		out := runND("aptguard", "scan")
-		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Acts: "ag_st,ag_prev,ag_scan"})
+		cd, _ := appMarshal(appState{S: "aptguard", T: "Aptguard", Lines: appLines(out), Btns: [][2]string{{"ag_st", appTitle("Status", "Статус")}, {"ag_prev", appTitle("Preview", "Превью")}, {"ag_scan", appTitle("Scan", "Скан")}}})
 		appPushState(token, q, cd)
 		return true
 
@@ -137,7 +137,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		cd, _ := appMarshal(appState{
 			S: "ncard", T: focus,
 			B: appTitle("waiting for name in chat…", "ждём имя в чате…"),
-			Acts: "up,rb,jn,rs,nrn",
+			Btns: [][2]string{{"up", appTitle("Upgrade", "Обновить")}, {"rb", appTitle("Reboot", "Ребут")}, {"jn", appTitle("Journal", "Журнал")}, {"rs", appTitle("Restart SB", "Рестарт SB")}, {"nrn", appTitle("Rename", "Имя")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -149,7 +149,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		out := enqueueNodeCmd(focus, "metrics")
-		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: appLines(out), Acts: "up,rb,jn,rs,nrn,mx"})
+		cd, _ := appMarshal(appState{S: "ncard", T: focus, Lines: appLines(out), Btns: [][2]string{{"up", appTitle("Upgrade", "Обновить")}, {"rb", appTitle("Reboot", "Ребут")}, {"jn", appTitle("Journal", "Журнал")}, {"rs", appTitle("Restart SB", "Рестарт SB")}, {"nrn", appTitle("Rename", "Имя")}, {"mx", appTitle("Mux", "Mux")}}})
 		appPushState(token, q, cd)
 		return true
 
@@ -166,7 +166,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 				break
 			}
 		}
-		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(msg), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd"})
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(msg), Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}, {"gship", appTitle("Ship", "Ship")}, {"gsall", appTitle("Sync all", "Синк все")}, {"gbuild", appTitle("Build", "Сборка")}, {"gmirror", appTitle("Mirror", "Mirror")}, {"gjobs", appTitle("Jobs", "Jobs")}, {"gadd", appTitle("Add", "Добавить")}}})
 		appPushState(token, q, cd)
 		return true
 	case "gmirror":
@@ -188,7 +188,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 				}
 			}
 		}
-		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(b.String()), Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd"})
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(b.String()), Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}, {"gship", appTitle("Ship", "Ship")}, {"gsall", appTitle("Sync all", "Синк все")}, {"gbuild", appTitle("Build", "Сборка")}, {"gmirror", appTitle("Mirror", "Mirror")}, {"gjobs", appTitle("Jobs", "Jobs")}, {"gadd", appTitle("Add", "Добавить")}}})
 		appPushState(token, q, cd)
 		return true
 	case "gjobs":
@@ -213,7 +213,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			S: "gjobs", T: appTitle("Ship jobs", "Ship jobs"),
 			Lines: strings.Join(lines, "\n"),
 			IDs:   strings.Join(ids, ","),
-			Acts:  "gjobs",
+			Btns: [][2]string{{"gjobs", appTitle("Jobs", "Jobs")}},
 			H:     appTitle("# pause/resume/rm via acts on card", "# pause/resume/rm"),
 		})
 		appPushState(token, q, cd)
@@ -224,7 +224,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		_ = gitstore.MarkShipWaiting(focus, "paused via TG")
-		cd, _ := appMarshal(appState{S: "gjobs", T: focus, B: "paused", Acts: "gresume,grm"})
+		cd, _ := appMarshal(appState{S: "gjobs", T: focus, B: "paused", Btns: [][2]string{{"gresume", appTitle("Resume", "Продолжить")}, {"grm", appTitle("Delete", "Удалить")}}})
 		appPushState(token, q, cd)
 		return true
 	case "gresume":
@@ -237,7 +237,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: appLines(msg), Acts: "gpause,gresume,grm"})
+		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: appLines(msg), Btns: [][2]string{{"gpause", appTitle("Pause", "Пауза")}, {"gresume", appTitle("Resume", "Продолжить")}, {"grm", appTitle("Delete", "Удалить")}}})
 		appPushState(token, q, cd)
 		return true
 	case "grm":
@@ -246,7 +246,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		_ = gitstore.RemoveShipJob(focus)
-		cd, _ := appMarshal(appState{S: "gjobs", T: "Ship jobs", B: "removed " + focus, Acts: "gjobs"})
+		cd, _ := appMarshal(appState{S: "gjobs", T: "Ship jobs", B: "removed " + focus, Btns: [][2]string{{"gjobs", appTitle("Jobs", "Jobs")}}})
 		appPushState(token, q, cd)
 		return true
 	case "gadd":
@@ -259,7 +259,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		cd, _ := appMarshal(appState{
 			S: "git", T: "Git",
 			B: appTitle("waiting for name + URL…", "ждём name + URL…"),
-			Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd",
+			Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}, {"gship", appTitle("Ship", "Ship")}, {"gsall", appTitle("Sync all", "Синк все")}, {"gbuild", appTitle("Build", "Сборка")}, {"gmirror", appTitle("Mirror", "Mirror")}, {"gjobs", appTitle("Jobs", "Jobs")}, {"gadd", appTitle("Add", "Добавить")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -273,7 +273,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		cd, _ := appMarshal(appState{
 			S: "git", T: "Git",
 			B: appTitle("waiting for owner…", "ждём owner…"),
-			Acts: "gsync,gship,gsall,gbuild,gmirror,gjobs,gadd,gmig",
+			Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}, {"gship", appTitle("Ship", "Ship")}, {"gsall", appTitle("Sync all", "Синк все")}, {"gbuild", appTitle("Build", "Сборка")}, {"gmirror", appTitle("Mirror", "Mirror")}, {"gjobs", appTitle("Jobs", "Jobs")}, {"gadd", appTitle("Add", "Добавить")}, {"gmig", appTitle("Migrate", "Миграция")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -285,7 +285,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if focus != "" {
 			out = runND("edge", "luci", "on", focus, dur)
 		}
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_1,el_4,el_24,el_72,el_off"})
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Btns: [][2]string{{"el_1", appTitle("1h", "1ч")}, {"el_4", appTitle("4h", "4ч")}, {"el_24", appTitle("24h", "24ч")}, {"el_72", appTitle("72h", "72ч")}, {"el_off", appTitle("LuCI off", "LuCI выкл")}}})
 		appPushState(token, q, cd)
 		return true
 	case "el_ext":
@@ -293,7 +293,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if focus != "" {
 			out = runND("edge", "luci", "extend", focus, "24h")
 		}
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_1,el_4,el_24,el_72,el_ext,el_off"})
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Btns: [][2]string{{"el_1", appTitle("1h", "1ч")}, {"el_4", appTitle("4h", "4ч")}, {"el_24", appTitle("24h", "24ч")}, {"el_72", appTitle("72h", "72ч")}, {"el_ext", appTitle("Extend", "Продлить")}, {"el_off", appTitle("LuCI off", "LuCI выкл")}}})
 		appPushState(token, q, cd)
 		return true
 
@@ -358,7 +358,7 @@ func buildAppSession() (string, error) {
 	return appMarshal(appState{
 		S: "session", T: appTitle("Session", "Сессия"),
 		B: appTitle("issue operator session token", "выдать session token"),
-		Acts: "sess1,sess4,sess24,sess72,sessx",
+		Btns: [][2]string{{"sess1", appTitle("1h", "1ч")}, {"sess4", appTitle("4h", "4ч")}, {"sess24", appTitle("24h", "24ч")}, {"sess72", appTitle("72h", "72ч")}, {"sessx", appTitle("Hours…", "Часы…")}},
 		H:    appTitle("presets or custom hours", "пресеты или свои часы"),
 	})
 }
@@ -368,7 +368,7 @@ func buildAppSSHKeys() (string, error) {
 	return appMarshal(appState{
 		S: "sshkeys", T: appTitle("SSH keys", "SSH ключи"),
 		Lines: appLines(out),
-		Acts:  "sk_on,sk_off,sk_scan",
+		Btns: [][2]string{{"sk_on", appTitle("Protect on", "Защита вкл")}, {"sk_off", appTitle("Protect off", "Защита выкл")}, {"sk_scan", appTitle("Scan", "Скан")}},
 		H:     appTitle("protect on/off · scan", "защита on/off · scan"),
 	})
 }
@@ -378,7 +378,7 @@ func buildAppAptguard() (string, error) {
 	return appMarshal(appState{
 		S: "aptguard", T: "Aptguard",
 		Lines: appLines(out),
-		Acts:  "ag_st,ag_prev,ag_scan",
+		Btns: [][2]string{{"ag_st", appTitle("Status", "Статус")}, {"ag_prev", appTitle("Preview", "Превью")}, {"ag_scan", appTitle("Scan", "Скан")}},
 	})
 }
 
@@ -390,7 +390,7 @@ func buildAppCerts() (string, error) {
 	return appMarshal(appState{
 		S: "certs", T: appTitle("Certs", "Сертификаты"),
 		Lines: appLines(out),
-		Acts:  "cert_ren",
+		Btns: [][2]string{{"cert_ren", appTitle("Renew", "Обновить")}},
 	})
 }
 
@@ -399,7 +399,7 @@ func buildAppFW() (string, error) {
 	return appMarshal(appState{
 		S: "fw", T: "Firewall",
 		Lines: appLines(out),
-		Acts:  "fw_apply",
+		Btns: [][2]string{{"fw_apply", appTitle("Apply FW", "Применить FW")}},
 	})
 }
 
@@ -408,7 +408,7 @@ func buildAppEdgeLuciFull() (string, error) {
 	return appMarshal(appState{
 		S: "edgeluci", T: "Edge LuCI",
 		Lines: appLines(out),
-		Acts:  "el_1,el_4,el_24,el_72,el_ext,el_off",
+		Btns: [][2]string{{"el_1", appTitle("1h", "1ч")}, {"el_4", appTitle("4h", "4ч")}, {"el_24", appTitle("24h", "24ч")}, {"el_72", appTitle("72h", "72ч")}, {"el_ext", appTitle("Extend", "Продлить")}, {"el_off", appTitle("LuCI off", "LuCI выкл")}},
 		H:     appTitle("duration presets", "пресеты длительности"),
 	})
 }
@@ -475,7 +475,7 @@ func buildAppAdmin() (string, error) {
 	return appMarshal(appState{
 		S: "admin", T: appTitle("Admin", "Админ"),
 		Lines: widgetTruncate(plain, 500),
-		Acts:  "sess1,sess4,sess24,sess72,sessx",
+		Btns: [][2]string{{"sess1", appTitle("1h", "1ч")}, {"sess4", appTitle("4h", "4ч")}, {"sess24", appTitle("24h", "24ч")}, {"sess72", appTitle("72h", "72ч")}, {"sessx", appTitle("Hours…", "Часы…")}},
 		H:     appTitle("session token presets below", "пресеты session token"),
 	})
 }
@@ -556,7 +556,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns,et_mode"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns", appTitle("DNS", "DNS")}, {"et_mode", appTitle("Mode", "Режим")}}})
 		appPushState(token, q, cd)
 		return true
 	case "et_dns":
@@ -569,7 +569,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns,et_mode"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns", appTitle("DNS", "DNS")}, {"et_mode", appTitle("Mode", "Режим")}}})
 		appPushState(token, q, cd)
 		return true
 	case "et_mode":
@@ -582,7 +582,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns,et_mode"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns", appTitle("DNS", "DNS")}, {"et_mode", appTitle("Mode", "Режим")}}})
 		appPushState(token, q, cd)
 		return true
 	case "glog":

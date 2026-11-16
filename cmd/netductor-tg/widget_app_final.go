@@ -58,8 +58,7 @@ func buildAppPresetDraft() (string, error) {
 	return appMarshal(appState{
 		S: "prdraft", T: appTitle("Preset draft", "Черновик пресета"),
 		Lines: strings.Join(lines, "\n"),
-		Acts:  "pd_net,pd_mode,pd_save",
-		Btns:  btns,
+		Btns: append([][2]string{{"pd_net", appTitle("Net", "Сеть")}, {"pd_mode", appTitle("Mode", "Режим")}, {"pd_save", appTitle("Save", "Сохранить")}}, btns...),
 		H:     appTitle("toggle services · save → name in chat", "сервисы · save → имя в чат"),
 	})
 }
@@ -91,8 +90,7 @@ func buildAppUserPolicy(name string) (string, error) {
 	return appMarshal(appState{
 		S: "upol", T: name,
 		Lines: strings.Join(lines, "\n"),
-		Acts:  "up_inet,up_mode",
-		Btns:  btns,
+		Btns: append([][2]string{{"up_inet", appTitle("Internet", "Интернет")}, {"up_mode", appTitle("Mode", "Режим")}}, btns...),
 		H:     appTitle("user policy", "политика пользователя"),
 	})
 }
@@ -103,7 +101,7 @@ func buildAppTemplateCard(id string) (string, error) {
 	return appMarshal(appState{
 		S: "edgetpl", T: id,
 		Lines: widgetTruncate(out, 280),
-		Acts:  "et_on,et_off,et_dns_vpn,et_dns_wan,et_dns_off,et_mode_tun,et_mode_off,et_fb_wan,et_fb_block,et_soft_on,et_soft_off",
+		Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns_vpn", appTitle("DNS VPN", "DNS VPN")}, {"et_dns_wan", appTitle("DNS WAN", "DNS WAN")}, {"et_dns_off", appTitle("DNS off", "DNS выкл")}, {"et_mode_tun", appTitle("Mode TUN", "Mode TUN")}, {"et_mode_off", appTitle("Mode off", "Mode выкл")}, {"et_fb_wan", appTitle("FB WAN", "FB WAN")}, {"et_fb_block", appTitle("FB block", "FB block")}, {"et_soft_on", appTitle("Soft on", "Soft вкл")}, {"et_soft_off", appTitle("Soft off", "Soft выкл")}},
 		H:     id,
 	})
 }
@@ -113,7 +111,7 @@ func buildAppSvcPaths() (string, error) {
 	return appMarshal(appState{
 		S: "svcpaths", T: "Svc paths",
 		Lines: appLines(out),
-		Acts:  "spa_apply",
+		Btns: [][2]string{{"spa_apply", appTitle("Apply", "Применить")}},
 	})
 }
 
@@ -148,7 +146,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 			saveDraft(q.Chat.ID, appPresetDraft)
 			setState(q.Chat.ID, "wait_preset_name", chatExtra[q.Chat.ID])
 		}
-		cd, _ := appMarshal(appState{S: "prdraft", T: "Presets", B: appTitle("waiting name in chat…", "ждём имя в чате…"), Acts: "pd_net,pd_mode,pd_save"})
+		cd, _ := appMarshal(appState{S: "prdraft", T: "Presets", B: appTitle("waiting name in chat…", "ждём имя в чате…"), Btns: [][2]string{{"pd_net", appTitle("Net", "Сеть")}, {"pd_mode", appTitle("Mode", "Режим")}, {"pd_save", appTitle("Save", "Сохранить")}}})
 		appPushState(token, q, cd)
 		return true
 	case "pr_draft":
@@ -196,7 +194,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "spa_apply":
 		out := runND("svc-paths", "apply")
-		cd, _ := appMarshal(appState{S: "svcpaths", T: "Svc paths", Lines: appLines(out), Acts: "spa_apply"})
+		cd, _ := appMarshal(appState{S: "svcpaths", T: "Svc paths", Lines: appLines(out), Btns: [][2]string{{"spa_apply", appTitle("Apply", "Применить")}}})
 		appPushState(token, q, cd)
 		return true
 	case "room_add":
@@ -205,7 +203,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 		}
 		beginTextInput(token, q.Chat.ID, "wait_room_add:"+focus,
 			appTitle("Send room id (a-z0-9-)", "Пришлите id комнаты (a-z0-9-)"))
-		cd, _ := appMarshal(appState{S: "loc", T: focus, B: appTitle("waiting room id…", "ждём id комнаты…"), Acts: "room_add"})
+		cd, _ := appMarshal(appState{S: "loc", T: focus, B: appTitle("waiting room id…", "ждём id комнаты…"), Btns: [][2]string{{"room_add", appTitle("+ room", "+ комната")}}})
 		appPushState(token, q, cd)
 		return true
 	case "et_dns_vpn", "et_dns_wan", "et_dns_off":
@@ -218,7 +216,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns_vpn,et_dns_wan,et_dns_off,et_mode_tun,et_mode_off,et_fb_wan,et_fb_block,et_soft_on,et_soft_off"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns_vpn", appTitle("DNS VPN", "DNS VPN")}, {"et_dns_wan", appTitle("DNS WAN", "DNS WAN")}, {"et_dns_off", appTitle("DNS off", "DNS выкл")}, {"et_mode_tun", appTitle("Mode TUN", "Mode TUN")}, {"et_mode_off", appTitle("Mode off", "Mode выкл")}, {"et_fb_wan", appTitle("FB WAN", "FB WAN")}, {"et_fb_block", appTitle("FB block", "FB block")}, {"et_soft_on", appTitle("Soft on", "Soft вкл")}, {"et_soft_off", appTitle("Soft off", "Soft выкл")}}})
 		appPushState(token, q, cd)
 		return true
 	case "et_mode_tun", "et_mode_off":
@@ -234,7 +232,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns_vpn,et_dns_wan,et_dns_off,et_mode_tun,et_mode_off,et_fb_wan,et_fb_block,et_soft_on,et_soft_off"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns_vpn", appTitle("DNS VPN", "DNS VPN")}, {"et_dns_wan", appTitle("DNS WAN", "DNS WAN")}, {"et_dns_off", appTitle("DNS off", "DNS выкл")}, {"et_mode_tun", appTitle("Mode TUN", "Mode TUN")}, {"et_mode_off", appTitle("Mode off", "Mode выкл")}, {"et_fb_wan", appTitle("FB WAN", "FB WAN")}, {"et_fb_block", appTitle("FB block", "FB block")}, {"et_soft_on", appTitle("Soft on", "Soft вкл")}, {"et_soft_off", appTitle("Soft off", "Soft выкл")}}})
 		appPushState(token, q, cd)
 		return true
 	case "et_fb_wan", "et_fb_block":
@@ -247,7 +245,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns_vpn,et_dns_wan,et_dns_off,et_mode_tun,et_mode_off,et_fb_wan,et_fb_block,et_soft_on,et_soft_off"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns_vpn", appTitle("DNS VPN", "DNS VPN")}, {"et_dns_wan", appTitle("DNS WAN", "DNS WAN")}, {"et_dns_off", appTitle("DNS off", "DNS выкл")}, {"et_mode_tun", appTitle("Mode TUN", "Mode TUN")}, {"et_mode_off", appTitle("Mode off", "Mode выкл")}, {"et_fb_wan", appTitle("FB WAN", "FB WAN")}, {"et_fb_block", appTitle("FB block", "FB block")}, {"et_soft_on", appTitle("Soft on", "Soft вкл")}, {"et_soft_off", appTitle("Soft off", "Soft выкл")}}})
 		appPushState(token, q, cd)
 		return true
 	case "et_soft_on", "et_soft_off":
@@ -260,7 +258,7 @@ func handleAppFinalAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns_vpn,et_dns_wan,et_dns_off,et_mode_tun,et_mode_off,et_fb_wan,et_fb_block,et_soft_on,et_soft_off"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns_vpn", appTitle("DNS VPN", "DNS VPN")}, {"et_dns_wan", appTitle("DNS WAN", "DNS WAN")}, {"et_dns_off", appTitle("DNS off", "DNS выкл")}, {"et_mode_tun", appTitle("Mode TUN", "Mode TUN")}, {"et_mode_off", appTitle("Mode off", "Mode выкл")}, {"et_fb_wan", appTitle("FB WAN", "FB WAN")}, {"et_fb_block", appTitle("FB block", "FB block")}, {"et_soft_on", appTitle("Soft on", "Soft вкл")}, {"et_soft_off", appTitle("Soft off", "Soft выкл")}}})
 		appPushState(token, q, cd)
 		return true
 	}

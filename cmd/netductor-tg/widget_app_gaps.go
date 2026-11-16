@@ -31,7 +31,7 @@ func buildAppPresets() (string, error) {
 		S: "presets", T: appTitle("Presets", "Пресеты"),
 		Lines: strings.Join(lines, "\n"),
 		IDs:   strings.Join(ids, ","),
-		Acts:  "pr_new,pr_draft",
+		Btns: [][2]string{{"pr_new", appTitle("New", "Новый")}, {"pr_draft", appTitle("Draft", "Черновик")}},
 		H:     appTitle("# custom · new via chat name", "# свои · new = имя в чат"),
 	})
 }
@@ -44,7 +44,7 @@ func buildAppMTLS() (string, error) {
 	return appMarshal(appState{
 		S: "mtls", T: "mTLS",
 		Lines: appLines(out),
-		Acts:  "mt_list,mt_rot,mt_roll",
+		Btns: [][2]string{{"mt_list", appTitle("List", "Список")}, {"mt_rot", appTitle("Rotate", "Ротация")}, {"mt_roll", appTitle("Roll", "Roll")}},
 	})
 }
 
@@ -53,7 +53,7 @@ func buildAppSecondaryOps() (string, error) {
 	return appMarshal(appState{
 		S: "secops", T: appTitle("Secondary ops", "Secondary"),
 		Lines: appLines(out),
-		Acts:  "sec_exp,sec_ol,sec_enr,sec_sync",
+		Btns: [][2]string{{"sec_exp", appTitle("Export", "Экспорт")}, {"sec_ol", appTitle("Online", "Online")}, {"sec_enr", appTitle("Enroll", "Enroll")}, {"sec_sync", appTitle("Sync", "Синк")}},
 		H:     appTitle("export · oneline · enroll · sync", "export · oneline · enroll · sync"),
 	})
 }
@@ -75,7 +75,7 @@ func buildAppEdgeLife() (string, error) {
 		S: "edgelife", T: appTitle("Edge devices", "Edge устройства"),
 		Lines: strings.Join(lines, "\n"),
 		IDs:   strings.Join(ids, ","),
-		Acts:  "er_reg,er_bind,er_apply,er_site,er_rec",
+		Btns: [][2]string{{"er_reg", appTitle("Reg", "Рег")}, {"er_bind", appTitle("Bind", "Bind")}, {"er_apply", appTitle("Apply", "Применить")}, {"er_site", appTitle("Site", "Сайт")}, {"er_rec", appTitle("Recover", "Recover")}},
 		H:     appTitle("register/bind/apply via chat", "register/bind/apply через чат"),
 	})
 }
@@ -100,7 +100,7 @@ func buildAppLoc() (string, error) {
 		S: "loc", T: appTitle("Locations", "Локации"),
 		Lines: strings.Join(lines, "\n"),
 		IDs:   strings.Join(ids, ","),
-		Acts:  "loc_home,loc_off",
+		Btns: [][2]string{{"loc_home", appTitle("Home", "Дом")}, {"loc_off", appTitle("Off", "Выкл")}},
 		H:     appTitle("# site rooms · add home/office", "# комнаты · добавить дом/офис"),
 	})
 }
@@ -117,7 +117,7 @@ func buildAppEdgePolicyCard(id string) (string, error) {
 			{"mode", p.ServicesMode},
 			{"svc", fmt.Sprintf("%d", len(p.Services))},
 		},
-		Acts: "ep_inet,ep_mode",
+		Btns: [][2]string{{"ep_inet", appTitle("Internet", "Интернет")}, {"ep_mode", appTitle("Mode", "Режим")}},
 		H:    id,
 	})
 }
@@ -132,7 +132,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		return true
 	case "mt_list":
 		out := runND("mtls", "list")
-		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: appLines(out), Acts: "mt_list,mt_rot,mt_roll"})
+		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: appLines(out), Btns: [][2]string{{"mt_list", appTitle("List", "Список")}, {"mt_rot", appTitle("Rotate", "Ротация")}, {"mt_roll", appTitle("Roll", "Roll")}}})
 		appPushState(token, q, cd)
 		return true
 	case "mt_rot":
@@ -141,12 +141,12 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		}
 		beginTextInput(token, q.Chat.ID, "wait_mtls_rotate",
 			appTitle("Send node id to rotate cert", "Пришлите id ноды для rotate"))
-		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", B: appTitle("waiting node id…", "ждём id…"), Acts: "mt_list,mt_rot,mt_roll"})
+		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", B: appTitle("waiting node id…", "ждём id…"), Btns: [][2]string{{"mt_list", appTitle("List", "Список")}, {"mt_rot", appTitle("Rotate", "Ротация")}, {"mt_roll", appTitle("Roll", "Roll")}}})
 		appPushState(token, q, cd)
 		return true
 	case "mt_roll":
 		out := runND("mtls", "rollover-status")
-		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: appLines(out), Acts: "mt_list,mt_rot,mt_roll"})
+		cd, _ := appMarshal(appState{S: "mtls", T: "mTLS", Lines: appLines(out), Btns: [][2]string{{"mt_list", appTitle("List", "Список")}, {"mt_rot", appTitle("Rotate", "Ротация")}, {"mt_roll", appTitle("Roll", "Roll")}}})
 		appPushState(token, q, cd)
 		return true
 	case "sec_exp":
@@ -156,12 +156,12 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		if err == nil {
 			msg = string(b)
 		}
-		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: appLines(msg), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
+		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: appLines(msg), Btns: [][2]string{{"sec_exp", appTitle("Export", "Экспорт")}, {"sec_ol", appTitle("Online", "Online")}, {"sec_enr", appTitle("Enroll", "Enroll")}, {"sec_sync", appTitle("Sync", "Синк")}}})
 		appPushState(token, q, cd)
 		return true
 	case "sec_ol":
 		msg := formatRelayOneline()
-		cd, _ := appMarshal(appState{S: "secops", T: "Oneline", Lines: widgetTruncate(stripTags(msg), 500), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
+		cd, _ := appMarshal(appState{S: "secops", T: "Oneline", Lines: widgetTruncate(stripTags(msg), 500), Btns: [][2]string{{"sec_exp", appTitle("Export", "Экспорт")}, {"sec_ol", appTitle("Online", "Online")}, {"sec_enr", appTitle("Enroll", "Enroll")}, {"sec_sync", appTitle("Sync", "Синк")}}})
 		appPushState(token, q, cd)
 		return true
 	case "sec_enr":
@@ -169,12 +169,12 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		beginTextInput(token, q.Chat.ID, "wait_relay_host", T("enroll_ip"))
-		cd, _ := appMarshal(appState{S: "secops", T: "Enroll", B: appTitle("send IP…", "пришлите IP…"), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
+		cd, _ := appMarshal(appState{S: "secops", T: "Enroll", B: appTitle("send IP…", "пришлите IP…"), Btns: [][2]string{{"sec_exp", appTitle("Export", "Экспорт")}, {"sec_ol", appTitle("Online", "Online")}, {"sec_enr", appTitle("Enroll", "Enroll")}, {"sec_sync", appTitle("Sync", "Синк")}}})
 		appPushState(token, q, cd)
 		return true
 	case "sec_sync":
 		out := runND("secondary", "sync")
-		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: appLines(out), Acts: "sec_exp,sec_ol,sec_enr,sec_sync"})
+		cd, _ := appMarshal(appState{S: "secops", T: "Secondary", Lines: appLines(out), Btns: [][2]string{{"sec_exp", appTitle("Export", "Экспорт")}, {"sec_ol", appTitle("Online", "Online")}, {"sec_enr", appTitle("Enroll", "Enroll")}, {"sec_sync", appTitle("Sync", "Синк")}}})
 		appPushState(token, q, cd)
 		return true
 	case "er_reg":
@@ -182,7 +182,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		beginTextInput(token, q.Chat.ID, "wait_edge_register", T("edge_register_prompt"))
-		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting register…", "ждём register…"), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting register…", "ждём register…"), Btns: [][2]string{{"er_reg", appTitle("Reg", "Рег")}, {"er_bind", appTitle("Bind", "Bind")}, {"er_apply", appTitle("Apply", "Применить")}, {"er_site", appTitle("Site", "Сайт")}, {"er_rec", appTitle("Recover", "Recover")}}})
 		appPushState(token, q, cd)
 		return true
 	case "er_bind":
@@ -190,7 +190,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		beginTextInput(token, q.Chat.ID, "wait_edge_bind_dev", T("bind_prompt"))
-		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting bind…", "ждём bind…"), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting bind…", "ждём bind…"), Btns: [][2]string{{"er_reg", appTitle("Reg", "Рег")}, {"er_bind", appTitle("Bind", "Bind")}, {"er_apply", appTitle("Apply", "Применить")}, {"er_site", appTitle("Site", "Сайт")}, {"er_rec", appTitle("Recover", "Recover")}}})
 		appPushState(token, q, cd)
 		return true
 	case "er_apply":
@@ -198,7 +198,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		beginTextInput(token, q.Chat.ID, "wait_edge_apply", T("apply_prompt"))
-		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting apply…", "ждём apply…"), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting apply…", "ждём apply…"), Btns: [][2]string{{"er_reg", appTitle("Reg", "Рег")}, {"er_bind", appTitle("Bind", "Bind")}, {"er_apply", appTitle("Apply", "Применить")}, {"er_site", appTitle("Site", "Сайт")}, {"er_rec", appTitle("Recover", "Recover")}}})
 		appPushState(token, q, cd)
 		return true
 	case "er_site":
@@ -206,18 +206,18 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		beginTextInput(token, q.Chat.ID, "wait_edge_set_site", T("edge_set_site_prompt"))
-		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting site…", "ждём site…"), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+		cd, _ := appMarshal(appState{S: "edgelife", T: "Edge", B: appTitle("waiting site…", "ждём site…"), Btns: [][2]string{{"er_reg", appTitle("Reg", "Рег")}, {"er_bind", appTitle("Bind", "Bind")}, {"er_apply", appTitle("Apply", "Применить")}, {"er_site", appTitle("Site", "Сайт")}, {"er_rec", appTitle("Recover", "Recover")}}})
 		appPushState(token, q, cd)
 		return true
 	case "er_rec":
 		if focus == "" {
 			out := runND("edge", "recovery", "list")
-			cd, _ := appMarshal(appState{S: "edgelife", T: "Recovery", Lines: appLines(out), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+			cd, _ := appMarshal(appState{S: "edgelife", T: "Recovery", Lines: appLines(out), Btns: [][2]string{{"er_reg", appTitle("Reg", "Рег")}, {"er_bind", appTitle("Bind", "Bind")}, {"er_apply", appTitle("Apply", "Применить")}, {"er_site", appTitle("Site", "Сайт")}, {"er_rec", appTitle("Recover", "Recover")}}})
 			appPushState(token, q, cd)
 			return true
 		}
 		out := runND("edge", "recovery", focus)
-		cd, _ := appMarshal(appState{S: "edgelife", T: focus, Lines: appLines(out), Acts: "er_reg,er_bind,er_apply,er_site,er_rec"})
+		cd, _ := appMarshal(appState{S: "edgelife", T: focus, Lines: appLines(out), Btns: [][2]string{{"er_reg", appTitle("Reg", "Рег")}, {"er_bind", appTitle("Bind", "Bind")}, {"er_apply", appTitle("Apply", "Применить")}, {"er_site", appTitle("Site", "Сайт")}, {"er_rec", appTitle("Recover", "Recover")}}})
 		appPushState(token, q, cd)
 		return true
 	case "loc_home", "loc_off":
@@ -274,7 +274,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		appSetConfirmTarget(focus)
 		cd, _ := appMarshal(appState{
 			S: "edgestor", T: appTitle("Format+restore?", "Format+restore?"),
-			B: focus, Acts: "y_fmt",
+			B: focus, Btns: [][2]string{{"y_fmt", appTitle("Confirm format", "Подтвердить format")}},
 			H: appTitle("destructive: format USB then restore", "опасно: format USB затем restore"),
 		})
 		appPushState(token, q, cd)
@@ -301,7 +301,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns,et_mode,et_fb"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns", appTitle("DNS", "DNS")}, {"et_mode", appTitle("Mode", "Режим")}, {"et_fb", appTitle("Fallback", "Fallback")}}})
 		appPushState(token, q, cd)
 		return true
 	case "et_soft":
@@ -314,7 +314,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Acts: "et_on,et_off,et_dns,et_mode,et_fb,et_soft"})
+		cd, _ := appMarshal(appState{S: "edgetpl", T: focus, B: msg, Btns: [][2]string{{"et_on", appTitle("Tpl on", "Шаблон вкл")}, {"et_off", appTitle("Tpl off", "Шаблон выкл")}, {"et_dns", appTitle("DNS", "DNS")}, {"et_mode", appTitle("Mode", "Режим")}, {"et_fb", appTitle("Fallback", "Fallback")}, {"et_soft", appTitle("Soft", "Soft")}}})
 		appPushState(token, q, cd)
 		return true
 	}
