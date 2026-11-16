@@ -14,8 +14,9 @@ import (
 // Persist dual pair + SPA message ids across process restart (AI-RULES lifecycle).
 
 type widgetUIStore struct {
-	Dual map[string]dualPair `json:"dual"`
-	App  map[string]int      `json:"app"` // chat_id → last SPA/nav message id
+	Dual     map[string]dualPair `json:"dual"`
+	App      map[string]int      `json:"app"`       // chat_id → last SPA/nav message id
+	AppShell map[string]string   `json:"app_shell"` // chat_id → hub|spark
 }
 
 var (
@@ -54,6 +55,13 @@ func loadWidgetUIStore() {
 			}
 			lastAppMsgID[id] = mid
 		}
+		for k, sh := range st.AppShell {
+			id, err := strconv.ParseInt(k, 10, 64)
+			if err != nil || (sh != shellHub && sh != shellSpark) {
+				continue
+			}
+			lastAppShell[id] = sh
+		}
 		lastAppMu.Unlock()
 	})
 }
@@ -63,8 +71,9 @@ func saveWidgetUIStore() {
 	widgetStoreMu.Lock()
 	defer widgetStoreMu.Unlock()
 	st := widgetUIStore{
-		Dual: map[string]dualPair{},
-		App:  map[string]int{},
+		Dual:     map[string]dualPair{},
+		App:      map[string]int{},
+		AppShell: map[string]string{},
 	}
 	lastDualMu.Lock()
 	for id, p := range lastDual {
@@ -78,6 +87,11 @@ func saveWidgetUIStore() {
 	for id, mid := range lastAppMsgID {
 		if mid > 0 {
 			st.App[strconv.FormatInt(id, 10)] = mid
+		}
+	}
+	for id, sh := range lastAppShell {
+		if sh == shellHub || sh == shellSpark {
+			st.AppShell[strconv.FormatInt(id, 10)] = sh
 		}
 	}
 	lastAppMu.Unlock()

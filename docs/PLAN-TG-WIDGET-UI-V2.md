@@ -1,15 +1,28 @@
 # TG Widget UI v2
 
-## Shells (multi-widget)
+## Shells (multi-widget) — **implemented**
 
-HTML is fixed after `sendWidget`. Layouts that need extra JS (CPU canvas) use a **second shell**:
+HTML is fixed after `sendWidget`. Layouts that need canvas (CPU/channel sparkline) use a **second shell**:
 
 | Kind | When | HTML |
 |------|------|------|
-| `hub` | home, lists, cards, tools… | tabs/seg/bars, no canvas |
-| `spark` | **status** only | hub + sparkline canvas |
+| `hub` | lists, cards, tools, most screens | SPA without canvas JS |
+| `spark` | **status**, **channel** | hub + sparkline canvas |
 
-Transition: `appPushStateSmart` — same shell → `editMessageWidgetData`; different shell → `sendWidget` + `deleteMessage` (one card in chat).
+**Transition (`appPushStateSingle` / `openAppScreen`):**
+- same shell → `editMessageWidgetData` (in-place)
+- different shell or edit fail → `sendWidget` + `deleteMessage` (one card in chat)
+
+Shell kind is persisted in `widget_ui.json` (`app_shell`) with the SPA message id.
+
+## Dual pair (`NETDUCTOR_TG_DUAL=1`)
+
+| Slot | Message | Content |
+|------|---------|---------|
+| **info** | upper | rows / lines / metrics (`appInfoHTML`) |
+| **nav** | lower | controls — always **hub** SPA shell |
+
+On every navigation both slots are refreshed for the target screen. Nav shell mismatch → `swapDualSlot` (send + delete). Info always edits `appInfoHTML` chat_data (one info document).
 
 ## Formatters
 - `appLines` / `formatCmdOut` — JSON → key lines
@@ -17,18 +30,9 @@ Transition: `appPushStateSmart` — same shell → `editMessageWidgetData`; diff
 - Git status → rows when possible
 
 ## Limits
-- zlib ≤ 4096 per shell (tested hub + spark)
+- zlib ≤ 4096 **per shell** (tested hub + spark)
 - chat_data ≤ 1024
 
-## Dual pair (next)
-
-See `docs/PLAN-TG-DUAL-WIDGET.md` and binding rules `docs/AI-RULES-TG-WIDGETS.md`.
-
-## Multi-shell (deferred)
-
-SPA hub↔spark **message swap is removed**. One SPA HTML includes canvas; dual mode
-puts metrics on the info message instead.
-
-If zlib forces a split later: restore two HTML variants + per-message shell kind
-and swap only that message (same pattern as dual slot swap). Do not invent a third
-state map without updating `AI-RULES-TG-WIDGETS.md`.
+## Related
+- `docs/PLAN-TG-DUAL-WIDGET.md`
+- `docs/AI-RULES-TG-WIDGETS.md`

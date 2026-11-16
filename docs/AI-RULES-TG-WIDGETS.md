@@ -83,7 +83,7 @@ When `NETDUCTOR_TG_DUAL` is not `1`, **do not** apply dual pair logic. Existing 
 | Dual **off** | 1 SPA | same message (`spk` in chat_data) |
 | Dual **on** | info + nav | **info only**; nav is interactive hub |
 
-SPA multi-HTML (hub↔spark swap) is **removed**. Reintroduce only under zlib pressure; document in UI v2 plan.
+SPA multi-HTML (hub↔spark) is **on**: same shell → edit; shell change → send + delete. See `docs/PLAN-TG-WIDGET-UI-V2.md`.
 
 ## 2. Single SPA (dual off)
 

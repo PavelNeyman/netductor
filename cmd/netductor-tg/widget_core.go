@@ -27,6 +27,7 @@ var widgetRegistry = map[string]*widgetScreen{}
 
 // lastAppMsgID remembers the SPA widget message per chat to edit in-place.
 var lastAppMsgID = map[int64]int{}
+var lastAppShell = map[int64]string{} // hub|spark for SPA multi-HTML
 var lastAppMu sync.Mutex
 
 func setLastAppMsg(chat int64, mid int) {
@@ -34,6 +35,7 @@ func setLastAppMsg(chat int64, mid int) {
 	lastAppMu.Lock()
 	if mid <= 0 {
 		delete(lastAppMsgID, chat)
+		delete(lastAppShell, chat)
 	} else {
 		lastAppMsgID[chat] = mid
 	}
@@ -41,10 +43,30 @@ func setLastAppMsg(chat int64, mid int) {
 	saveWidgetUIStore()
 }
 
+func setLastAppShell(chat int64, shell string) {
+	loadWidgetUIStore()
+	lastAppMu.Lock()
+	if shell == "" {
+		delete(lastAppShell, chat)
+	} else {
+		lastAppShell[chat] = shell
+	}
+	lastAppMu.Unlock()
+	saveWidgetUIStore()
+}
+
+func getLastAppShell(chat int64) string {
+	loadWidgetUIStore()
+	lastAppMu.Lock()
+	defer lastAppMu.Unlock()
+	return lastAppShell[chat]
+}
+
 func forgetAppMsg(chat int64) {
 	loadWidgetUIStore()
 	lastAppMu.Lock()
 	delete(lastAppMsgID, chat)
+	delete(lastAppShell, chat)
 	lastAppMu.Unlock()
 	// Dual pair requires closeDualPair (deletes messages). Do not strip dual ids here
 	// when dual is on — callers must closeDualPair first (/start, m:menu).
@@ -265,22 +287,40 @@ func openAppScreen(token string, chat int64, screenID string) bool {
 		return openAppScreenDual(token, chat, screenID)
 	}
 
+	cd, err := buildAppScreen(screenID)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "openAppScreen build:", err)
+		return false
+	}
+	if cd2, err2 := clipWidgetChatData(cd); err2 == nil {
+		cd = cd2
+	}
+	want := appShellForScreen(screenID)
 	lastAppMu.Lock()
 	mid := lastAppMsgID[chat]
+	have := lastAppShell[chat]
 	lastAppMu.Unlock()
-	if mid > 0 {
-		cd, err := buildAppScreen(screenID)
-		if err == nil {
-			if cd2, err2 := clipWidgetChatData(cd); err2 == nil {
-				cd = cd2
-				if err := editWidgetData(token, chat, mid, cd); err == nil {
-					return true
-				}
-			}
+	if mid > 0 && have == want {
+		if err := editWidgetData(token, chat, mid, cd); err == nil {
+			setLastAppMsg(chat, mid)
+			setLastAppShell(chat, want)
+			return true
 		}
-		forgetAppMsg(chat)
 	}
-	return sendWidgetScreen(token, chat, "app")
+	// Shell change or edit failed: send new HTML, delete previous message.
+	html := appWidgetHTMLFor(want)
+	newID, err := sendWidgetMessage(token, chat, html, cd)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "openAppScreen send:", err)
+		forgetAppMsg(chat)
+		return false
+	}
+	if mid > 0 && mid != newID {
+		_ = deleteMessage(token, chat, mid)
+	}
+	setLastAppMsg(chat, newID)
+	setLastAppShell(chat, want)
+	return true
 }
 
 // openAppScreenDual updates or opens the info+nav pair for screenID.
@@ -311,7 +351,12 @@ func openAppScreenDual(token string, chat int64, screenID string) bool {
 	infoShell := infoShellForScreen(screenID)
 
 	if p, ok := getDual(chat); ok && p.NavID > 0 && p.InfoID > 0 {
-		editDualSlot(token, chat, "nav", appWidgetHTML(), navCD, shellHub)
+		navHTML := appWidgetHTMLFor(shellHub)
+		if p.NavShell != shellHub {
+			swapDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+		} else {
+			editDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+		}
 		editDualSlot(token, chat, "info", appInfoHTML(), infoCD, infoShell)
 		syncDualNavAsApp(chat)
 		return true

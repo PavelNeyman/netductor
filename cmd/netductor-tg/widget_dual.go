@@ -224,18 +224,20 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 		return
 	}
 
-	navShell = shellHub
-	editDualSlot(token, chat, "nav", appWidgetHTML(), navCD, navShell)
+	// Both slots always get fresh content for the target screen (seamless dual).
+	navHTML := appWidgetHTMLFor(shellHub)
+	p, _ = getDual(chat)
+	if p.NavShell != shellHub && p.NavID > 0 {
+		swapDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+	} else {
+		editDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+	}
 
-	// Info: one metrics shell; "spark" kind only marks that series may be present.
 	infoHTML := appInfoHTML()
 	p, _ = getDual(chat)
 	if p.InfoShell != infoShell && infoShell != "" && p.InfoID > 0 {
-		// Prefer edit; swap only if we ever introduce a second info HTML.
+		// Info document is always appInfoHTML; kind is metadata — edit data only.
 		editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
-		p, _ = getDual(chat)
-		p.InfoShell = infoShell
-		setDual(chat, p)
 	} else {
 		editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
 	}
@@ -244,8 +246,9 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 
 // infoShellForScreen picks info HTML kind (spark when metrics series useful).
 func infoShellForScreen(screen string) string {
+	// Info slot always uses appInfoHTML (own document); kind marks metrics weight.
 	switch screen {
-	case "home", "status", "":
+	case "home", "status", "channel", "":
 		return shellSpark
 	default:
 		return shellHub

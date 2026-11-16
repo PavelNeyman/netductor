@@ -502,3 +502,11 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - `buildAppSecondaryCard`
 - LAB for digest/netmap/… **not** added: zlib SPA already at budget; Nav falls back to id string
 
+## 0.9.750 — SPA multi-shell (hub / spark)
+
+- **hub**: lean SPA (no canvas); **spark**: status/channel + sparkline
+- Transition: same shell → edit; shell change / edit fail → send + delete old
+- Shell kind persisted in `widget_ui.json` (`app_shell`)
+- Dual: both info+nav refreshed on every nav; nav always hub HTML
+- LAB for digest/netmap/… only on **hub** (spark at zlib budget)
+

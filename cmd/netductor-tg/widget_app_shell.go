@@ -9,16 +9,15 @@ import (
 	"github.com/PavelNeyman/netductor/internal/fleet"
 )
 
-// Shell kind labels (dual info slot metadata only — not SPA multi-HTML).
-// Historical note: SPA hub↔spark message swap was removed; revive only if zlib
-// forces a second HTML document (see docs/PLAN-TG-WIDGET-UI-V2.md).
+// Shell kinds for SPA multi-HTML (hub lean / spark + canvas) and dual info metadata.
+// See docs/PLAN-TG-WIDGET-UI-V2.md — same shell → edit; different → send + delete.
 const (
 	shellHub   = "hub"
-	shellSpark = "spark" // dual info: metrics series present / preferred
+	shellSpark = "spark"
 )
 
-// appPushStateSingle: one SPA message, one HTML. Edit chat_data in place;
-// on edit failure resend once and drop the old message id.
+// appPushStateSingle: multi-shell SPA.
+// Same shell → editMessageWidgetData; different shell or edit fail → sendWidget + delete old.
 func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	if q == nil {
 		return
@@ -26,29 +25,36 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	if c, e := clipWidgetChatData(cd); e == nil {
 		cd = c
 	}
-	// Single-mode: answer with nav/state payload (AI-RULES dual §1.3 analogue).
 	answerWidgetQuery(token, q.ID, cd)
 	if q.Chat == nil {
 		return
 	}
 	appBindChat(q.Chat.ID)
 	chat := q.Chat.ID
+	screen := parseScreenFromChatData(cd)
+	want := appShellForScreen(screen)
+
 	lastAppMu.Lock()
 	mid := lastAppMsgID[chat]
 	if mid == 0 && q.MessageID != 0 {
 		mid = q.MessageID
 	}
+	have := lastAppShell[chat]
 	lastAppMu.Unlock()
 
-	if mid != 0 {
+	sameShell := mid != 0 && have == want
+	if sameShell {
 		if err := editWidgetData(token, chat, mid, cd); err == nil {
 			setLastAppMsg(chat, mid)
+			setLastAppShell(chat, want)
 			return
 		}
-		fmt.Fprintln(os.Stderr, "editMessageWidgetData:", mid, "→ resend")
+		fmt.Fprintln(os.Stderr, "editMessageWidgetData:", mid, "→ swap shell", have, "→", want)
+	} else if mid != 0 && have != want {
+		fmt.Fprintln(os.Stderr, "SPA shell change", have, "→", want, "msg", mid)
 	}
 
-	html := appWidgetHTML()
+	html := appWidgetHTMLFor(want)
 	newID, err := sendWidgetMessage(token, chat, html, cd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sendWidget SPA:", err)
@@ -58,6 +64,7 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 		_ = deleteMessage(token, chat, mid)
 	}
 	setLastAppMsg(chat, newID)
+	setLastAppShell(chat, want)
 }
 
 func parseScreenFromChatData(cd string) string {
