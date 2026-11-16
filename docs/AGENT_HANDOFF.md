@@ -531,3 +531,9 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - Dual info refresh: edit then answer with info chat_data
 - AI-RULES §1.3 updated; dual info single HTML documented as intentional
 
+## 0.9.754 — dual open polish
+
+- Dual open uses **hub** nav HTML (`appWidgetHTMLFor(shellHub)`), not default spark SPA
+- `openAppScreenDual` under `lockChatPush`
+- `swapDualSlot` returns bool; pushDualPair uses it for answer success
+

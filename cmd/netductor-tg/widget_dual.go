@@ -171,24 +171,24 @@ func editDualSlot(token string, chat int64, slot string, html, cd, shell string)
 }
 
 // swapDualSlot replaces HTML shell for one slot only.
-func swapDualSlot(token string, chat int64, slot, html, cd, shell string) {
+func swapDualSlot(token string, chat int64, slot, html, cd, shell string) bool {
 	p, ok := getDual(chat)
 	if !ok {
-		return
+		return false
 	}
-	var old int
+	var oldID int
 	if slot == "info" {
-		old = p.InfoID
+		oldID = p.InfoID
 	} else {
-		old = p.NavID
+		oldID = p.NavID
 	}
 	newID, err := sendWidgetMessage(token, chat, html, cd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "dual swap", slot, err)
-		return
+		return false
 	}
-	if old > 0 && old != newID {
-		_ = deleteMessage(token, chat, old)
+	if oldID > 0 && oldID != newID {
+		_ = deleteMessage(token, chat, oldID)
 	}
 	if slot == "info" {
 		p.InfoID = newID
@@ -198,6 +198,7 @@ func swapDualSlot(token string, chat int64, slot, html, cd, shell string) {
 		p.NavShell = shell
 	}
 	setDual(chat, p)
+	return true
 }
 
 // pushDualPair updates nav (+ answers query) and info after a nav action.
@@ -228,7 +229,7 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 	p, _ = getDual(chat)
 	navOK := true
 	if p.NavShell != shellHub && p.NavID > 0 {
-		swapDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+		navOK = swapDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
 	} else {
 		navOK = editDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
 	}

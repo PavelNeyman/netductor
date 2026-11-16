@@ -362,18 +362,21 @@ func openAppScreenDual(token string, chat int64, screenID string) bool {
 	}
 	infoShell := infoShellForScreen(screenID)
 
+	unlock := lockChatPush(chat)
+	defer unlock()
+
 	if p, ok := getDual(chat); ok && p.NavID > 0 && p.InfoID > 0 {
 		navHTML := appWidgetHTMLFor(shellHub)
 		if p.NavShell != shellHub {
-			swapDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+			_ = swapDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
 		} else {
-			editDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+			_ = editDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
 		}
-		editDualSlot(token, chat, "info", appInfoHTML(), infoCD, infoShell)
+		_ = editDualSlot(token, chat, "info", appInfoHTML(), infoCD, infoShell)
 		syncDualNavAsApp(chat)
 		return true
 	}
-	if err := openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTML(), navCD, infoShell, shellHub); err != nil {
+	if err := openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTMLFor(shellHub), navCD, infoShell, shellHub); err != nil {
 		fmt.Fprintln(os.Stderr, "dual open:", err)
 		return false
 	}
