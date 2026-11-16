@@ -301,15 +301,23 @@ func collectSecondaryListItems() []listWidgetItem {
 		if i >= 40 {
 			break
 		}
-		name := s.Name
+		// N must be stable id for o: open / upgrade cmds.
+		name := s.ID
 		if name == "" {
-			name = s.ID
+			name = s.Name
 		}
 		st := "off"
 		if s.Online {
 			st = "on"
 		}
-		all = append(all, listWidgetItem{I: i + 1, N: name, S: st})
+		label := s.Name
+		if label == "" {
+			label = name
+		}
+		if len(label) > 24 {
+			label = label[:24]
+		}
+		all = append(all, listWidgetItem{I: i + 1, N: name, S: st + " " + label})
 	}
 	return all
 }

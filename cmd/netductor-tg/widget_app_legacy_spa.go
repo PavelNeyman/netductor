@@ -306,6 +306,67 @@ func buildAppRouters() (string, error) {
 	})
 }
 
+
+// buildAppSecondaryCard opens one secondary from seclist (Focus = device id).
+func buildAppSecondaryCard(id string) (string, error) {
+	if id == "" {
+		return appMarshal(appState{S: "seclist", T: "Secondary", B: appTitle("empty", "пусто")})
+	}
+	d := fleet.Build()
+	rows := [][2]string{
+		{"id", id},
+		{appTitle("online", "online"), "—"},
+		{appTitle("version", "версия"), "—"},
+		{appTitle("uplink", "uplink"), "—"},
+		{"sing-box", "—"},
+		{"ip", "—"},
+	}
+	title := id
+	for _, s := range d.Secondaries {
+		if s.ID != id && s.Name != id {
+			continue
+		}
+		if s.Name != "" {
+			title = s.Name
+		}
+		rows[0][1] = s.ID
+		if s.Online {
+			rows[1][1] = "online"
+		} else {
+			rows[1][1] = "offline"
+		}
+		ver := s.Version
+		if ver == "" {
+			ver = "—"
+		}
+		rows[2][1] = ver
+		if s.Uplink {
+			rows[3][1] = "ok"
+		} else {
+			rows[3][1] = "down"
+		}
+		if s.SingBox {
+			rows[4][1] = "ok"
+		} else {
+			rows[4][1] = "down"
+		}
+		ip := s.IP
+		if ip == "" {
+			ip = "—"
+		}
+		rows[5][1] = ip
+		break
+	}
+	return appMarshal(appState{
+		S: "seclist", T: title, Rows: rows,
+		H:   appTitle("secondary agent", "агент secondary"),
+		Nav: []string{"secondary", "fleet", "channel", "secops"},
+		Btns: [][2]string{
+			{"up", appTitle("Upgrade", "Обновить")},
+		},
+	})
+}
+
 // handleLegacySPAActs — classic “Full” shortcuts from migrated screens (open HTML/keyboard outside SPA).
 func handleLegacySPAActs(token string, q *widgetQuery, admin int64, act string) bool {
 	chat := admin

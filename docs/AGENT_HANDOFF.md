@@ -495,3 +495,10 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - `prdraft` back → presets
 - appMarshal drops `spk` first when over 1024
 
+## 0.9.749 — multi-angle SPA review
+
+- `o:` on **seclist / sites / pending / ssh** actually opens a card (was no-op rebuild list)
+- seclist list key = secondary **id** (stable for upgrade Focus)
+- `buildAppSecondaryCard`
+- LAB for digest/netmap/… **not** added: zlib SPA already at budget; Nav falls back to id string
+

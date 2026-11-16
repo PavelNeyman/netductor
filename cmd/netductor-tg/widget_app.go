@@ -1785,6 +1785,53 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 				Btns: [][2]string{{"gpause", appTitle("Pause", "Пауза")}, {"gresume", appTitle("Resume", "Продолжить")}, {"grm", appTitle("Delete", "Удалить")}, {"glog", appTitle("Log", "Лог")}},
 				H:    id,
 			})
+		case "seclist":
+			appMu.Lock()
+			appSessUnlocked().Focus = id
+			appMu.Unlock()
+			cd, err = buildAppSecondaryCard(id)
+		case "sites":
+			appMu.Lock()
+			appSessUnlocked().Focus = id
+			appMu.Unlock()
+			rooms, _ := sites.ListRooms(id)
+			var lines []string
+			for i, r := range rooms {
+				if i >= 10 {
+					break
+				}
+				lines = append(lines, fmt.Sprintf("%d %s %s", i+1, r.ID, r.Name))
+			}
+			st := appState{
+				S: "loc", T: id,
+				Lines: strings.Join(lines, "\n"),
+				Btns:  [][2]string{{"room_add", appTitle("+ room", "+ room")}},
+				H:     appTitle("site rooms", "site rooms"),
+			}
+			if len(lines) == 0 {
+				st.B = appTitle("no rooms", "no rooms")
+			}
+			cd, err = appMarshal(st)
+		case "pending":
+			appMu.Lock()
+			appSessUnlocked().Focus = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "pending", T: appTitle("Pending", "Pending"),
+				Lines: widgetTruncate(id, 400),
+				H:     appTitle("selected line", "selected line"),
+				Nav:   []string{"routers", "edge"},
+			})
+		case "ssh":
+			appMu.Lock()
+			appSessUnlocked().Focus = id
+			appMu.Unlock()
+			cd, err = appMarshal(appState{
+				S: "ssh", T: appTitle("SSH host", "SSH host"),
+				Lines: widgetTruncate(id, 400),
+				H:     appTitle("selected host", "selected host"),
+				Nav:   []string{"sshkeys", "tools"},
+			})
 		default:
 			cd, err = buildAppScreen(screen)
 		}
