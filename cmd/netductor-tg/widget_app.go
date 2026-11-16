@@ -1336,22 +1336,22 @@ func buildAppScreen(screen string) (string, error) {
 	case "seclist":
 		return appListFromItems("seclist", "Secondaries", "Secondary", collectSecondaryListItems())
 	case "channel":
-		return appFromLegacyWidget("channel", "Channel", "Канал", channelWidgetChatDataJSON)
+		return buildAppChannel()
 	case "updates":
 		return buildAppUpdates("")
 	case "versions":
 		// Same hub as classic m:updates / m:versions (select + apply).
 		return buildAppUpdates("")
 	case "secondary":
-		return appFromLegacyWidget("secondary", "Secondary", "Secondary", secondaryWidgetChatDataJSON)
+		return buildAppSecondarySPA()
 	case "probes":
-		return appFromLegacyWidget("probes", "Probes", "Probes", probesWidgetChatDataJSON)
+		return buildAppProbes()
 	case "netmap":
-		return appFromLegacyWidget("netmap", "Netmap", "Карта сети", netmapWidgetChatDataJSON)
+		return buildAppNetmap()
 	case "digest":
-		return appFromLegacyWidget("digest", "Digest", "Дайджест", digestWidgetChatDataJSON)
+		return buildAppDigest()
 	case "addons":
-		return appFromLegacyWidget("addons", "Addons", "Аддоны", addonsWidgetChatDataJSON)
+		return buildAppAddons()
 	case "svcpaths":
 		return buildAppSvcPaths()
 	case "prdraft":
@@ -1365,7 +1365,7 @@ func buildAppScreen(screen string) (string, error) {
 		}
 		return buildAppUserPolicy(n)
 	case "lampac":
-		return appFromLegacyWidget("lampac", "Lampac", "Lampac", lampacWidgetChatDataJSON)
+		return buildAppLampac()
 	case "presets":
 		return buildAppPresets()
 	case "mtls":
@@ -1387,11 +1387,11 @@ func buildAppScreen(screen string) (string, error) {
 		}
 		return appMarshal(appState{S: "sessions", T: appTitle("Sessions", "Сессии"), Lines: appLines(out), Btns: [][2]string{{"srev", appTitle("Revoke all", "Сбросить все")}}})
 	case "audit":
-		return appFromLegacyWidget("audit", "Audit", "Аудит", auditWidgetChatDataJSON)
+		return buildAppAudit()
 	case "actions":
-		return appFromLegacyWidget("actions", "Actions", "Действия", actionsWidgetChatDataJSON)
+		return buildAppActions()
 	case "routers":
-		return appFromLegacyWidget("routers", "Routers", "Роутеры", routersWidgetChatDataJSON)
+		return buildAppRouters()
 	case "ucard":
 		appMu.Lock()
 		n := appSessUnlocked().Focus
@@ -1627,6 +1627,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	}
 
 	// navigation
+	if handleLegacySPAActs(token, q, admin, act) {
+		return true
+	}
 	if act == "r" || act == "refresh" {
 		appMu.Lock()
 		s := appSessUnlocked().Screen

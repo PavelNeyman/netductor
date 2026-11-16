@@ -472,3 +472,12 @@ Closed checklist item → mark plan + update this handoff + CHANGELOG in the **s
 ## 0.9.194 hoster agent audit
 - host-audit CLI + scripts/audit-hoster-agents.sh
 - doctor FAIL on salt/zabbix/telegraf/… units
+
+## 0.9.746 — legacy widgets → SPA
+
+Screens **channel, netmap, secondary, probes, digest, addons, lampac, audit, actions, routers** now use native `buildApp*` + Btns/Nav (no `appFromLegacyWidget` in SPA path).
+
+Classic **Full** shortcuts: `ad_full`, `lp_full`, `act_full`, `rt_full` still open HTML keyboards when needed.
+
+File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` HTML shells remain for non-SPA entry; SPA path is primary.
+
