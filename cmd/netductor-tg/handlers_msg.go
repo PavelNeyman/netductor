@@ -526,42 +526,23 @@ func handleMessage(token string, m *message, admin int64) {
 		case "force", "new", "reset":
 			// fall through — force fresh hub below
 		}
-		// SPA menu: always send a NEW widget on /start|/menu (chat clear leaves stale message_id).
-		// Send first, then delete the command — never leave the chat empty.
+		// SPA menu: always open a FRESH home widget on /start|/menu.
+		// After chat clear, in-memory message ids are stale — openAppScreen sends new
+		// hub/spark HTML (not registry spark-only "app") and dual uses hub nav HTML.
+		// Classic forceHub only if widgets off or Telegram rejects sendWidget.
 		if widgetsEnabled() && strings.TrimSpace(arg1) == "" {
-			// closeDualPair needs ids — must run before forgetAppMsg/forgetDual
 			closeDualPair(token, chat)
 			forgetAppMsg(chat)
 			appBindChat(chat)
 			appSetScreen("home")
-			if dualEnabled() {
-				infoCD, err1 := buildInfoData("home")
-				navCD, err2 := buildAppHome()
-				if err1 == nil && err2 == nil {
-					if c, e := clipWidgetChatData(infoCD); e == nil {
-						infoCD = c
-					}
-					if c, e := clipWidgetChatData(navCD); e == nil {
-						navCD = c
-					}
-					err := openDualPair(token, chat, appInfoHTML(), infoCD, appWidgetHTML(), navCD, infoShellForScreen("home"), shellHub)
-					if uid > 0 {
-						_ = deleteMessage(token, chat, uid)
-					}
-					if err == nil {
-						return
-					}
-					fmt.Fprintln(os.Stderr, "dual open:", err)
-				}
-			}
-			ok := sendWidgetScreen(token, chat, "app")
+			ok := openAppScreen(token, chat, "home")
 			if uid > 0 {
 				_ = deleteMessage(token, chat, uid)
 			}
 			if ok {
 				return
 			}
-			fmt.Fprintln(os.Stderr, "sendWidget app failed; falling back to classic hub")
+			fmt.Fprintln(os.Stderr, "openAppScreen home failed; falling back to classic hub")
 		}
 		if uid > 0 {
 			_ = deleteMessage(token, chat, uid)

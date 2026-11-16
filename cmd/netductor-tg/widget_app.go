@@ -2553,7 +2553,9 @@ func tryReplyAppWidget(token string, chat int64, msgID int) bool {
 func init() {
 	registerWidget(&widgetScreen{
 		ID:        "app",
-		HTML:      appWidgetHTML(),
+		// Default shell is hub — home/menu live in hub; spark is for metrics screens only.
+		// openAppScreen still picks HTML via appShellForScreen; this is for residual sendWidgetScreen("app").
+		HTML:      appWidgetHTMLHub(),
 		BuildData: appBuildData,
 		HandleAct: handleAppAct,
 	})
