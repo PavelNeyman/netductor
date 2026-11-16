@@ -533,9 +533,16 @@ func buildAppUpdates(seg string) (string, error) {
 			{appTitle("select P/S", "выбор P/S"), priMark + " / " + secMark},
 		},
 		Lines: strings.Join(lines, "\n"),
-		Acts:  "vt_p,vt_s,v_all,v_none,v_apply,v_ref",
-		Nav:   []string{"versions", "stack", "tools"},
-		H:     appTitle("toggle targets · Apply schedules stack", "выбор целей · Apply = schedule"),
+		Nav:   []string{"stack", "tools"},
+		H:     appTitle("select targets then Apply", "выберите цели и Apply"),
+		Btns: [][2]string{
+			{"vt_p", "Primary"},
+			{"vt_s", "Secondary"},
+			{"v_all", appTitle("All", "Все")},
+			{"v_none", appTitle("None", "Сброс")},
+			{"v_apply", appTitle("Apply", "Применить")},
+			{"v_ref", appTitle("Refresh", "Обновить")},
+		},
 	}
 	return appMarshal(st)
 }
@@ -955,6 +962,7 @@ func buildAppND(screen, en, ru string, args ...string) (string, error) {
 	return appMarshal(appState{
 		S: screen, T: appTitle(en, ru),
 		Lines: out,
+		H:     appTitle("refresh reloads status", "↻ обновляет статус"),
 	})
 }
 
@@ -1018,12 +1026,51 @@ func buildAppUserCard(name string) (string, error) {
 	if showWorkProfileButton(name) {
 		btns = append(btns, [2]string{"sr", appTitle("SR Config", "SR Config")})
 	}
-	acts := "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv"
+	btns = append(btns,
+		[2]string{"q50", "50G"},
+		[2]string{"q200", "200G"},
+		[2]string{"q0", "∞"},
+		[2]string{"qn", appTitle("Quota…", "Квота…")},
+		[2]string{"rn", appTitle("Rename", "Имя")},
+		[2]string{"sp", appTitle("Sub profile", "Профиль sub")},
+		[2]string{"cy", "Canary"},
+		[2]string{"kd", appTitle("As device", "Device")},
+		[2]string{"ku", appTitle("As user", "User")},
+		[2]string{"rv", appTitle("Delete", "Удалить")},
+	)
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
-		H: appTitle("tap # actions below", "действия ниже"),
+		H: appTitle("actions below", "действия ниже"),
 		Btns: btns,
-		Acts: acts,
+	})
+}
+
+
+// accessWidgetState keeps URI in the widget; client import buttons are a normal TG message.
+func accessWidgetState(name, mode, link string) (string, error) {
+	if link == "" {
+		link = appTitle("(empty link)", "(пустая ссылка)")
+	}
+	show := link
+	if len(show) > 360 {
+		show = show[:360] + "…"
+	}
+	btns := [][2]string{
+		{"lk", "VLESS"},
+		{"sb", "Sub"},
+		{"core", appTitle("Primary", "Primary")},
+		{"qr", "QR"},
+	}
+	if showWorkProfileButton(name) {
+		btns = append(btns, [2]string{"sr", "SR"})
+	}
+	btns = append(btns, [2]string{"uc", appTitle("User card", "Карточка")})
+	return appMarshal(appState{
+		S: "ucard", T: name,
+		Rows:  [][2]string{{"mode", mode}},
+		Lines: show,
+		H:     appTitle("import buttons also in chat below", "импорт — ещё сообщением ниже"),
+		Btns:  btns,
 	})
 }
 
@@ -1278,7 +1325,7 @@ func buildAppScreen(screen string) (string, error) {
 		if out == "" {
 			out = runVPN("session", "list")
 		}
-		return appMarshal(appState{S: "sessions", T: appTitle("Sessions", "Сессии"), Lines: appLines(out), Acts: "srev"})
+		return appMarshal(appState{S: "sessions", T: appTitle("Sessions", "Сессии"), Lines: appLines(out), Btns: [][2]string{{"srev", appTitle("Revoke all", "Сбросить все")}}})
 	case "audit":
 		return appFromLegacyWidget("audit", "Audit", "Аудит", auditWidgetChatDataJSON)
 	case "actions":
@@ -2082,29 +2129,32 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := buildAppUserCard(focus)
 		appPushState(token, q, cd)
 		return true
-	case "lk", "sb":
+	case "lk", "sb", "core":
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
 		mode := "vless"
-		if act == "sb" {
+		switch act {
+		case "sb":
 			mode = "sub"
+		case "core":
+			mode = "core"
 		}
 		link := strings.TrimSpace(accessPayload(focus, mode))
-		if link == "" {
-			link = appTitle("(empty link)", "(пустая ссылка)")
+		if q.Chat != nil {
+			html := formatAccessRichHTML(focus, mode, link)
+			sendHTML(token, q.Chat.ID, html, userAccessKeyboard(focus, mode))
 		}
-		if len(link) > 400 {
-			link = link[:400] + "…"
+		cd, _ := accessWidgetState(focus, mode, link)
+		appPushState(token, q, cd)
+		return true
+	case "uc":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
 		}
-		cd, _ := appMarshal(appState{
-			S: "ucard", T: focus,
-			Rows:  [][2]string{{"mode", mode}},
-			Lines: link,
-			H:     appTitle("link / sub URI", "ссылка / sub"),
-			Acts:  "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
-		})
+		cd, _ := buildAppUserCard(focus)
 		appPushState(token, q, cd)
 		return true
 	case "rv":
