@@ -156,7 +156,7 @@ func appGetComposeMode() string {
 	return m
 }
 
-const appWidgetBoot = `(function(){var W=window.TelegramWidget;var LAB={en:{home:"Menu",status:"Status",users:"Users",fleet:"Fleet",tools:"Tools",operator:"Operator",updates:"Updates",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Channel",versions:"Ver",nodes:"Nodes",devices:"Dev",sites:"Sites",edge:"Edge",media:"Media",data:"Data",adv:"More",logs:"Logs",stack:"Stack",help:"Help",git:"Git",backup:"Backup",alerts:"Alerts",incident:"Incident",reboot:"Reboot",session:"Session",sessions:"Sessions",sshkeys:"SSH",presets:"Presets",mtls:"mTLS",secops:"Sec ops",routers:"Routers",pending:"Pending",addons:"Addons",seclist:"Sec",doctor:"Doctor",admin:"Admin",certs:"Certs",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Clean",ulist:"List",ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"On",di:"Off",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"OK?",up:"Upgrade",rb:"Reboot",jn:"Log",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Rename",add:"Add",qr:"QR",heal:"Heal",al_test:"Test",al_clr:"Clear",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"SP",vpnref:"Refresh",upol:"Policy",pr_new:"New",pr_draft:"Draft",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Storage",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+room",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours",srev:"Revoke all",cy:"Canary",vt_p:"P ✓",vt_s:"S ✓",v_all:"All",v_none:"None",v_apply:"Apply",v_ref:"↻"},ru:{home:"Меню",status:"Статус",users:"Юзеры",fleet:"Флот",tools:"Tools",operator:"Оператор",updates:"Обновления",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Канал",versions:"Версии",nodes:"Ноды",devices:"Устр.",sites:"Сайты",edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",git:"Git",backup:"Бэкап",alerts:"Алерты",incident:"Инцидент",reboot:"Ребут",session:"Сессия",sessions:"Сессии",sshkeys:"SSH",presets:"Пресеты",mtls:"mTLS",secops:"Sec ops",routers:"Роутеры",pending:"Pending",addons:"Аддоны",seclist:"Sec",doctor:"Doctor",admin:"Админ",certs:"Серты",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Очистка",ulist:"Список",ucard:"User",ncard:"Node",menu:"Меню",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Отозвать",y_rv:"OK?",up:"Upgrade",rb:"Ребут",jn:"Журнал",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Имя",add:"Добавить",qr:"QR",heal:"Heal",al_test:"Тест",al_clr:"Сброс",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"SP",vpnref:"Обновить",upol:"Policy",pr_new:"Новый",pr_draft:"Черновик",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Storage",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+комн",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1ч",sess4:"4ч",sess24:"24ч",sess72:"72ч",sessx:"Часы",srev:"Сбросить",cy:"Canary"}};function L(d){return (d&&d.L==="en")?"en":"ru";}function tr(d,k){var lang=L(d);return (LAB[lang]&&LAB[lang][k])||(LAB.en[k])||k;}function esc(s){s=String(s==null?'':s);return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}function read(){try{if(W&&W.chatData){var x=W.chatData;return typeof x==="string"?JSON.parse(x):x;}}catch(e){}return null;}function paint(d){if(!d){d={s:"home",t:"Menu",b:"—",L:"ru"};}var title=document.getElementById("t");var body=document.getElementById("b");var hint=document.getElementById("h");var nav=document.getElementById("n");var tabs=document.getElementById("tabs");var seg=document.getElementById("seg");if(title)title.textContent=d.t||tr(d,d.s)||"Netductor";if(hint)hint.textContent=d.h||"";function mk(act,label,cls,parent){var btn=document.createElement("button");btn.textContent=label;if(cls)btn.className=cls;btn.addEventListener("click",function(){send(act);});parent.appendChild(btn);}if(tabs){tabs.innerHTML="";var tops=["status","users","fleet","tools","operator"];for(var ti=0;ti<tops.length;ti++){var id=tops[ti], cls=(d.s===id)?"primary":"";mk("g:"+id,tr(d,id),cls,tabs);}}if(seg){seg.innerHTML="";if(d.segs&&d.segs.length){for(var si=0;si<d.segs.length;si++){var sid=d.segs[si], sc=(d.seg===sid)?"primary":"";mk("sg:"+sid,tr(d,sid)||sid,sc,seg);}}}if(body){if(d.rows&&d.rows.length){var html="";for(var i=0;i<d.rows.length;i++){var r=d.rows[i];html+='<div class="row"><span class="k">'+esc(r[0]||"")+'</span><span class="v">'+esc(r[1]||"—")+'</span></div>';if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){var p=Math.max(0,Math.min(100,+d.pct[i]||0));html+='<div class="bar"><i style="width:'+p+'%"></i></div>';}}if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px;margin:4px 0"></canvas>';if(d.lines){html+='<div class="pre"></div>';}body.innerHTML=html;if(d.lines){body.querySelector(".pre").textContent=d.lines;}if(d.spk)drawSpk(d.spk);}else if(d.lines){body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.lines;}else{body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.b||tr(d,"nodata");}}if(nav){nav.innerHTML="";function add(act,label,cls){mk(act,label,cls,nav);}add("r",tr(d,"refresh"),"primary");if(d.s&&d.s!=="home")add("b",tr(d,"back"));if(d.nav){for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));}if(d.ids){var ids=String(d.ids).split(",");for(var k=0;k<ids.length&&k<12;k++){if(ids[k])add("o:"+(k+1),String(k+1));}}if(d.acts){var acts=String(d.acts).split(",");for(var a=0;a<acts.length;a++){if(!acts[a])continue;var lab=tr(d,acts[a]);var cls="";if(/^(rv|y_rv|rb|y_rb|y_rbk|y_rst)$/.test(acts[a]))cls="danger";if(acts[a]==="en"||acts[a]==="et_on"||acts[a]==="et_soft_on")cls="on";add(acts[a],lab,cls);}}if(d.btns&&d.btns.length){for(var bi=0;bi<d.btns.length;bi++){var pair=d.btns[bi];if(!pair||!pair[0])continue;var bl=String(pair[1]||pair[0]); var bc="";if(/·\s*(on|OPEN|вкл)/i.test(bl))bc="on";add(String(pair[0]),bl,bc);}}if(d.s!=="home")add("g:home",tr(d,"menu"));if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}}}function drawSpk(s){var c=document.getElementById("spk");if(!c||!c.getContext)return;var a=String(s).split(",");var ctx=c.getContext("2d"),w=c.width,h=c.height,n=a.length;if(n<2)return;ctx.clearRect(0,0,w,h);ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var i=0;i<n;i++){var v=Math.max(0,Math.min(100,+a[i]||0));var x=i/(n-1)*(w-2)+1,y=h-1-(v/100)*(h-4);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}function send(act){act=String(act||"r");if(act.length>64)act=act.slice(0,64);if(!(W&&W.request))return;W.request(act).then(function(ans){if(ans&&ans.result){try{paint(JSON.parse(ans.result));}catch(e){}}},function(){});}function run(){paint(read());}run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
+const appWidgetBoot = `(function(){var W=window.TelegramWidget;var LAB={en:{home:"Menu",status:"Status",users:"Users",fleet:"Fleet",tools:"Tools",operator:"Operator",updates:"Updates",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Channel",versions:"Ver",nodes:"Nodes",devices:"Dev",sites:"Sites",edge:"Edge",media:"Media",data:"Data",adv:"More",logs:"Logs",stack:"Stack",help:"Help",git:"Git",backup:"Backup",alerts:"Alerts",incident:"Incident",reboot:"Reboot",session:"Session",sessions:"Sessions",sshkeys:"SSH",presets:"Presets",mtls:"mTLS",secops:"Sec ops",routers:"Routers",pending:"Pending",addons:"Addons",seclist:"Sec",doctor:"Doctor",admin:"Admin",certs:"Certs",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Clean",ulist:"List",ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"On",di:"Off",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"OK?",up:"Upgrade",rb:"Reboot",jn:"Log",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Rename",add:"Add",qr:"QR",heal:"Heal",al_test:"Test",al_clr:"Clear",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"Users→SP",vpnref:"Refresh",upol:"Policy",pr_new:"New",pr_draft:"Draft",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Storage",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+room",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours",srev:"Revoke all",cy:"Canary",kd:"→dev",ku:"→usr",sp:"Sub↕",qn:"Quota#",sr:"SR",vt_p:"P ✓",vt_s:"S ✓",v_all:"All",v_none:"None",v_apply:"Apply",v_ref:"↻"},ru:{home:"Меню",status:"Статус",users:"Юзеры",fleet:"Флот",tools:"Tools",operator:"Оператор",updates:"Обновления",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Канал",versions:"Версии",nodes:"Ноды",devices:"Устр.",sites:"Сайты",edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",git:"Git",backup:"Бэкап",alerts:"Алерты",incident:"Инцидент",reboot:"Ребут",session:"Сессия",sessions:"Сессии",sshkeys:"SSH",presets:"Пресеты",mtls:"mTLS",secops:"Sec ops",routers:"Роутеры",pending:"Pending",addons:"Аддоны",seclist:"Sec",doctor:"Doctor",admin:"Админ",certs:"Серты",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Очистка",ulist:"Список",ucard:"User",ncard:"Node",menu:"Меню",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Отозвать",y_rv:"OK?",up:"Upgrade",rb:"Ребут",jn:"Журнал",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Имя",add:"Добавить",qr:"QR",heal:"Heal",al_test:"Тест",al_clr:"Сброс",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"Юзеры→SP",vpnref:"Обновить",upol:"Policy",pr_new:"Новый",pr_draft:"Черновик",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Storage",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+комн",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1ч",sess4:"4ч",sess24:"24ч",sess72:"72ч",sessx:"Часы",srev:"Сбросить",cy:"Canary",kd:"→устр",ku:"→юзер",sp:"Sub↕",qn:"Квота#",sr:"SR",vt_p:"P ✓",vt_s:"S ✓",v_all:"Все",v_none:"Нет",v_apply:"Применить",v_ref:"↻"}};function L(d){return (d&&d.L==="en")?"en":"ru";}function tr(d,k){var lang=L(d);return (LAB[lang]&&LAB[lang][k])||(LAB.en[k])||k;}function esc(s){s=String(s==null?'':s);return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}function read(){try{if(W&&W.chatData){var x=W.chatData;return typeof x==="string"?JSON.parse(x):x;}}catch(e){}return null;}function paint(d){if(!d){d={s:"home",t:"Menu",b:"—",L:"ru"};}var title=document.getElementById("t");var body=document.getElementById("b");var hint=document.getElementById("h");var nav=document.getElementById("n");var tabs=document.getElementById("tabs");var seg=document.getElementById("seg");if(title)title.textContent=d.t||tr(d,d.s)||"Netductor";if(hint)hint.textContent=d.h||"";function mk(act,label,cls,parent){var btn=document.createElement("button");btn.textContent=label;if(cls)btn.className=cls;btn.addEventListener("click",function(){send(act);});parent.appendChild(btn);}if(tabs){tabs.innerHTML="";var tops=["status","users","fleet","tools","operator"];for(var ti=0;ti<tops.length;ti++){var id=tops[ti], cls=(d.s===id)?"primary":"";mk("g:"+id,tr(d,id),cls,tabs);}}if(seg){seg.innerHTML="";if(d.segs&&d.segs.length){for(var si=0;si<d.segs.length;si++){var sid=d.segs[si], sc=(d.seg===sid)?"primary":"";mk("sg:"+sid,tr(d,sid)||sid,sc,seg);}}}if(body){if(d.rows&&d.rows.length){var html="";for(var i=0;i<d.rows.length;i++){var r=d.rows[i];html+='<div class="row"><span class="k">'+esc(r[0]||"")+'</span><span class="v">'+esc(r[1]||"—")+'</span></div>';if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){var p=Math.max(0,Math.min(100,+d.pct[i]||0));html+='<div class="bar"><i style="width:'+p+'%"></i></div>';}}if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px;margin:4px 0"></canvas>';if(d.lines){html+='<div class="pre"></div>';}body.innerHTML=html;if(d.lines){body.querySelector(".pre").textContent=d.lines;}if(d.spk)drawSpk(d.spk);}else if(d.lines){body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.lines;}else{body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.b||tr(d,"nodata");}}if(nav){nav.innerHTML="";function add(act,label,cls){mk(act,label,cls,nav);}add("r",tr(d,"refresh"),"primary");if(d.s&&d.s!=="home")add("b",tr(d,"back"));if(d.nav){for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));}if(d.ids){var ids=String(d.ids).split(",");for(var k=0;k<ids.length&&k<12;k++){if(ids[k])add("o:"+(k+1),String(k+1));}}if(d.acts){var acts=String(d.acts).split(",");for(var a=0;a<acts.length;a++){if(!acts[a])continue;var lab=tr(d,acts[a]);var cls="";if(/^(rv|y_rv|rb|y_rb|y_rbk|y_rst)$/.test(acts[a]))cls="danger";if(acts[a]==="en"||acts[a]==="et_on"||acts[a]==="et_soft_on")cls="on";add(acts[a],lab,cls);}}if(d.btns&&d.btns.length){for(var bi=0;bi<d.btns.length;bi++){var pair=d.btns[bi];if(!pair||!pair[0])continue;var bl=String(pair[1]||pair[0]); var bc="";if(/·\s*(on|OPEN|вкл)/i.test(bl))bc="on";add(String(pair[0]),bl,bc);}}if(d.s!=="home")add("g:home",tr(d,"menu"));if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}}}function drawSpk(s){var c=document.getElementById("spk");if(!c||!c.getContext)return;var a=String(s).split(",");var ctx=c.getContext("2d"),w=c.width,h=c.height,n=a.length;if(n<2)return;ctx.clearRect(0,0,w,h);ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var i=0;i<n;i++){var v=Math.max(0,Math.min(100,+a[i]||0));var x=i/(n-1)*(w-2)+1,y=h-1-(v/100)*(h-4);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}function send(act){act=String(act||"r");if(act.length>64)act=act.slice(0,64);if(!(W&&W.request))return;W.request(act).then(function(ans){if(ans&&ans.result){try{paint(JSON.parse(ans.result));}catch(e){}}},function(){});}function run(){paint(read());}run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
 
 func appWidgetHTML() string {
 	// Single SPA HTML (canvas-capable). Multi-shell split deferred — see UI v2 plan.
@@ -990,17 +990,22 @@ func buildAppUserCard(name string) (string, error) {
 	if on {
 		vpnAct = "di"
 	}
+	btns := [][2]string{
+		{vpnAct, vpnLab},
+		{"lk", appTitle("VLESS link", "Ссылка VLESS")},
+		{"sb", appTitle("Subscription", "Подписка")},
+		{"qr", "QR"},
+		{"upol", appTitle("Policy", "Политика")},
+	}
+	if showWorkProfileButton(name) {
+		btns = append(btns, [2]string{"sr", appTitle("SR Config", "SR Config")})
+	}
+	acts := "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv"
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
-		H: appTitle("toggle + actions", "переключатель и действия"),
-		Btns: [][2]string{
-			{vpnAct, vpnLab},
-			{"lk", appTitle("Link", "Ссылка")},
-			{"sb", "Sub"},
-			{"qr", "QR"},
-			{"upol", appTitle("Policy", "Политика")},
-		},
-		Acts: "q50,q200,q0,qn,rn,kd,ku,sp,cy,rv",
+		H: appTitle("tap # actions below", "действия ниже"),
+		Btns: btns,
+		Acts: acts,
 	})
 }
 
@@ -1045,17 +1050,24 @@ func buildAppNodeCard(id string) (string, error) {
 }
 
 func buildAppUsersHub() (string, error) {
-	return appMarshal(appState{
-		S: "users", T: appTitle("Users", "Пользователи"),
-		B:    appTitle("VPN users · device profiles", "VPN пользователи · устройства"),
-		Nav:  []string{"ulist", "devices"},
-		Acts: "add",
-		H:    appTitle("list · devices · add (reply with name)", "список · устройства · добавить (имя сообщением)"),
-	})
+	// Direct list (classic parity) — no intermediate "List" hub.
+	return buildAppUsers()
 }
 
 func buildAppUsers() (string, error) {
-	return appListFromItems("ulist", "Users", "Пользователи", collectUsersListItems())
+	cd, err := appListFromItems("ulist", "Users", "Пользователи", collectUsersListItems())
+	if err != nil {
+		return cd, err
+	}
+	var st appState
+	if json.Unmarshal([]byte(cd), &st) != nil {
+		return cd, err
+	}
+	st.S = "ulist"
+	st.Nav = []string{"devices"}
+	st.Acts = "add"
+	st.H = appTitle("# card · Devices · Add (send name)", "# карточка · Устройства · Добавить (имя сообщением)")
+	return appMarshal(st)
 }
 
 func buildAppNodes() (string, error) {
@@ -1170,7 +1182,17 @@ func buildAppScreen(screen string) (string, error) {
 	case "nvr":
 		return buildAppND("nvr", "NVR", "NVR", "nvr", "status")
 	case "devices":
-		return appListFromItems("devices", "Devices", "Устройства", collectDevicesListItems())
+		cd, err := appListFromItems("devices", "Devices", "Устройства", collectDevicesListItems())
+		if err != nil {
+			return cd, err
+		}
+		var st appState
+		if json.Unmarshal([]byte(cd), &st) != nil {
+			return cd, err
+		}
+		st.Nav = []string{"ulist"}
+		st.H = appTitle("# card · Users list", "# карточка · Список юзеров")
+		return appMarshal(st)
 	case "sites":
 		return appListFromItems("sites", "Sites", "Сайты", collectSitesListItems())
 	case "pending":
@@ -1714,7 +1736,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B:    appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
 			H:    appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
+			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1745,7 +1767,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B:    appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
 			H:    appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
+			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1870,6 +1892,24 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := buildAppAlerts()
 		appPushState(token, q, cd)
 		return true
+	case "sr":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		if q.Chat != nil {
+			// Document must be a normal TG message (widget cannot host files).
+			go sendSRProfileDocument(token, q.Chat.ID, vpn.SRProfileOperatorMobile)
+		}
+		cd, _ := buildAppUserCard(focus)
+		// Rebuild with note in B
+		var st appState
+		if json.Unmarshal([]byte(cd), &st) == nil {
+			st.B = appTitle("SR Config sent as file below", "SR Config отправлен файлом ниже")
+			cd, _ = appMarshal(st)
+		}
+		appPushState(token, q, cd)
+		return true
 	case "kd":
 		if focus == "" {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
@@ -1900,7 +1940,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		cd, _ := appMarshal(appState{
 			S: "ucard", T: focus, B: "sub → " + msg,
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
+			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1995,7 +2035,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		uri := strings.TrimSpace(accessPayload(focus, "vless"))
 		if uri == "" {
-			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv"})
+			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv"})
 			appPushState(token, q, cd)
 			return true
 		}
@@ -2225,7 +2265,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: screen, T: title, Pad: true, Draft: show,
 			H:    appTitle("pad · OK to apply", "панель · OK"),
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,upol,rv",
+			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
 		})
 		appPushState(token, q, cd)
 		return true
