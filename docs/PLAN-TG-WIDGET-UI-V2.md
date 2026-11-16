@@ -36,3 +36,7 @@ On every navigation both slots are refreshed for the target screen. Nav shell mi
 ## Related
 - `docs/PLAN-TG-DUAL-WIDGET.md`
 - `docs/AI-RULES-TG-WIDGETS.md`
+
+## Dual info HTML
+
+Info slot uses **one** `appInfoHTML` document (rows/lines/spark via chat_data). Multi-shell is for the **nav/SPA** path under zlib pressure. Info does not need hub/spark split: the document is already small; content switches with screen.

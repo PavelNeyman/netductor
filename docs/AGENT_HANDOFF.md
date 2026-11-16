@@ -524,3 +524,10 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - Test: `TestAppPushStateSyncsScreen`
 - parent `gjobs` → git
 
+## 0.9.753 — push consistency
+
+- Apply message state **before** `answerWidgetQuery` (single + dual)
+- Per-chat `lockChatPush` serializes concurrent widget queries
+- Dual info refresh: edit then answer with info chat_data
+- AI-RULES §1.3 updated; dual info single HTML documented as intentional
+

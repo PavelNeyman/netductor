@@ -30,6 +30,16 @@ var lastAppMsgID = map[int64]int{}
 var lastAppShell = map[int64]string{} // hub|spark for SPA multi-HTML
 var lastAppMu sync.Mutex
 
+// Per-chat serialization for SPA/dual push (overlapping widget_query).
+var chatPushMu sync.Map // int64 → *sync.Mutex
+
+func lockChatPush(chat int64) func() {
+	v, _ := chatPushMu.LoadOrStore(chat, new(sync.Mutex))
+	m := v.(*sync.Mutex)
+	m.Lock()
+	return m.Unlock
+}
+
 func setLastAppMsg(chat int64, mid int) {
 	loadWidgetUIStore()
 	lastAppMu.Lock()

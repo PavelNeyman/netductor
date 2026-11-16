@@ -182,3 +182,10 @@ func TestAppPushStateSyncsScreen(t *testing.T) {
 		t.Fatalf("Screen=%q want ucard (Back parent must use card not list)", got)
 	}
 }
+
+func TestLockChatPush(t *testing.T) {
+	unlock := lockChatPush(42)
+	unlock()
+	unlock2 := lockChatPush(42)
+	unlock2()
+}

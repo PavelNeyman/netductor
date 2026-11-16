@@ -123,10 +123,10 @@ func editWidgetData(token string, chat int64, msgID int, cd string) error {
 }
 
 // editDualSlot edits one slot; on failure retries once then recreates slot.
-func editDualSlot(token string, chat int64, slot string, html, cd, shell string) {
+func editDualSlot(token string, chat int64, slot string, html, cd, shell string) bool {
 	p, ok := getDual(chat)
 	if !ok {
-		return
+		return false
 	}
 	var id int
 	if slot == "info" {
@@ -148,18 +148,17 @@ func editDualSlot(token string, chat int64, slot string, html, cd, shell string)
 			}
 			setDual(chat, p)
 		}
-		return
+		return true
 	}
 	fmt.Fprintln(os.Stderr, "dual edit", slot, err, "→ recreate")
 	newID, err2 := sendWidgetMessage(token, chat, html, cd)
 	if err2 != nil {
 		fmt.Fprintln(os.Stderr, "dual recreate", slot, err2)
-		return
+		return false
 	}
 	if id > 0 && id != newID {
 		_ = deleteMessage(token, chat, id)
 	}
-	// keep the other slot from the snapshot — do not re-getDual (may race empty)
 	if slot == "info" {
 		p.InfoID = newID
 		p.InfoShell = shell
@@ -168,6 +167,7 @@ func editDualSlot(token string, chat int64, slot string, html, cd, shell string)
 		p.NavShell = shell
 	}
 	setDual(chat, p)
+	return true
 }
 
 // swapDualSlot replaces HTML shell for one slot only.
@@ -206,42 +206,42 @@ func pushDualPair(token string, q *widgetQuery, infoCD, navCD, infoShell, navShe
 		return
 	}
 	chat := q.Chat.ID
-	// Answer is only the request ack (≤1024). State is applied via editMessageWidgetData.
-	// Do not put full chat_data in answerWidgetQuery — SPA paints from chatDataChanged.
+	unlock := lockChatPush(chat)
+	defer unlock()
+
 	if nav2, err := clipWidgetChatData(navCD); err == nil {
 		navCD = nav2
 	}
 	if info2, err := clipWidgetChatData(infoCD); err == nil {
 		infoCD = info2
 	}
-	// AI-RULES §1.3: answer payload = nav chat_data (≤1024). State still via edit*.
-	answerWidgetQuery(token, q.ID, navCD)
 
 	p, ok := getDual(chat)
 	if !ok {
-		// No live pair: do not auto-reopen (orphan info "r" used to resurrect
-		// a closed menu). Explicit /start or menu open creates a new pair.
+		// No live pair: do not auto-reopen. Still answer so client is not left spinning.
+		answerWidgetQuery(token, q.ID, `{"err":"no_pair"}`)
 		return
 	}
 
-	// Both slots always get fresh content for the target screen (seamless dual).
+	// Apply message state first, then answer with nav payload (§1.3) so paint matches disk.
 	navHTML := appWidgetHTMLFor(shellHub)
 	p, _ = getDual(chat)
+	navOK := true
 	if p.NavShell != shellHub && p.NavID > 0 {
 		swapDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
 	} else {
-		editDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
+		navOK = editDualSlot(token, chat, "nav", navHTML, navCD, shellHub)
 	}
 
 	infoHTML := appInfoHTML()
-	p, _ = getDual(chat)
-	if p.InfoShell != infoShell && infoShell != "" && p.InfoID > 0 {
-		// Info document is always appInfoHTML; kind is metadata — edit data only.
-		editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
-	} else {
-		editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
-	}
+	infoOK := editDualSlot(token, chat, "info", infoHTML, infoCD, infoShell)
 	syncDualNavAsApp(chat)
+
+	if navOK || infoOK {
+		answerWidgetQuery(token, q.ID, navCD)
+		return
+	}
+	answerWidgetQuery(token, q.ID, `{"err":"push"}`)
 }
 
 // infoShellForScreen picks info HTML kind (spark when metrics series useful).

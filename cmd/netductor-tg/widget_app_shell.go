@@ -25,12 +25,16 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	if c, e := clipWidgetChatData(cd); e == nil {
 		cd = c
 	}
-	answerWidgetQuery(token, q.ID, cd)
 	if q.Chat == nil {
+		// No chat to edit: still ack with state so client paints from answer.
+		answerWidgetQuery(token, q.ID, cd)
 		return
 	}
 	appBindChat(q.Chat.ID)
 	chat := q.Chat.ID
+	unlock := lockChatPush(chat)
+	defer unlock()
+
 	screen := parseScreenFromChatData(cd)
 	want := appShellForScreen(screen)
 
@@ -42,12 +46,13 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	have := lastAppShell[chat]
 	lastAppMu.Unlock()
 
-	// Same shell, or unknown shell after upgrade (have==""): prefer in-place edit.
+	// Apply message first, then answer — avoids client showing new state while msg is old.
 	tryEdit := mid != 0 && (have == want || have == "")
 	if tryEdit {
 		if err := editWidgetData(token, chat, mid, cd); err == nil {
 			setLastAppMsg(chat, mid)
 			setLastAppShell(chat, want)
+			answerWidgetQuery(token, q.ID, cd)
 			return
 		}
 		fmt.Fprintln(os.Stderr, "editMessageWidgetData:", mid, "→ resend shell", have, "→", want)
@@ -59,6 +64,7 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	newID, err := sendWidgetMessage(token, chat, html, cd)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sendWidget SPA:", err)
+		answerWidgetQuery(token, q.ID, `{"err":"push"}`)
 		return
 	}
 	if mid > 0 && mid != newID {
@@ -66,6 +72,7 @@ func appPushStateSingle(token string, q *widgetQuery, cd string) {
 	}
 	setLastAppMsg(chat, newID)
 	setLastAppShell(chat, want)
+	answerWidgetQuery(token, q.ID, cd)
 }
 
 func parseScreenFromChatData(cd string) string {

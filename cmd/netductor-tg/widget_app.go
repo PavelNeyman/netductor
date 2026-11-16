@@ -1465,9 +1465,16 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 				if c, e := clipWidgetChatData(infoCD); e == nil {
 					infoCD = c
 				}
-				answerWidgetQuery(token, q.ID, `{"ok":true}`)
 				infoShell := infoShellForScreen(s)
-				editDualSlot(token, q.Chat.ID, "info", appInfoHTML(), infoCD, infoShell)
+				unlock := lockChatPush(q.Chat.ID)
+				ok := editDualSlot(token, q.Chat.ID, "info", appInfoHTML(), infoCD, infoShell)
+				unlock()
+				if ok {
+					// Info paint from answer; message already holds same data.
+					answerWidgetQuery(token, q.ID, infoCD)
+				} else {
+					answerWidgetQuery(token, q.ID, `{"err":"push"}`)
+				}
 				return true
 			}
 			// Query from neither live info nor nav → stale orphan after close.

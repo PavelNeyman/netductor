@@ -48,9 +48,12 @@ If a change needs metrics on the interactive card, **put metrics on info** and k
 
 On every successful nav `widget_query` that changes screen or context:
 
-1. `answerWidgetQuery` (required; payload = **nav** chat_data unless API constraints force otherwise).
-2. Edit **nav** message chat_data.
-3. Edit **info** message chat_data to match the same logical screen/context.
+1. Edit **nav** message chat_data (or swap shell).
+2. Edit **info** message chat_data to match the same logical screen/context.
+3. **Then** `answerWidgetQuery` with **nav** chat_data (client paints from answer; must match applied message state).
+4. On total apply failure: answer `{"err":"push"}` — do not answer success with data the messages do not hold.
+
+Serialize push per `chat_id` (`lockChatPush`) so concurrent taps cannot interleave edit/swap/answer.
 
 Skipping info update after a context change is a **lifecycle bug**.
 
