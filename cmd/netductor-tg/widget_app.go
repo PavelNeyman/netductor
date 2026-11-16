@@ -264,40 +264,6 @@ func appMin(a, b int) int {
 	return b
 }
 
-func appFromLegacyWidget(screen string, titleEN, titleRU string, build func() (string, error)) (string, error) {
-	cd, err := build()
-	if err != nil {
-		msg := err.Error()
-		if len(msg) > 180 {
-			msg = msg[:180]
-		}
-		return appMarshal(appState{S: screen, T: appTitle(titleEN, titleRU), B: msg})
-	}
-	var m map[string]any
-	if err := json.Unmarshal([]byte(cd), &m); err != nil {
-		return appMarshal(appState{S: screen, T: appTitle(titleEN, titleRU), B: widgetTruncate(cd, 400)})
-	}
-	title := appTitle(titleEN, titleRU)
-	if t, ok := m["title"].(string); ok && t != "" {
-		title = t
-	}
-	body, _ := m["body"].(string)
-	if body == "" {
-		body, _ = m["Body"].(string)
-	}
-	rows := [][2]string{}
-	for _, k := range []string{"pri", "sec", "up", "face", "path", "cur", "tgt", "floor", "mig", "name", "online", "ver", "sb", "ip"} {
-		if v, ok := m[k]; ok && v != nil && fmt.Sprint(v) != "" {
-			rows = append(rows, [2]string{k, fmt.Sprint(v)})
-		}
-	}
-	st := appState{S: screen, T: title, Rows: rows, Lines: widgetTruncate(body, 450)}
-	if hint, ok := m["hint"].(string); ok {
-		st.H = hint
-	}
-	return appMarshal(st)
-}
-
 func appListFromItems(screen, titleEN, titleRU string, items []listWidgetItem) (string, error) {
 	var lines []string
 	var ids []string
@@ -605,7 +571,7 @@ func buildAppStatusHub() (string, error) {
 	spk := sparkCPU(24)
 	st := appState{
 		S: "status", T: d.Title, Rows: rows, H: d.Hint,
-		Nav: []string{"channel", "netmap", "actions", "sessions", "incident", "reboot"},
+		Nav: []string{"channel", "netmap", "digest", "actions", "sessions", "incident", "reboot"},
 	}
 	if cpuN >= 0 {
 		st.Pct = pct

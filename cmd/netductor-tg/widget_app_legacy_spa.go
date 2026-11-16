@@ -155,8 +155,13 @@ func buildAppDigest() (string, error) {
 	if d.UpdateAvailable && d.LatestRelease != "" {
 		upd = "🆕 " + d.LatestRelease
 	}
+	order := []string{"sing-box", "netductor-api", "netductor-telegram-bot", "netductor-redirect"}
 	var svcParts []string
-	for u, st := range d.Services {
+	for _, u := range order {
+		st, ok := d.Services[u]
+		if !ok {
+			continue
+		}
 		short := u
 		if strings.HasPrefix(u, "netductor-") {
 			short = strings.TrimPrefix(u, "netductor-")
@@ -166,9 +171,6 @@ func buildAppDigest() (string, error) {
 			mark = "✓"
 		}
 		svcParts = append(svcParts, mark+short)
-		if len(svcParts) >= 6 {
-			break
-		}
 	}
 	svc := strings.Join(svcParts, " ")
 	if svc == "" {
@@ -181,16 +183,31 @@ func buildAppDigest() (string, error) {
 		}
 	}
 	sec := fmt.Sprintf("%d/%d on", on, total)
+	rows := [][2]string{
+		{appTitle("primary", "primary"), pri},
+		{appTitle("update", "обновление"), upd},
+		{appTitle("services", "сервисы"), widgetTruncate(svc, 80)},
+		{appTitle("secondary", "secondary"), sec},
+	}
+	if d.SPOK != nil {
+		v := "fail"
+		if *d.SPOK {
+			v = "ok"
+		}
+		rows = append(rows, [2]string{"SP", v})
+	}
+	if d.PSOK != nil {
+		v := "fail"
+		if *d.PSOK {
+			v = "ok"
+		}
+		rows = append(rows, [2]string{"PS", v})
+	}
 	return appMarshal(appState{
 		S: "digest", T: appTitle("Digest", "Дайджест"),
-		Rows: [][2]string{
-			{appTitle("primary", "primary"), pri},
-			{appTitle("update", "обновление"), upd},
-			{appTitle("services", "сервисы"), widgetTruncate(svc, 80)},
-			{appTitle("secondary", "secondary"), sec},
-		},
-		H:   appTitle("fleet health snapshot", "снимок здоровья флота"),
-		Nav: []string{"status", "updates", "secondary", "channel"},
+		Rows: rows,
+		H:    appTitle("fleet health snapshot", "снимок здоровья флота"),
+		Nav:  []string{"status", "updates", "secondary", "channel"},
 	})
 }
 
@@ -240,10 +257,7 @@ func buildAppLampac() (string, error) {
 }
 
 func buildAppAudit() (string, error) {
-	out := runND("audit")
-	if strings.TrimSpace(out) == "" {
-		out = runND("audit", "status")
-	}
+	out := runND("audit", "tail")
 	body := widgetTruncate(strings.TrimSpace(out), 500)
 	if body == "" {
 		body = appTitle("(empty)", "(пусто)")
@@ -251,7 +265,11 @@ func buildAppAudit() (string, error) {
 	return appMarshal(appState{
 		S: "audit", T: appTitle("Audit", "Аудит"),
 		Lines: body,
+		H:     appTitle("journal tail", "хвост журнала"),
 		Nav:   []string{"operator", "session", "alerts"},
+		Btns: [][2]string{
+			{"au_full", appTitle("Full in chat", "Полный в чат")},
+		},
 	})
 }
 
@@ -314,6 +332,18 @@ func handleLegacySPAActs(token string, q *widgetQuery, admin int64, act string) 
 	case "rt_full":
 		answerWidgetQuery(token, q.ID, `{"ok":true}`)
 		reply(token, chat, q.MessageID, routersHubHTML(), routersKeyboard("m:fleet"))
+		return true
+	case "au_full":
+		answerWidgetQuery(token, q.ID, `{"ok":true}`)
+		out := runND("audit", "tail")
+		if strings.TrimSpace(out) == "" {
+			out = "(empty)"
+		}
+		title := "📋 <b>Audit</b>\n"
+		if getLang() != "en" {
+			title = "📋 <b>Аудит</b>\n"
+		}
+		reply(token, chat, q.MessageID, title+"<pre>"+esc(truncate(out, 3500))+"</pre>", operatorSubKeyboard())
 		return true
 	default:
 		return false

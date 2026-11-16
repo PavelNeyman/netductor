@@ -481,3 +481,11 @@ Classic **Full** shortcuts: `ad_full`, `lp_full`, `act_full`, `rt_full` still op
 
 File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` HTML shells remain for non-SPA entry; SPA path is primary.
 
+## 0.9.747 — SPA legacy polish
+
+- `buildAppAudit` uses `audit tail` (was wrong CLI)
+- digest: stable service order + SP/PS rows when known
+- status hub Nav includes **digest**
+- `au_full` opens classic audit pre in chat
+- removed unused `appFromLegacyWidget`
+
