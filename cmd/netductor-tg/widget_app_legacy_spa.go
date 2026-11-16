@@ -314,10 +314,8 @@ func handleLegacySPAActs(token string, q *widgetQuery, admin int64, act string) 
 	}
 	switch act {
 	case "ad_full":
+		// Always classic HTML manage — tryReplyWidget("addons") would re-open SPA.
 		answerWidgetQuery(token, q.ID, `{"ok":true}`)
-		if tryReplyWidget(token, chat, q.MessageID, "addons") {
-			return true
-		}
 		reply(token, chat, q.MessageID, formatAddonsHTML(), addonsKeyboard())
 		return true
 	case "lp_full":

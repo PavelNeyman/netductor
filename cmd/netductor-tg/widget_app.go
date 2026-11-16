@@ -220,6 +220,7 @@ func appMarshal(st appState) (string, error) {
 	}
 	// Shrink for Bot API chat_data limit (1024). Prefer keeping primary action buttons.
 	st.H = ""
+	st.Spk = "" // spark is optional; drop first under pressure
 	st.B = widgetTruncate(st.B, 160)
 	st.Lines = widgetTruncate(st.Lines, 280)
 	if len(st.Rows) > 6 {
@@ -1616,6 +1617,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		switch s {
 		case "upol":
 			parent = "ucard"
+		case "prdraft":
+			parent = "presets"
 		case "ucard", "devices":
 			parent = "ulist"
 		case "ulist", "users":

@@ -489,3 +489,9 @@ File: `cmd/netductor-tg/widget_app_legacy_spa.go`. Standalone `registerWidget` H
 - `au_full` opens classic audit pre in chat
 - removed unused `appFromLegacyWidget`
 
+## 0.9.748 — SPA review pass
+
+- `ad_full` always classic addons HTML (no SPA re-open loop)
+- `prdraft` back → presets
+- appMarshal drops `spk` first when over 1024
+
