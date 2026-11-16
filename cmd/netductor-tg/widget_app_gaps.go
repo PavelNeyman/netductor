@@ -288,7 +288,7 @@ func handleAppGapsAct(token string, q *widgetQuery, act, focus string) bool {
 		appSetConfirmTarget("")
 		_ = edge.EnqueueCmd(target, "storage_init_usb", "format=yes")
 		cid := edge.EnqueueCmd(target, "storage_restore_remote", "")
-		cd, _ := appMarshal(appState{S: "edgestor", T: target, B: "fmt+restore " + cid, Acts: "es_bak,es_rst,es_list,es_mute,es_fmt"})
+		cd, _ := appMarshal(appState{S: "edgestor", T: target, B: "fmt+restore " + cid, Btns: edgeStorDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "et_fb":

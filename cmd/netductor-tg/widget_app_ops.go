@@ -61,7 +61,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		cd, _ := appMarshal(appState{
 			S: "sessions", T: appTitle("Sessions", "Сессии"),
 			Lines: appLines(out),
-			Acts:  "srev",
+			Btns:  [][2]string{{"srev", appTitle("Revoke all", "Сбросить все")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -72,18 +72,8 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		on, err := vpn.ToggleCanary(focus)
-		msg := "canary off"
-		if on {
-			msg = "canary on"
-		}
-		if err != nil {
-			msg = err.Error()
-		}
-		cd, _ := appMarshal(appState{
-			S: "ucard", T: focus, B: msg,
-			Acts: "en,di,lk,sb,q50,q200,q0,qn,rn,qr,kd,ku,sp,cy,rv",
-		})
+		_, _ = vpn.ToggleCanary(focus)
+		cd, _ := buildAppUserCard(focus)
 		appPushState(token, q, cd)
 		return true
 
@@ -92,17 +82,17 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 	// --- sshkeys protect ---
 	case "sk_on":
 		out := runND("ssh-keys", "protect", "on")
-		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Acts: "sk_on,sk_off,sk_scan"})
+		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Btns: [][2]string{{"sk_on", appTitle("Protect on", "Защита вкл")}, {"sk_off", appTitle("Protect off", "Защита выкл")}, {"sk_scan", appTitle("Scan", "Скан")}}})
 		appPushState(token, q, cd)
 		return true
 	case "sk_off":
 		out := runND("ssh-keys", "protect", "off")
-		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Acts: "sk_on,sk_off,sk_scan"})
+		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Btns: [][2]string{{"sk_on", appTitle("Protect on", "Защита вкл")}, {"sk_off", appTitle("Protect off", "Защита выкл")}, {"sk_scan", appTitle("Scan", "Скан")}}})
 		appPushState(token, q, cd)
 		return true
 	case "sk_scan":
 		out := runND("ssh-keys", "scan")
-		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Acts: "sk_on,sk_off,sk_scan"})
+		cd, _ := appMarshal(appState{S: "sshkeys", T: "SSH keys", Lines: appLines(out), Btns: [][2]string{{"sk_on", appTitle("Protect on", "Защита вкл")}, {"sk_off", appTitle("Protect off", "Защита выкл")}, {"sk_scan", appTitle("Scan", "Скан")}}})
 		appPushState(token, q, cd)
 		return true
 
@@ -112,12 +102,12 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 		if strings.TrimSpace(out) == "" {
 			out = runND("le", "renew")
 		}
-		cd, _ := appMarshal(appState{S: "certs", T: appTitle("Certs", "Сертификаты"), Lines: appLines(out), Acts: "cert_ren"})
+		cd, _ := appMarshal(appState{S: "certs", T: appTitle("Certs", "Сертификаты"), Lines: appLines(out), Btns: [][2]string{{"cert_ren", appTitle("Renew", "Обновить")}}})
 		appPushState(token, q, cd)
 		return true
 	case "fw_apply":
 		out := runND("firewall", "apply")
-		cd, _ := appMarshal(appState{S: "fw", T: appTitle("Firewall", "Firewall"), Lines: appLines(out), Acts: "fw_apply"})
+		cd, _ := appMarshal(appState{S: "fw", T: appTitle("Firewall", "Firewall"), Lines: appLines(out), Btns: [][2]string{{"fw_apply", appTitle("Apply FW", "Применить FW")}}})
 		appPushState(token, q, cd)
 		return true
 	case "ag_st":
@@ -331,7 +321,7 @@ func handleAppOpsAct(token string, q *widgetQuery, act, focus string) bool {
 			return true
 		}
 		out := runND("edge", "guest", "facts", focus)
-		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Acts: "eg_gr,eg_rv,eg_facts"})
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Btns: edgeGuestDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	}
@@ -519,7 +509,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		a := edge.EnqueueCmd(focus, "config_backup", "")
 		bb := edge.EnqueueCmd(focus, "storage_backup", "")
 		msg := fmt.Sprintf("config=%s storage=%s", a, bb)
-		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: msg, Acts: "es_bak,es_rst,es_list,es_mute"})
+		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: msg, Btns: edgeStorDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "es_rst":
@@ -528,7 +518,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 			return true
 		}
 		cid := edge.EnqueueCmd(focus, "storage_restore_remote", "")
-		cd, _ := appMarshal(appState{S: "edgestor", T: focus, B: "restore " + cid, Acts: "es_bak,es_rst,es_list,es_mute"})
+		cd, _ := appMarshal(appState{S: "edgestor", T: focus, B: "restore " + cid, Btns: edgeStorDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "es_list":
@@ -537,7 +527,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 			return true
 		}
 		msg := formatEdgeStorageListHTML(focus, getLang() != "en")
-		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: widgetTruncate(stripTags(msg), 450), Acts: "es_bak,es_rst,es_list,es_mute"})
+		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: widgetTruncate(stripTags(msg), 450), Btns: edgeStorDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "es_mute":
@@ -549,7 +539,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		if strings.TrimSpace(out) == "" {
 			out = "mute queued/ok"
 		}
-		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: appLines(out), Acts: "es_bak,es_rst,es_list,es_mute"})
+		cd, _ := appMarshal(appState{S: "edgestor", T: focus, Lines: appLines(out), Btns: edgeStorDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "et_on", "et_off":
@@ -605,7 +595,7 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: appLines(msg), Acts: "gpause,gresume,grm,glog"})
+		cd, _ := appMarshal(appState{S: "gjobs", T: focus, Lines: appLines(msg), Btns: [][2]string{{"gpause", appTitle("Pause", "Пауза")}, {"gresume", appTitle("Resume", "Продолжить")}, {"grm", appTitle("Delete", "Удалить")}, {"glog", appTitle("Log", "Лог")}}})
 		appPushState(token, q, cd)
 		return true
 	case "eg_code":
@@ -621,8 +611,8 @@ func handleAppResidualAct(token string, q *widgetQuery, act, focus string) bool 
 		setState(q.Chat.ID, "wait_edgeguest_grant", fmt.Sprintf("%d|%s", mid, focus))
 		cd, _ := appMarshal(appState{
 			S: "edgeguest", T: focus,
-			B: appTitle("waiting CODE minutes in chat…", "ждём КОД минуты в чате…"),
-			Acts: "eg_gr,eg_rv,eg_facts,eg_code",
+			B:    appTitle("waiting CODE minutes in chat…", "ждём КОД минуты в чате…"),
+			Btns: edgeGuestDeviceBtns(),
 		})
 		appPushState(token, q, cd)
 		return true

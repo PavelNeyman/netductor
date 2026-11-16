@@ -997,11 +997,16 @@ func buildAppUserCard(name string) (string, error) {
 	if stLab == "" || stLab == "?" {
 		stLab = "—"
 	}
+	canLab := "off"
+	if vpn.IsCanary(name) {
+		canLab = "on"
+	}
 	rows := [][2]string{
 		{appTitle("status", "статус"), stLab},
 		{appTitle("quota", "квота"), fmt.Sprintf("%.0f GiB", lim)},
 		{appTitle("profile", "профиль"), prof},
 		{appTitle("kind", "тип"), kind},
+		{"canary", canLab},
 	}
 	on := strings.Contains(strings.ToLower(en), "en") || strings.EqualFold(en, "on") || strings.EqualFold(en, "true") || en == "1"
 	// heuristic: common list columns show enabled/disabled
@@ -1026,6 +1031,10 @@ func buildAppUserCard(name string) (string, error) {
 	if showWorkProfileButton(name) {
 		btns = append(btns, [2]string{"sr", appTitle("SR Config", "SR Config")})
 	}
+	cyBtn := appTitle("Canary · off", "Canary · выкл")
+	if vpn.IsCanary(name) {
+		cyBtn = appTitle("Canary · on", "Canary · вкл")
+	}
 	btns = append(btns,
 		[2]string{"q50", "50G"},
 		[2]string{"q200", "200G"},
@@ -1033,7 +1042,7 @@ func buildAppUserCard(name string) (string, error) {
 		[2]string{"qn", appTitle("Quota…", "Квота…")},
 		[2]string{"rn", appTitle("Rename", "Имя")},
 		[2]string{"sp", appTitle("Sub profile", "Профиль sub")},
-		[2]string{"cy", "Canary"},
+		[2]string{"cy", cyBtn},
 		[2]string{"kd", appTitle("As device", "Device")},
 		[2]string{"ku", appTitle("As user", "User")},
 		[2]string{"rv", appTitle("Delete", "Удалить")},
@@ -1072,6 +1081,41 @@ func accessWidgetState(name, mode, link string) (string, error) {
 		H:     appTitle("import buttons also in chat below", "импорт — ещё сообщением ниже"),
 		Btns:  btns,
 	})
+}
+
+
+func edgeGuestDeviceBtns() [][2]string {
+	return [][2]string{
+		{"eg_gr", appTitle("Grant", "Выдать")},
+		{"eg_rv", appTitle("Revoke", "Отозвать")},
+		{"eg_facts", appTitle("Facts", "Facts")},
+		{"eg_code", appTitle("Code", "Код")},
+	}
+}
+
+func edgeStorDeviceBtns() [][2]string {
+	return [][2]string{
+		{"es_bak", appTitle("Backup", "Бэкап")},
+		{"es_rst", appTitle("Restore", "Restore")},
+		{"es_list", "USB"},
+		{"es_mute", "Mute"},
+		{"es_fmt", appTitle("Format", "Format")},
+	}
+}
+
+func stackActionBtns() [][2]string {
+	return [][2]string{
+		{"heal", appTitle("Heal", "Heal")},
+		{"rbk", appTitle("Rollback", "Откат")},
+		{"wd", appTitle("Watchdog", "Watchdog")},
+	}
+}
+
+func alertActionBtns() [][2]string {
+	return [][2]string{
+		{"al_test", appTitle("Test alert", "Тест алерта")},
+		{"al_clr", appTitle("Clear", "Очистить")},
+	}
 }
 
 func buildAppNodeCard(id string) (string, error) {
@@ -1137,8 +1181,9 @@ func buildAppUsers() (string, error) {
 	}
 	st.S = "ulist"
 	st.Nav = []string{"devices"}
-	st.Acts = "add"
-	st.H = appTitle("# card · Devices · Add (send name)", "# карточка · Устройства · Добавить (имя сообщением)")
+	st.Acts = ""
+	st.Btns = [][2]string{{"add", appTitle("Add user", "Добавить")}}
+	st.H = appTitle("# card · Devices · Add (name in chat)", "# карточка · Устройства · Добавить (имя в чат)")
 	return appMarshal(st)
 }
 
@@ -1219,7 +1264,7 @@ func buildAppScreen(screen string) (string, error) {
 		return buildAppND("dns", "DNS", "DNS", "dns", "status")
 	case "git":
 		rows, lines := formatGitHubLines()
-		st := appState{S: "git", T: "Git", Acts: "gsync",
+		st := appState{S: "git", T: "Git", Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}},
 			H: appTitle("sync · ship · jobs", "sync · ship · jobs")}
 		if len(rows) > 0 {
 			st.Rows = rows
@@ -1469,13 +1514,13 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	case "v_apply":
 		pri, sec := verSelGet()
 		if !pri && !sec {
-			cd, _ := appMarshal(appState{S: "updates", T: appTitle("Updates", "Обновления"), B: appTitle("select primary and/or secondary", "выберите primary и/или secondary"), Acts: "vt_p,vt_s,v_all,v_none,v_apply,v_ref"})
+			cd, _ := appMarshal(appState{S: "updates", T: appTitle("Updates", "Обновления"), B: appTitle("select primary and/or secondary", "выберите primary и/или secondary"), Btns: [][2]string{{"vt_p", "Primary"}, {"vt_s", "Secondary"}, {"v_all", appTitle("All", "Все")}, {"v_none", appTitle("None", "Сброс")}, {"v_apply", appTitle("Apply", "Применить")}, {"v_ref", appTitle("Refresh", "Обновить")}}})
 			appPushState(token, q, cd)
 			return true
 		}
 		tag, err := ndupdate.LatestReleaseTag()
 		if err != nil || tag == "" {
-			cd, _ := appMarshal(appState{S: "updates", T: "Updates", B: "no latest tag", Acts: "v_ref,vt_p,vt_s"})
+			cd, _ := appMarshal(appState{S: "updates", T: "Updates", B: "no latest tag", Btns: [][2]string{{"v_ref", appTitle("Refresh", "Обновить")}, {"vt_p", "Primary"}, {"vt_s", "Secondary"}}})
 			appPushState(token, q, cd)
 			return true
 		}
@@ -1489,7 +1534,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, _ := appMarshal(appState{
 				S: "updates", T: appTitle("Updates", "Обновления"),
 				B:     appTitle("already scheduled — wait", "уже запланировано — подождите"),
-				Lines: "tag " + tag, Acts: "v_ref,vt_p,vt_s",
+				Lines: "tag " + tag, Btns: [][2]string{{"v_ref", appTitle("Refresh", "Обновить")}, {"vt_p", "Primary"}, {"vt_s", "Secondary"}},
 			})
 			appPushState(token, q, cd)
 			return true
@@ -1585,6 +1630,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appMu.Unlock()
 		parent := "home"
 		switch s {
+		case "upol":
+			parent = "ucard"
 		case "ucard", "devices":
 			parent = "ulist"
 		case "ulist", "users":
@@ -1666,8 +1713,9 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "backup", T: appTitle("Restore?", "Restore?"),
-				B: id, Acts: "y_rst",
+				B: id,
 				H: appTitle("confirm restore from backup", "подтвердите восстановление"),
+				Btns: [][2]string{{"y_rst", appTitle("Confirm restore", "Подтвердить")}},
 			})
 		case "git":
 			appMu.Lock()
@@ -1675,21 +1723,20 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "git", T: id,
-				B:    appTitle("project actions", "действия проекта"),
-				Acts: "gsync",
-				H:    id,
+				B:   appTitle("project actions", "действия проекта"),
+				H:   id,
+				Btns: [][2]string{
+					{"gsync", appTitle("Sync", "Синк")},
+					{"gship", appTitle("Ship", "Ship")},
+					{"gjobs", appTitle("Jobs", "Jobs")},
+				},
 			})
 		case "alerts":
 			appMu.Lock()
 			appSessUnlocked().Focus = id
 			appMu.Unlock()
-			// pick known chat by index id stored as chat id string
 			_ = notify.SetAlertsChatID(id)
-			cd, err = appMarshal(appState{
-				S: "alerts", T: appTitle("Alerts", "Алерты"),
-				B:    appTitle("bound to", "привязано") + " " + id,
-				Acts: "al_test,al_clr",
-			})
+			cd, err = buildAppAlerts()
 		case "edgeguest":
 			appMu.Lock()
 			appSessUnlocked().Focus = id
@@ -1697,7 +1744,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "edgeguest", T: id,
 				B:    appTitle("guest device", "guest устройство"),
-				Acts: "eg_gr,eg_rv,eg_facts,eg_code",
+				Btns: edgeGuestDeviceBtns(),
 			})
 		case "edgestor":
 			appMu.Lock()
@@ -1705,8 +1752,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "edgestor", T: id,
-				Acts: "es_bak,es_rst,es_list,es_mute,es_fmt",
 				H:    id,
+				Btns: edgeStorDeviceBtns(),
 			})
 		case "edgetpl":
 			appMu.Lock()
@@ -1733,7 +1780,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "loc", T: id,
 				Lines: strings.Join(lines, "\n"),
-				Acts:  "room_add",
+				Btns: [][2]string{{"room_add", appTitle("+ room", "+ комната")}},
 				H:     id,
 			})
 		case "canary":
@@ -1748,7 +1795,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "gjobs", T: id,
-				Acts: "gpause,gresume,grm,glog",
+				Btns: [][2]string{{"gpause", appTitle("Pause", "Пауза")}, {"gresume", appTitle("Resume", "Продолжить")}, {"grm", appTitle("Delete", "Удалить")}, {"glog", appTitle("Log", "Лог")}},
 				H:    id,
 			})
 		default:
@@ -1795,7 +1842,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "operator", T: appTitle("Operator", "Оператор"),
 			Lines: appLines(out),
 			Nav:   []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
-			Acts:  "api_tg,usp_tg,vpnref",
+			Btns: [][2]string{{"api_tg", "API WAN"}, {"usp_tg", "Users→SP"}, {"vpnref", appTitle("Refresh links", "Обновить ссылки")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1810,7 +1857,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B:    appTitle("waiting for GiB number in chat…", "ждём число GiB в чате…"),
 			H:    appTitle("your message will be deleted after apply", "сообщение удалится после применения"),
-			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
+			Btns: [][2]string{{"uc", appTitle("User card", "Карточка")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1841,7 +1888,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: focus,
 			B:    appTitle("waiting for new name in chat…", "ждём новое имя в чате…"),
 			H:    appTitle("message will be deleted after rename", "сообщение удалится после переименования"),
-			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
+			Btns: [][2]string{{"uc", appTitle("User card", "Карточка")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1855,7 +1902,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "users", T: appTitle("Users", "Пользователи"),
 			B:   appTitle("waiting for name in chat…", "ждём имя в чате…"),
 			H:   appTitle("message will be deleted after add", "сообщение удалится после добавления"),
-			Nav: []string{"ulist", "devices"}, Acts: "add",
+			Nav: []string{"ulist", "devices"}, Btns: [][2]string{{"add", appTitle("Add user", "Добавить")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -1869,7 +1916,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if err != nil {
 			msg = err.Error()
 		}
-		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: appLines(msg), Acts: "gsync"})
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: appLines(msg), Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}}})
 		appPushState(token, q, cd)
 		return true
 	case "gship":
@@ -1882,7 +1929,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if err != nil {
 			msg = err.Error() + "\n" + logOut
 		}
-		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: appLines(msg), Acts: "gsync"})
+		cd, _ := appMarshal(appState{S: "git", T: focus, Lines: appLines(msg), Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}}})
 		appPushState(token, q, cd)
 		return true
 	case "eg_gr":
@@ -1891,7 +1938,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := runND("edge", "guest", "grant", focus)
-		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Acts: "eg_gr,eg_rv"})
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Btns: edgeGuestDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "eg_rv":
@@ -1900,41 +1947,44 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := runND("edge", "guest", "revoke", focus)
-		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Acts: "eg_gr,eg_rv"})
+		cd, _ := appMarshal(appState{S: "edgeguest", T: focus, Lines: appLines(out), Btns: edgeGuestDeviceBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "el_on":
 		out := runND("edge", "luci", "on", "4h")
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_on,el_off"})
+		cd, _ := buildAppEdgeLuci()
+		if out != "" {
+			cd, _ = appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Btns: [][2]string{{"el_on", appTitle("LuCI on", "LuCI вкл")}, {"el_off", appTitle("LuCI off", "LuCI выкл")}}})
+		}
 		appPushState(token, q, cd)
 		return true
 	case "el_off":
 		out := runND("edge", "luci", "off")
-		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Acts: "el_on,el_off"})
+		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Btns: [][2]string{{"el_on", appTitle("LuCI on", "LuCI вкл")}, {"el_off", appTitle("LuCI off", "LuCI выкл")}}})
 		appPushState(token, q, cd)
 		return true
 
 	case "heal":
 		out := runND("stack", "heal")
-		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Acts: "heal,rbk,wd"})
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Btns: stackActionBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "wd":
 		out := runND("stack", "watchdog")
-		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Acts: "heal,rbk,wd"})
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Btns: stackActionBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "rbk":
 		cd, _ := appMarshal(appState{
 			S: "stack", T: appTitle("Rollback?", "Откат?"),
 			B:    appTitle("restore last-good stack", "восстановить last-good"),
-			Acts: "y_rbk",
+			Btns: [][2]string{{"y_rbk", appTitle("Confirm rollback", "Подтвердить откат")}},
 		})
 		appPushState(token, q, cd)
 		return true
 	case "y_rbk":
 		out := runND("stack", "rollback")
-		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Acts: "heal,rbk,wd"})
+		cd, _ := appMarshal(appState{S: "stack", T: "Stack", Lines: appLines(out), Btns: stackActionBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "y_rst":
@@ -1958,7 +2008,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		if strings.TrimSpace(out) == "" {
 			out = runND("notify", "test")
 		}
-		cd, _ := appMarshal(appState{S: "alerts", T: appTitle("Alerts", "Алерты"), Lines: appLines(out), Acts: "al_test,al_clr"})
+		cd, _ := appMarshal(appState{S: "alerts", T: appTitle("Alerts", "Алерты"), Lines: appLines(out), Btns: alertActionBtns()})
 		appPushState(token, q, cd)
 		return true
 	case "al_clr":
@@ -2007,15 +2057,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
 			return true
 		}
-		next, err := vpn.CycleSubProfile(focus)
-		msg := next
-		if err != nil {
-			msg = err.Error()
-		}
-		cd, _ := appMarshal(appState{
-			S: "ucard", T: focus, B: "sub → " + msg,
-			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
-		})
+		_, _ = vpn.CycleSubProfile(focus)
+		cd, _ := buildAppUserCard(focus)
 		appPushState(token, q, cd)
 		return true
 	case "rs":
@@ -2043,7 +2086,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 				_ = out
 			}
 		}
-		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(b.String()), Acts: "gsync"})
+		cd, _ := appMarshal(appState{S: "git", T: "Git", Lines: appLines(b.String()), Btns: [][2]string{{"gsync", appTitle("Sync", "Синк")}, {"gsall", appTitle("Sync all", "Синк все")}}})
 		appPushState(token, q, cd)
 		return true
 	case "inc1h":
@@ -2079,7 +2122,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: "incident", T: appTitle("Incident", "Инцидент"),
 			B:    appTitle("collecting 1h pack…", "собираю пакет 1ч…"),
-			Acts: "inc1h",
+			Btns: [][2]string{{"inc1h", appTitle("Export 1h", "Выгрузить 1ч")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -2109,7 +2152,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		uri := strings.TrimSpace(accessPayload(focus, "vless"))
 		if uri == "" {
-			cd, _ := appMarshal(appState{S: "ucard", T: focus, B: appTitle("empty link", "пустая ссылка"), Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv"})
+			cd, _ := buildAppUserCard(focus)
 			appPushState(token, q, cd)
 			return true
 		}
@@ -2167,7 +2210,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "ucard", T: appTitle("Revoke?", "Удалить?"),
 			B:    focus,
 			H:    appTitle("confirm destructive action", "подтвердите удаление"),
-			Acts: "y_rv",
+			Btns: [][2]string{{"y_rv", appTitle("Confirm delete", "Подтвердить удаление")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -2235,7 +2278,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			return true
 		}
 		out := enqueueNodeCmd(target, "reboot")
-		cd, _ := appMarshal(appState{S: "ncard", T: target, Lines: appLines(out), Acts: "up,rb,jn"})
+		cd, _ := appMarshal(appState{S: "ncard", T: target, Lines: appLines(out), Btns: [][2]string{{"up", appTitle("Upgrade", "Обновить")}, {"rb", appTitle("Reboot", "Ребут")}, {"jn", appTitle("Journal", "Журнал")}}})
 		appPushState(token, q, cd)
 		return true
 	case "jn":
@@ -2255,7 +2298,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		}
 		cd, _ := appMarshal(appState{
 			S: "ncard", T: focus, Lines: appLines(out),
-			Acts: "up,rb,jn",
+			Btns: [][2]string{{"up", appTitle("Upgrade", "Обновить")}, {"rb", appTitle("Reboot", "Ребут")}, {"jn", appTitle("Journal", "Журнал")}},
 		})
 		appPushState(token, q, cd)
 		return true
@@ -2342,7 +2385,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		cd, _ := appMarshal(appState{
 			S: screen, T: title, Pad: true, Draft: show,
 			H:    appTitle("pad · OK to apply", "панель · OK"),
-			Acts: "q50,q200,q0,qn,rn,sp,cy,kd,ku,rv",
+			Btns: [][2]string{{"uc", appTitle("User card", "Карточка")}},
 		})
 		appPushState(token, q, cd)
 		return true
