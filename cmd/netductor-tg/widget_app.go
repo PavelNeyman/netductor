@@ -218,11 +218,15 @@ func appMarshal(st appState) (string, error) {
 	if len(b) <= widgetChatDataMax {
 		return string(b), nil
 	}
+	// Shrink for Bot API chat_data limit (1024). Prefer keeping primary action buttons.
 	st.H = ""
 	st.B = widgetTruncate(st.B, 160)
 	st.Lines = widgetTruncate(st.Lines, 280)
 	if len(st.Rows) > 6 {
 		st.Rows = st.Rows[:6]
+	}
+	if len(st.Btns) > 10 {
+		st.Btns = st.Btns[:10]
 	}
 	b, err = json.Marshal(st)
 	if err != nil {
@@ -231,12 +235,23 @@ func appMarshal(st appState) (string, error) {
 	if len(b) > widgetChatDataMax {
 		st.Lines = widgetTruncate(st.Lines, 120)
 		st.Rows = st.Rows[:appMin(4, len(st.Rows))]
+		if len(st.Btns) > 6 {
+			st.Btns = st.Btns[:6]
+		}
 		b, err = json.Marshal(st)
 		if err != nil {
 			return "", err
 		}
 		if len(b) > widgetChatDataMax {
-			return "", fmt.Errorf("app chat_data %d", len(b))
+			st.Btns = st.Btns[:appMin(4, len(st.Btns))]
+			st.Nav = nil
+			b, err = json.Marshal(st)
+			if err != nil {
+				return "", err
+			}
+			if len(b) > widgetChatDataMax {
+				return "", fmt.Errorf("app chat_data %d", len(b))
+			}
 		}
 	}
 	return string(b), nil
@@ -1837,13 +1852,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 		appPushState(token, q, cd)
 		return true
 	case "vpnref":
-		out := runND("vpn", "refresh-links")
-		cd, _ := appMarshal(appState{
-			S: "operator", T: appTitle("Operator", "Оператор"),
-			Lines: appLines(out),
-			Nav:   []string{"session", "alerts", "sessions", "audit", "svcpaths", "stack", "admin"},
-			Btns: [][2]string{{"api_tg", "API WAN"}, {"usp_tg", "Users→SP"}, {"vpnref", appTitle("Refresh links", "Обновить ссылки")}},
-		})
+		_ = runND("vpn", "refresh-links")
+		cd, _ := buildAppOperatorHub()
 		appPushState(token, q, cd)
 		return true
 	case "qn":
