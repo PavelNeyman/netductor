@@ -104,3 +104,12 @@ Region на peer/node, capabilities (хотя бы флаги), подписи �
 | 3 Control HA | не начата |
 | 4 Node API | не начата |
 | 5 Multi-master | отложена |
+
+
+## Обновления и сведение конфигурации (обязательно)
+
+См. [POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md).
+
+- Оператор **не** ставит каждый релиз: миграции и floors обязаны переживать skip-version.
+- Смена стандартов (hostname `nd-<role>-<region>`, region, capabilities, baseline) → **миграция / host-baseline**, не только доки; существующие ноды и роутеры сходятся после update.
+- Работа по этому плану: коммиты в `main` **без** обязательного GitHub Release на каждый шаг; релиз — пакетом или когда без нового бинаря нельзя безопасно обновиться.

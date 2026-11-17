@@ -199,6 +199,16 @@ Phase 2 must not wait for Phase 3. Phase 3 must not require Phase 5.
 
 ---
 
+
+
+## Updates & convergence (mandatory)
+
+See [POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md).
+
+- Operator **skips** intermediate releases: migrations and CF-15 floors must support skip-version jumps.
+- Changing standards (hostname `nd-<role>-<region>`, region, capabilities, host baseline) requires a **migrate / host-baseline / RepairState** path so **existing** VPS and routers converge after update—not docs-only and not greenfield-only.
+- Day-to-day work on this plan: land commits on `main` **without** cutting a GitHub Release each time. Release in batches at phase boundaries, on operator request, or when a new binary is required for safe migration/compat.
+
 ## Implementation notes (for agents)
 
 1. Prefer small PRs per phase checkbox; regression tests for registry/sub/role normalize.

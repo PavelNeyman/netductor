@@ -99,6 +99,21 @@ Operator UI lives on **Mac `netductor-op`**. Node is server-only.
 
 ---
 
+
+
+## Updates, migrations, convergence (mandatory)
+
+**Canon:** [docs/POLICY-UPDATE-CONVERGENCE.md](docs/POLICY-UPDATE-CONVERGENCE.md) · [docs/ru/POLICY-UPDATE-CONVERGENCE.md](docs/ru/POLICY-UPDATE-CONVERGENCE.md)
+
+1. **Skip-version upgrades are normal.** The operator may jump many tags. Design for that; use `upgrade.DeclareBinaryFloor` only when a jump is unsafe (CF-15).
+2. **Migrations are desired-state, not one-shot scripts.** Use `internal/migrate` (`Required` / `Apply` / `Verify`), journaled and idempotent. Drift on existing nodes must make `Required` true until the standard is met.
+3. **IaC / convergence:** after update, managed hosts (control, egress, build, edge/OpenWrt) must move toward documented standards automatically (hostname convention, role file, baselines, schema). Prefer migrate + host-baseline + RepairState; doctor reports residual drift.
+4. **Fleet plan changes** (region, `nd-<role>-<region>` hostname, capabilities) ship with migration/baseline hooks—not docs alone.
+5. **Release cadence:** default = commit to `main` **without** cutting a GitHub Release. Cut a release at phase boundaries, on operator request, or when a new binary is **required** for safe migrate/compat. Do not release every commit.
+
+Also: [UPDATE-CONTRACT.md](docs/UPDATE-CONTRACT.md) seamlessness; host-baseline; `RepairStateOnUpgrade`.
+
+
 # 2. Philosophy
 
 Simplicity, idempotent installs, no secrets in repo, releases ship binaries, evolution over big-bang.

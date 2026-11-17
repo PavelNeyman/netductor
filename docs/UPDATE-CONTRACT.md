@@ -135,6 +135,8 @@ Covers: ValidComponent, AssetName matrix, happy-path transitions, illegal transi
 - Renaming edge binary on disk (Phase 4).
 - Automatic fleet-wide bulk update.
 
+Broader rules (skip-version, IaC convergence, release cadence): [POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md).
+
 ## Seamlessness (ops)
 
 - **CLI flags:** may change when the engine requires it; updates must still apply cleanly on hosts that last ran an older CLI (document breaking flags in CHANGELOG).
