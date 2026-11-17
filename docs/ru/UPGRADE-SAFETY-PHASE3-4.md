@@ -23,3 +23,8 @@ Mac: `brew upgrade netductor-op` / `netductor-op update`.
 Без файла `control_role`, без `SERVERS=`, без timer — поведение как у одного control. Железо для merge кода не требуется.
 
 Включать standby/cutover — только когда будете тестировать HA, по runbook.
+
+## Связанное
+
+- [RUNBOOK-CLUSTER-STATUS.md](RUNBOOK-CLUSTER-STATUS.md)
+- [RUNBOOK-CONTROL-CUTOVER.md](RUNBOOK-CONTROL-CUTOVER.md)

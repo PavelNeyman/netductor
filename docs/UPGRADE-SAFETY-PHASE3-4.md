@@ -55,3 +55,8 @@ Do **not** enable standby or dual control endpoints until you intend to test Pha
 ## Rule
 
 Land commits on `main` without a release every time. Cut a release at phase boundary or when a binary is required. Skip-version jumps must remain valid (migrations + CF-15).
+
+## Related
+
+- [RUNBOOK-CLUSTER-STATUS.md](RUNBOOK-CLUSTER-STATUS.md) — cluster / thin status after upgrade
+- [RUNBOOK-CONTROL-CUTOVER.md](RUNBOOK-CONTROL-CUTOVER.md)

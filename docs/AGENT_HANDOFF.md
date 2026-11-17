@@ -1,3 +1,5 @@
+**2026-11-17:** Fleet mesh Phases 0–4 **code complete** on `main` (region/capabilities, multi-egress sub filter, control standby fence + sync, cluster/node status API+CLI+TG+Web, egress thin `127.0.0.1:8791`). Phase 5 multi-master **not** scheduled. **No release cut yet** — production still on published tag (e.g. v0.9.756); see [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md), [RUNBOOK-CLUSTER-STATUS.md](RUNBOOK-CLUSTER-STATUS.md), [UPGRADE-SAFETY-PHASE3-4.md](UPGRADE-SAFETY-PHASE3-4.md).
+
 
 **2026-11-13:** Backup offsite false fail on stack apply (console pending vs TG key=ok) — note only, investigate later: [OPEN_ITEMS](OPEN_ITEMS.md), [audits/2026-11-13-backup-offsite-false-fail.md](audits/2026-11-13-backup-offsite-false-fail.md).
 

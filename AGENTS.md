@@ -75,7 +75,7 @@ Operator vs node and phases: [docs/ARCHITECTURE-OPERATOR.md](docs/ARCHITECTURE-O
 
 Planes: **host** · **vpn** (sing-box) · **dns** (Blocky) · **core/API** · **edge** · **operator** · **fleet** (primary/secondary) · **extras** (optional).
 
-**Fleet:** primary = abroad control plane; secondary = RU VPN entry + warm services. Details: [docs/FLEET.md](docs/FLEET.md), [docs/AGENT_HANDOFF.md](docs/AGENT_HANDOFF.md). Secondary was formerly called `relay` (legacy paths/API aliases remain).
+**Fleet:** **control** (SoT / API) and **egress** (VPN entry); geography is a **region** label (`cc-city`), not the role. API keys may still say primary/secondary. Mesh plan: [docs/PLAN-FLEET-MESH-EVOLUTION.md](docs/PLAN-FLEET-MESH-EVOLUTION.md), [docs/ADR-ROLE-REGION.md](docs/ADR-ROLE-REGION.md). Details: [docs/FLEET.md](docs/FLEET.md). Secondary was formerly `relay` (legacy aliases remain).
 
 **SSH:** password only for first login; install/provision → key-only (`internal/install/ssh_harden.go`).
 

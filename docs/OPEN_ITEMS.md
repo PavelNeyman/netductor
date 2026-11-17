@@ -1,3 +1,7 @@
+## Fleet mesh (2026-11-17)
+
+Phases 0–4 implemented on `main` (not released). Phase 5 multi-master deferred. Live cutover/R5 operator-owned.
+
 > **Stop: v0.9.455.** Thin-UI jobs core + Phase 3 audit + Operate Result dock. Remaining: review follow-ups F1–F10 (below), lab e2e (OpenWrt/NVR/MikroTik), future (OIDC/guest session).
 
 - [x] Optional **build-host** VPS (SSH executor, 0.9.361); agent-pull later

@@ -191,7 +191,7 @@ Even with a single writer today — so standby and future replication do not req
 - [x] Thin local read: `GET /api/node/status` (session), `GET /api/node/leader`, CLI `node-status`
 - [x] SoT writes already fail closed on control standby (Phase 3 fence)
 - [x] Cluster view API+CLI (`GET /api/cluster/status`, `cluster status`) from self + secondary registry
-- [ ] Web/TG UI cards wired to cluster status (catalog entry present)
+- [x] Web/TG UI: Control nodes → Cluster/Node status; TG Status → Cluster button + one-liner
 - [x] Egress thin local status (`127.0.0.1:8791/status`, `secondary local-status`) — no SoT mutations
 
 **Work**
@@ -206,6 +206,8 @@ Even with a single writer today — so standby and future replication do not req
 - User/policy mutations fail closed if leader is down (unless Phase 3 promote done).
 
 ---
+
+**Phase 4 code complete** (API/CLI/TG/Web + egress thin status). Live HA/cutover drill remains operator-owned; no auto-promote.
 
 ### Phase 5 — Optional control mesh (multi-master) — decision gate
 

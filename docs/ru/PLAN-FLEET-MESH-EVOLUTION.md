@@ -62,8 +62,8 @@ nd-<role>-<region>    # nd-control-fi-hel, nd-egress-ru-msk
 ### Фаза 0 — Документы
 
 - [x] Этот план + уточнение ADR.
-- [ ] FREEZE/ARCHITECTURE: control не определяется страной.
-- [ ] Глоссарий UI/docs.
+- [x] FREEZE/ARCHITECTURE: control не определяется страной.
+- [x] Глоссарий UI/docs.
 
 ### Фаза 1 — Имена, region, capabilities
 
