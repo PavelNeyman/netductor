@@ -44,11 +44,11 @@ en:{
   app_title:'netductor-op', nav_installer:'Deploy', nav_control:'Operate', nav_settings:'Settings', meta_line:'Mac client · node API', nav_grp_fleet:'Fleet', nav_servers:'Servers', nav_sites:'Sites', servers_note:'Nodes of the control plane. Click a card for details and actions.', sites_note:'Edge sites — topology, zones, metrics. Add site opens the OpenWrt wizard.', sites_add:'+ Add site', sites_empty:'No enrolled sites yet. Add a site to run the OpenWrt wizard.', sites_offline:'Need tunnel + session to load sites from primary.', card_openwrt:'OpenWrt / site', card_openwrt_d:'Probe → modules → provision', card_mt_d:'RSC push / site shell', actions:'Actions', nav_grp_deploy:'Deploy', nav_grp_operate:'Operate', nav_collapse:'Collapse', l_port:'Port', b_gh_token:'GitHub token',
   tab_installer:'Installer', tab_control:'Control', tab_settings:'Settings', tab_updates:'Updates',
   upd_local:'Local', upd_latest:'Latest', upd_pick:'Release', upd_apply:'Apply on primary', upd_refresh:'Refresh', upd_available:'update available', upd_ok:'up to date', upd_note:'Same backend as CLI/TG. Desired ≠ running until health. Edge: agent_update per device.', upd_jobs:'Jobs',
-  sub_fleet:'Fleet', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
+  sub_fleet:'Fleet', sub_primary:'Control', sub_build:'Build-host', sub_secondary:'Egress', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Credentials',
   inst_note:'Deploy from this Mac over SSH.',
-  l_phost:'Primary host', l_ppass:'Primary password', l_shost:'Secondary host', l_spass:'Secondary password', l_ssh_mode:'SSH mode', opt_ssh_initial:'Initial (:22 password)', opt_ssh_resume:'Resume (:52222 key)', l_skey:'Secondary key (resume)', l_pport:'Primary SSH port', l_peer_id:'Peer ID', l_region:'Region', l_region:'Регион (cc-city)', l_region:'Region (cc-city)',
-  l_domain:'Domain label (optional org tag)', l_domain_primary:'Primary domain', l_domain_vpn:'Secondary domain', l_domain_redirect:'Redirect URL', l_ssh_port:'SSH port', l_redir_port:'Redirect HTTPS', l_mtls_port:'Agent mTLS', l_lampac_port:'Lampac', l_le:'LE email', l_sni:'SNI (Reality camouflage)', l_key:'SSH key', l_host:'Host', l_pass:'Password',
-  l_pkey:'Primary key', l_user:'User', l_arch:'Agent arch', l_server_url:'Server URL (mTLS)', l_keypass:'Key passphrase',
+  l_phost:'Control host', l_ppass:'Control password', l_shost:'Egress host', l_spass:'Egress password', l_ssh_mode:'SSH mode', opt_ssh_initial:'Initial (:22 password)', opt_ssh_resume:'Resume (:52222 key)', l_skey:'Egress key (resume)', l_pport:'Control SSH port', l_peer_id:'Peer ID', l_region:'Region (cc-city)',
+  l_domain:'Domain label (optional org tag)', l_domain_primary:'Control domain', l_domain_vpn:'Egress / VPN domain', l_domain_redirect:'Redirect URL', l_ssh_port:'SSH port', l_redir_port:'Redirect HTTPS', l_mtls_port:'Agent mTLS', l_lampac_port:'Lampac', l_le:'LE email', l_sni:'SNI (Reality camouflage)', l_key:'SSH key', l_host:'Host', l_pass:'Password',
+  l_pkey:'Control key', l_user:'User', l_arch:'Agent arch', l_server_url:'Server URL (mTLS)', l_keypass:'Key passphrase',
   l_lan:'LAN IP (optional)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Wi-Fi key',
   l_site_id:'Site id', l_name:'Name', l_rpi:'RPi id', l_mtid:'MikroTik id', l_rpilan:'RPi LAN gateway',
   l_mthost:'MT host', l_mtuser:'MT user', l_mtpass:'MT password', l_mtport:'MT port', l_opkey:'Operator key',
@@ -98,9 +98,9 @@ ru:{
   app_title:'netductor-op', nav_installer:'Деплой', nav_control:'Управление', nav_settings:'Настройки', meta_line:'Клиент Mac · API ноды', nav_grp_fleet:'Флот', nav_servers:'Серверы', nav_sites:'Сайты', servers_note:'Узлы control plane. Клик по карточке — детали и действия.', sites_note:'Edge-сайты — топология, зоны, метрики. «Добавить сайт» открывает мастер OpenWrt.', sites_add:'+ Добавить сайт', sites_empty:'Пока нет сайтов. Добавьте сайт через мастер OpenWrt.', sites_offline:'Нужны туннель и session, чтобы загрузить сайты с primary.', card_openwrt:'OpenWrt / сайт', card_openwrt_d:'Probe → модули → provision', card_mt_d:'RSC push / site shell', actions:'Действия', nav_grp_deploy:'Деплой', nav_grp_operate:'Управление', nav_collapse:'Свернуть', btn_st_list:'Список бэкапов', l_port:'Порт', b_gh_token:'Токен GitHub',
   tab_installer:'Установка', tab_control:'Управление', tab_settings:'Настройки', tab_updates:'Обновления',
   upd_local:'Локально', upd_latest:'Последний', upd_pick:'Релиз', upd_apply:'Применить на primary', upd_refresh:'Обновить', upd_available:'есть обновление', upd_ok:'актуально', upd_note:'Тот же backend, что CLI/TG. Desired ≠ running до health. Edge: agent_update на устройство.', upd_jobs:'Задачи',
-  sub_fleet:'Флот', sub_primary:'Primary', sub_build:'Build-host', sub_secondary:'Secondary', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
+  sub_fleet:'Флот', sub_primary:'Control', sub_build:'Build-host', sub_secondary:'Egress', sub_edge:'OpenWrt', sub_site:'MikroTik', sub_creds:'Учётные данные',
   inst_note:'Деплой с этого Mac по SSH.',
-  l_phost:'Хост primary', l_ppass:'Пароль primary', l_shost:'Хост secondary', l_spass:'Пароль secondary', l_ssh_mode:'Режим SSH', opt_ssh_initial:'Первый (:22 пароль)', opt_ssh_resume:'Повтор (:52222 ключ)', l_skey:'Ключ secondary (повтор)', l_pport:'SSH-порт primary', l_peer_id:'Peer ID', l_region:'Region',
+  l_phost:'Хост control', l_ppass:'Пароль control', l_shost:'Хост egress', l_spass:'Пароль egress', l_ssh_mode:'Режим SSH', opt_ssh_initial:'Первый (:22 пароль)', opt_ssh_resume:'Повтор (:52222 ключ)', l_skey:'Ключ egress (повтор)', l_pport:'SSH-порт control', l_peer_id:'Peer ID', l_region:'Region',
   l_domain:'Метка DOMAIN (опц., не создаёт имена)', l_domain_primary:'Домен primary', l_domain_vpn:'Домен secondary', l_domain_redirect:'URL redirect', l_ssh_port:'Порт SSH', l_redir_port:'HTTPS redirect', l_mtls_port:'Agent mTLS', l_lampac_port:'Lampac', l_le:'Email LE', l_sni:'SNI (маскировка Reality)', l_key:'SSH-ключ', l_host:'Хост', l_pass:'Пароль',
   l_pkey:'Ключ primary', l_user:'Пользователь', l_arch:'Архитектура agent', l_server_url:'URL сервера (mTLS)', l_keypass:'Passphrase ключа',
   l_lan:'LAN IP (опц.)', l_wan:'WAN proto', l_ssid:'Wi-Fi SSID', l_wifikey:'Ключ Wi-Fi',
@@ -3028,7 +3028,7 @@ function fleetTopoHTML(role, host){
   const h=esc(host||'—');
   if(role==='primary'){
     return '<div class="fleet-topo">'
-      +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">'+h+'</div></div>'
+      +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Control</div><div class="ip">'+h+'</div></div>'
       +'<div class="topo-link"></div>'
       +'<div class="topo-mid">'
       +'<div class="zbox on"><span class="zd"></span><span class="zt">SP</span><span class="zc">10.87.10/30</span></div>'
@@ -3036,24 +3036,24 @@ function fleetTopoHTML(role, host){
       +'<div class="zbox on"><span class="zd"></span><span class="zt">mTLS</span><span class="zc">:8789</span></div>'
       +'</div>'
       +'<div class="topo-link"></div>'
-      +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Secondary</div><div class="ip">peer</div></div>'
+      +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Egress</div><div class="ip">peer</div></div>'
       +'</div>';
   }
   if(role==='secondary'){
     return '<div class="fleet-topo">'
-      +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Secondary</div><div class="ip">'+h+'</div></div>'
+      +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Egress</div><div class="ip">'+h+'</div></div>'
       +'<div class="topo-link"></div>'
       +'<div class="topo-mid">'
       +'<div class="zbox on"><span class="zd"></span><span class="zt">uplink</span><span class="zc">VLESS :443</span></div>'
       +'<div class="zbox on"><span class="zd"></span><span class="zt">agent</span><span class="zc">hb → primary</span></div>'
       +'</div>'
       +'<div class="topo-link"></div>'
-      +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">control</div></div>'
+      +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Control</div><div class="ip">control</div></div>'
       +'</div>';
   }
   // build
   return '<div class="fleet-topo">'
-    +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">control</div></div>'
+    +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Control</div><div class="ip">control</div></div>'
     +'<div class="topo-link"></div>'
     +'<div class="topo-mid">'
     +'<div class="zbox"><span class="zd"></span><span class="zt">PB/BP</span><span class="zc">10.87.12–13</span></div>'
@@ -3085,7 +3085,7 @@ function renderServersCards(){
   map.innerHTML='<h3 style="margin:0 0 .35rem;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">'
     +(uiLang==='ru'?'Каналы control-plane':'Control-plane paths')+'</h3>'
     +'<div class="fleet-topo">'
-    +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Primary</div><div class="ip">'+esc(s.primary_host||'—')+'</div></div>'
+    +'<div class="topo-node"><div class="ic">▣</div><div class="lab">Control</div><div class="ip">'+esc(s.primary_host||'—')+'</div></div>'
     +'<div class="topo-link"></div>'
     +'<div class="topo-mid">'
     +'<div class="zbox on"><span class="zd"></span><span class="zt">SP</span><span class="zc">10.87.10/30</span></div>'
@@ -3093,7 +3093,7 @@ function renderServersCards(){
     +'<div class="zbox on"><span class="zd"></span><span class="zt">mTLS</span><span class="zc">:8789</span></div>'
     +'</div>'
     +'<div class="topo-link"></div>'
-    +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Secondary</div><div class="ip">'+esc(s.secondary_host||'—')+'</div></div>'
+    +'<div class="topo-node"><div class="ic">◇</div><div class="lab">Egress</div><div class="ip">'+esc(s.secondary_host||'—')+'</div></div>'
     +(s.build_host?('<div class="topo-link"></div><div class="topo-node"><div class="ic">⬡</div><div class="lab">Build</div><div class="ip">'+esc(s.build_host)+'</div></div>'):'')
     +'</div>';
   grid.appendChild(map);

@@ -90,7 +90,7 @@ Even with a single writer today — so standby and future replication do not req
 
 - [x] This plan + ADR clarification (role ≠ geography; region `cc-city`).
 - [x] ARCHITECTURE / FREEZE wording: remove “primary = abroad” as definition; keep as example topology.
-- [ ] UI/docs glossary: control / egress / build / edge; primary/secondary = legacy only.
+- [x] UI/docs glossary: control / egress display labels (API keys still primary/secondary).
 
 **Acceptance:** new docs never define control by country.
 
@@ -134,7 +134,7 @@ Even with a single writer today — so standby and future replication do not req
 - [x] Region labels on profiles
 - [x] Health-driven drop from sub (require singbox_ok from heartbeat)
 - [x] Preferred IP order for /sub (`secondary prefer`); uplink_ok demotes sort only
-- [ ] Auto-promote / DNS cutover still manual
+- [x] Auto-promote intentionally **manual** (runbook); prefer order only via `secondary prefer`
 
 **Intent:** first real “mesh” users care about — VPN survives loss of one entry node.
 
@@ -144,7 +144,7 @@ Even with a single writer today — so standby and future replication do not req
 2. Health signals per peer (443 / agent / optional probe).
 3. Subscription / profile set: include healthy `prepared|ready|active` peers; drop `failed` / dead.
 4. Preferred / active peer policy documented; promote remains explicit until R5-class gates exist.
-5. Operator runbook: add second egress → verify sub → traffic → retire old.
+5. Operator runbook: [RUNBOOK-MULTI-EGRESS.md](RUNBOOK-MULTI-EGRESS.md) (RU: [ru/RUNBOOK-MULTI-EGRESS.md](ru/RUNBOOK-MULTI-EGRESS.md)).
 
 **Non-goal:** automatic global policy rewrite by every node.
 
@@ -156,6 +156,8 @@ Even with a single writer today — so standby and future replication do not req
 ---
 
 ### Phase 3 — Control HA (active / standby)
+
+**Notes:** [PHASE3-CONTROL-STANDBY-NOTES.md](PHASE3-CONTROL-STANDBY-NOTES.md) (SoT dataset list; not implemented).
 
 **Intent:** management plane survives loss of the active control node.
 

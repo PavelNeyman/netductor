@@ -31,11 +31,11 @@
     <button type="button" class="nav-btn" data-nav="installer:fleet" title="Fleet wizard">
       <span class="ico" aria-hidden="true">⧉</span><span class="lbl" data-i18n="sub_fleet">Fleet</span>
     </button>
-    <button type="button" class="nav-btn" data-nav="installer:primary" title="Primary">
-      <span class="ico" aria-hidden="true">■</span><span class="lbl">Primary</span>
+    <button type="button" class="nav-btn" data-nav="installer:primary" title="Control">
+      <span class="ico" aria-hidden="true">■</span><span class="lbl">Control</span>
     </button>
-    <button type="button" class="nav-btn" data-nav="installer:secondary" title="Secondary">
-      <span class="ico" aria-hidden="true">▣</span><span class="lbl">Secondary</span>
+    <button type="button" class="nav-btn" data-nav="installer:secondary" title="Egress">
+      <span class="ico" aria-hidden="true">▣</span><span class="lbl">Egress</span>
     </button>
     <button type="button" class="nav-btn" data-nav="installer:vpscheck" title="VPS pre-check">
       <span class="ico" aria-hidden="true">⌀</span><span class="lbl" data-i18n="nav_vpscheck">VPS check</span>
@@ -156,8 +156,8 @@
       <div class="row"><div><label data-i18n="l_mtls_port">Agent mTLS</label><input name="agent_mtls_port" value="8789"/></div><div><label data-i18n="l_lampac_port">Lampac</label><input name="lampac_port" value="9118"/></div></div>
       <div class="row"><div><label data-i18n="l_key">SSH key</label><input name="key" placeholder="~/.ssh/netductor_primary"/></div><div><label data-i18n="l_keypass">Key passphrase</label><input name="key_passphrase" type="password" autocomplete="off"/></div></div>
       <div class="checks">
-        <label><input type="checkbox" name="do_primary" checked/> <span data-i18n="c_do_primary">Primary</span></label>
-        <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="c_do_secondary">Secondary</span></label>
+        <label><input type="checkbox" name="do_primary" checked/> <span data-i18n="c_do_primary">Control</span></label>
+        <label><input type="checkbox" name="do_secondary" checked/> <span data-i18n="c_do_secondary">Egress</span></label>
         <label><input type="checkbox" name="do_build"/> <span data-i18n="c_do_build">Build-host</span></label>
         <label><input type="checkbox" name="with_lampac"/> <span data-i18n="c_lampac">Lampac</span></label>
         <label><input type="checkbox" name="with_git"/> <span data-i18n="c_git">Git</span></label>
@@ -717,7 +717,7 @@
   <div class="sb-left">
     <span class="sb-item" title="API"><span class="sb-dot" id="sbApi"></span> API</span>
     <span class="sb-sep"></span>
-    <span class="sb-item" title="Secondary"><span class="sb-dot off" id="sbSec"></span> secondary</span>
+    <span class="sb-item" title="Egress"><span class="sb-dot off" id="sbSec"></span> secondary</span>
     <span class="sb-sep"></span>
     <span class="sb-item" title="Paths"><span class="sb-dot off" id="sbPath"></span> paths</span>
     <span class="sb-sep"></span>
