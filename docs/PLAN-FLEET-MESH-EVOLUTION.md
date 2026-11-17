@@ -163,7 +163,8 @@ Even with a single writer today — so standby and future replication do not req
 - [x] Agent multi-endpoint read path (`SERVER` + `SERVERS` failover)
 - [x] SoT pull to standby inbox (`control sync-pull` / `/api/control/backup/latest`) — apply still explicit
 - [x] Control role + promote CLI + API write fence on standby
-- [ ] DNS/API cutover runbook live test
+- [x] Sync timer on standby (`control sync-timer install`, 30min inbox)
+- [x] DNS/API cutover runbook (doc; live drill operator-owned)
 
 **Intent:** management plane survives loss of the active control node.
 

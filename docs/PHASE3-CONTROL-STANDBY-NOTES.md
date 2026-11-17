@@ -79,3 +79,15 @@ netductor control promote --confirm
 ```
 
 `GET /api/control/backup/latest` on active (session or control_standby_token). Standby only stores archives under `…/backups/control-inbox/` until explicit restore.
+
+
+## Sync timer (standby)
+
+```bash
+# after set-role standby + token + NETDUCTOR_CONTROL_SYNC_URL
+netductor control sync-timer install   # every 30min → control-inbox only
+netductor control sync-timer status
+netductor control sync-timer disable
+```
+
+Cutover: [RUNBOOK-CONTROL-CUTOVER.md](RUNBOOK-CONTROL-CUTOVER.md) (RU: [ru/RUNBOOK-CONTROL-CUTOVER.md](ru/RUNBOOK-CONTROL-CUTOVER.md)).

@@ -22,6 +22,7 @@ func runControl(args []string) {
   netductor control endpoints
   netductor control token-init          # active: create control_standby_token
   netductor control sync-pull [--url URL] [--token TOK]
+  netductor control sync-timer install|disable|status
   netductor control restore-inbox [--key KEY] --confirm
   netductor control set-role active|standby --confirm
   netductor control promote --confirm`)
@@ -85,7 +86,32 @@ func runControl(args []string) {
 		}
 		fmt.Println("wrote", path)
 		fmt.Fprintln(os.Stderr, "copy token to standby secrets/control_standby_token and set NETDUCTOR_CONTROL_SYNC_URL=https://ACTIVE:8789")
+	case "sync-timer":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor control sync-timer install|disable|status")
+			os.Exit(2)
+		}
+		switch args[1] {
+		case "install", "enable":
+			if err := controlplane.InstallSyncTimer(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		case "disable", "stop":
+			if err := controlplane.DisableSyncTimer(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		case "status":
+			fmt.Println(controlplane.SyncTimerStatus())
+		default:
+			fmt.Fprintf(os.Stderr, "unknown sync-timer subcommand %q\n", args[1])
+			os.Exit(2)
+		}
 	case "sync-pull":
+		if controlplane.Get() == controlplane.RoleActive {
+			fmt.Fprintln(os.Stderr, "NOTE: control_role=active — sync-pull is intended for standby (continuing once)")
+		}
 		url := controlplane.SyncURL()
 		tok := controlplane.SyncToken()
 		for i := 1; i < len(args); i++ {

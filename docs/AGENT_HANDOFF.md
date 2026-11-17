@@ -552,3 +552,8 @@ Direction: phased resilience — not multi-master first. Plan: [PLAN-FLEET-MESH-
 
 **Mandatory:** [POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md). Skip-version normal; desired-state after apply; commits without per-change releases unless binary required.
 
+## Control standby sync (tip)
+
+- `control token-init` / `sync-pull` / `sync-timer install` (standby only, 30min inbox)
+- Cutover: docs/RUNBOOK-CONTROL-CUTOVER.md
+- No auto-promote
