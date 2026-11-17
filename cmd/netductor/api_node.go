@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PavelNeyman/netductor/internal/cluster"
 	"github.com/PavelNeyman/netductor/internal/controlplane"
 	"github.com/PavelNeyman/netductor/internal/metrics"
 	"github.com/PavelNeyman/netductor/internal/version"
@@ -15,6 +16,7 @@ import (
 func registerNodeAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/node/status", handleNodeStatus)
 	mux.HandleFunc("/api/node/leader", handleNodeLeader)
+	mux.HandleFunc("/api/cluster/status", handleClusterStatus)
 }
 
 // handleNodeStatus is Phase 4 thin local read: version, control role, services.
@@ -71,4 +73,15 @@ func nodeServiceSnapshot() map[string]string {
 		out[u] = st
 	}
 	return out
+}
+
+func handleClusterStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, 405, map[string]string{"error": "method"})
+		return
+	}
+	if !requireSession(w, r) {
+		return
+	}
+	writeJSON(w, 200, cluster.Build())
 }

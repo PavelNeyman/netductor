@@ -86,6 +86,8 @@ func All() []Action {
 		a("vpn-refresh", "vpn", "POST", "/api/vpn/refresh-links", "{}", "vpn refresh-links", "Refresh links", "Обновить ссылки"),
 
 		// nodes
+		a("cluster-status", "nodes", "GET", "/api/cluster/status", "", "cluster status", "Cluster status", "Статус кластера"),
+		a("node-status", "nodes", "GET", "/api/node/status", "", "node-status", "Node status (local)", "Статус ноды (локально)"),
 		a("nodes", "nodes", "GET", "/api/nodes", "", "nodes list", "Nodes", "Ноды"),
 		a("nodes-self", "nodes", "GET", "/api/nodes/self", "", "—", "Self", "Self"),
 		a("secondary", "nodes", "GET", "/api/secondary/status", "", "secondary status", "Secondary status", "Статус secondary"),

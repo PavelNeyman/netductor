@@ -82,6 +82,8 @@ func main() {
 		runControl(os.Args[2:])
 	case "node-status":
 		runNodeStatus(os.Args[2:])
+	case "cluster":
+		runCluster(os.Args[2:])
 	case "mtls":
 		runMTLS(os.Args[2:])
 	case "tg-alerts":
