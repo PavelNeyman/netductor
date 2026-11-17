@@ -180,3 +180,22 @@ func TestRunCmdPing(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+func TestControlEndpointsOrder(t *testing.T) {
+	c := config{
+		Server:  "https://a.example:8789",
+		Servers: []string{"https://b.example:8789", "https://a.example:8789"},
+	}
+	eps := controlEndpoints(c)
+	if len(eps) != 2 || eps[0] != "https://a.example:8789" || eps[1] != "https://b.example:8789" {
+		t.Fatalf("%v", eps)
+	}
+}
+
+func TestParseSERVERS(t *testing.T) {
+	var c config
+	parseKV("SERVER=https://a:8789\nSERVERS=https://b:8789, https://c:8789\nTOKEN=t\n", &c)
+	if c.Server != "https://a:8789" || len(c.Servers) != 2 {
+		t.Fatalf("%+v", c)
+	}
+}

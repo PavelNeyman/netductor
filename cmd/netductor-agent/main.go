@@ -33,6 +33,7 @@ var mtlsRefreshBackupActive bool
 
 type config struct {
 	Server   string
+	Servers  []string // Phase 3: ordered failover control bases (SERVERS=)
 	Token    string
 	DeviceID string
 	Interval int
@@ -55,6 +56,7 @@ func main() {
 
 Config /etc/netductor-agent/config:
   SERVER=https://vps:8789
+  SERVERS=https://standby:8789   # optional failover list (comma-separated)
   TOKEN=...
   DEVICE_ID=site1
   INTERVAL=60
@@ -79,6 +81,9 @@ Commands (from VPS):
 		os.Exit(1)
 	}
 	cfg.Server = normalizeServerURL(cfg.Server)
+	for i := range cfg.Servers {
+		cfg.Servers[i] = normalizeServerURL(cfg.Servers[i])
+	}
 	if strings.EqualFold(cfg.Role, "build") {
 		runBuildAgent(cfg)
 		return
@@ -101,7 +106,11 @@ Commands (from VPS):
 	}
 	mtlsRefreshFailures := 0
 	for {
-		if err := ensureEnrolled(client, &cfg); err != nil {
+		if err := withControlEndpoint(&cfg, func(ep string) error {
+			c := cfg
+			c.Server = ep
+			return ensureEnrolled(client, &c)
+		}); err != nil {
 			fmt.Fprintf(os.Stderr, "enroll: %v (retry in %s)\n", err, backoff)
 			time.Sleep(backoff)
 			if strings.Contains(err.Error(), "pending") {
@@ -127,8 +136,19 @@ Commands (from VPS):
 		}
 		luciTickAutoDisable()
 		checkRelayAndFallback()
-		if err := heartbeat(client, cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "heartbeat: %v\n", err)
+		if err := withControlEndpoint(&cfg, func(ep string) error {
+			c := cfg
+			c.Server = ep
+			if err := heartbeat(client, c); err != nil {
+				return err
+			}
+			if err := pollCmds(client, c); err != nil {
+				// heartbeat ok but poll failed — still treat as soft error on this endpoint
+				return err
+			}
+			return nil
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "heartbeat/poll: %v\n", err)
 			if mtlsRefreshBackupActive && !agentTLSHandshakeSucceeded.Load() {
 				mtlsRefreshFailures++
 				if mtlsRefreshFailures >= 3 && restoreEdgeMTLSMaterial() {
@@ -141,9 +161,6 @@ Commands (from VPS):
 			}
 		} else {
 			mtlsRefreshFailures = 0
-		}
-		if err := pollCmds(client, cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "poll: %v\n", err)
 		}
 		if mtlsRefreshInstalled {
 			client.CloseIdleConnections()
@@ -350,6 +367,54 @@ func ensureEnrolled(client *http.Client, cfg *config) error {
 	}
 }
 
+
+// controlEndpoints returns ordered unique control bases: preferred SERVER then failover list.
+func controlEndpoints(c config) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) {
+		s = normalizeServerURL(strings.TrimSpace(s))
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	add(c.Server)
+	for _, s := range c.Servers {
+		add(s)
+	}
+	return out
+}
+
+// withControlEndpoint tries fn against each control base until one succeeds.
+// On success, cfg.Server is updated to the working endpoint for subsequent cycles.
+func withControlEndpoint(cfg *config, fn func(server string) error) error {
+	eps := controlEndpoints(*cfg)
+	if len(eps) == 0 {
+		return fmt.Errorf("no control endpoints configured")
+	}
+	var last error
+	for _, ep := range eps {
+		if err := fn(ep); err != nil {
+			last = err
+			if len(eps) > 1 {
+				fmt.Fprintf(os.Stderr, "control %s: %v\n", ep, err)
+			}
+			continue
+		}
+		if cfg.Server != ep {
+			fmt.Fprintf(os.Stderr, "control endpoint active: %s\n", ep)
+			cfg.Server = ep
+		}
+		return nil
+	}
+	if last == nil {
+		last = fmt.Errorf("all control endpoints failed")
+	}
+	return last
+}
+
 func loadConfig() config {
 	c := config{Interval: 60, DeviceID: hostname()}
 	for _, path := range []string{os.Getenv("NETDUCTOR_AGENT_CONF"), "/etc/netductor-agent/config"} {
@@ -403,6 +468,13 @@ func parseKV(s string, c *config) {
 		switch strings.TrimSpace(k) {
 		case "SERVER":
 			c.Server = strings.TrimSpace(v)
+		case "SERVERS", "SERVER_FALLBACK":
+			for _, part := range strings.Split(v, ",") {
+				part = strings.TrimSpace(part)
+				if part != "" {
+					c.Servers = append(c.Servers, part)
+				}
+			}
 		case "TOKEN":
 			c.Token = strings.TrimSpace(v)
 		case "DEVICE_ID":

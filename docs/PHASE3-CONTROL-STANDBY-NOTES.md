@@ -25,3 +25,14 @@ Prefer **encrypted backup pull** already used for offsite rather than inventing 
 ## Non-goal until Phase 2 ops are routine
 
 Multi-master SoT (Phase 5).
+
+## Agent multi-endpoint (shipped scaffold)
+
+Edge agent config:
+
+```text
+SERVER=https://active-control:8789
+SERVERS=https://standby-control:8789
+```
+
+Or `SERVER_FALLBACK=...` (same parse). Ordered try on enroll/heartbeat/poll; sticky `SERVER` updates to the working base in-process. **Does not** promote standby to SoT writer.

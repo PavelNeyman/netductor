@@ -157,7 +157,13 @@ Even with a single writer today — so standby and future replication do not req
 
 ### Phase 3 — Control HA (active / standby)
 
-**Notes:** [PHASE3-CONTROL-STANDBY-NOTES.md](PHASE3-CONTROL-STANDBY-NOTES.md) (SoT dataset list; not implemented).
+**Notes:** [PHASE3-CONTROL-STANDBY-NOTES.md](PHASE3-CONTROL-STANDBY-NOTES.md).
+
+**Progress:**
+- [x] Agent multi-endpoint read path (`SERVER` + `SERVERS` failover)
+- [ ] SoT replicate to standby
+- [ ] Control promote + fencing
+- [ ] DNS/API cutover runbook live test
 
 **Intent:** management plane survives loss of the active control node.
 

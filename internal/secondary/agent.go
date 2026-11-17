@@ -269,7 +269,17 @@ func AgentLoop(coreBase, token string, interval time.Duration) {
 	var lastOK bool
 	var lastLog string
 	for {
-		if err := agentTick(client, coreBase, token, &applied, &lastDone, &lastOK, &lastLog); err != nil {
+		var tickErr error
+		for _, base := range coreEndpointList(coreBase) {
+			tickErr = agentTick(client, base, token, &applied, &lastDone, &lastOK, &lastLog)
+			if tickErr == nil {
+				if base != coreBase {
+					coreBase = base
+				}
+				break
+			}
+		}
+		if err := tickErr; err != nil {
 			consecutiveAgentErrors++
 			fmt.Fprintf(os.Stderr, "agent tick: %v\n", err)
 			if consecutiveAgentErrors >= 3 && !secondaryTLSHandshakeSucceeded.Load() && restorePreviousMTLSMaterial() {
@@ -1412,4 +1422,28 @@ func fileSHA256HexPath(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// coreEndpointList builds control bases for secondary agent (Phase 3 prep).
+// Order: primary coreBase, then NETDUCTOR_CORE_SERVERS / CORE_SERVERS comma list.
+func coreEndpointList(coreBase string) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) {
+		s = strings.TrimRight(strings.TrimSpace(s), "/")
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	add(coreBase)
+	for _, envK := range []string{"NETDUCTOR_CORE_SERVERS", "CORE_SERVERS"} {
+		if v := strings.TrimSpace(os.Getenv(envK)); v != "" {
+			for _, p := range strings.Split(v, ",") {
+				add(p)
+			}
+		}
+	}
+	return out
 }
