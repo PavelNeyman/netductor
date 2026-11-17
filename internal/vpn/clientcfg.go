@@ -164,6 +164,8 @@ func loadOnlineSecondarys() []OnlineSecondary {
 		// Phase 2: user /sub needs a live Reality listener. Heartbeat alone is not enough
 		// (agent can be up while sing-box is down). UplinkOK is service-plane S→P and is
 		// not required for pure client→egress internet, so it only demotes sort order.
+		// Missing/false singbox_ok excludes the peer (zero value after unmarshal). After
+		// primary upgrade, wait one agent heartbeat (~30s) if /sub looks empty.
 		if !d.SingBoxOK {
 			continue
 		}

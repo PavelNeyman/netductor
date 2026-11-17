@@ -170,6 +170,8 @@ func isMutatingMethod(m string) bool {
 }
 
 // apiPathAllowedOnStandby: health/read only; no SoT writes and no agent registration.
+// Agent heartbeats (POST /api/secondary/agent/*, /api/edge/*) stay blocked on standby —
+// agents must target the active control only (do not put standby in SERVERS for agents).
 func apiPathAllowedOnStandby(path, method string) bool {
 	switch path {
 	case "/health", "/healthz", "/api/health", "/api/bot-status":

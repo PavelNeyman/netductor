@@ -28,3 +28,15 @@ Mac: `brew upgrade netductor-op` / `netductor-op update`.
 
 - [RUNBOOK-CLUSTER-STATUS.md](RUNBOOK-CLUSTER-STATUS.md)
 - [RUNBOOK-CONTROL-CUTOVER.md](RUNBOOK-CONTROL-CUTOVER.md)
+
+
+## After stack apply (multi-egress /sub)
+
+`/sub` includes only secondaries with recent heartbeat **and** `singbox_ok=true`.
+If profiles briefly disappear after upgrading primary only, wait ~30–60s for secondary agent heartbeat, or check:
+
+```bash
+netductor secondary status   # sb=true
+```
+
+Do **not** set `control_role=standby` on the sole control node.

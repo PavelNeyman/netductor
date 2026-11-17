@@ -38,11 +38,12 @@ func TestSubscriptionBodyIncludesAllSecondariesAndDropsRemovedPeer(t *testing.T)
 	}
 
 	type device struct {
-		PublicIP string    `json:"public_ip"`
-		PBK      string    `json:"pbk"`
-		SID      string    `json:"sid"`
-		SNI      string    `json:"sni"`
-		LastSeen time.Time `json:"last_seen"`
+		PublicIP  string    `json:"public_ip"`
+		PBK       string    `json:"pbk"`
+		SID       string    `json:"sid"`
+		SNI       string    `json:"sni"`
+		LastSeen  time.Time `json:"last_seen"`
+		SingBoxOK bool      `json:"singbox_ok"`
 	}
 	writeDevices := func(devices ...device) {
 		t.Helper()
@@ -62,8 +63,8 @@ func TestSubscriptionBodyIncludesAllSecondariesAndDropsRemovedPeer(t *testing.T)
 	}
 
 	now := time.Now().UTC()
-	a := device{PublicIP: "203.0.113.11", PBK: "secondary-a-pbk", SID: "a1", SNI: "sni.example.test", LastSeen: now}
-	b := device{PublicIP: "203.0.113.22", PBK: "secondary-b-pbk", SID: "b2", SNI: "sni.example.test", LastSeen: now}
+	a := device{PublicIP: "203.0.113.11", PBK: "secondary-a-pbk", SID: "a1", SNI: "sni.example.test", LastSeen: now, SingBoxOK: true}
+	b := device{PublicIP: "203.0.113.22", PBK: "secondary-b-pbk", SID: "b2", SNI: "sni.example.test", LastSeen: now, SingBoxOK: true}
 	writeDevices(a, b)
 
 	body, err := SubscriptionBody("alice")
@@ -140,7 +141,7 @@ func TestEmptySIDOmitted(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	raw := `{"devices":[{"public_ip":"203.0.113.11","pbk":"secondary-a-pbk","sid":"","sni":"sni.example.test","last_seen":"` + time.Now().UTC().Format(time.RFC3339) + `"}]}`
+	raw := `{"devices":[{"public_ip":"203.0.113.11","pbk":"secondary-a-pbk","sid":"","sni":"sni.example.test","last_seen":"` + time.Now().UTC().Format(time.RFC3339) + `","singbox_ok":true}]}`
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +164,7 @@ func TestShadowrocketKeepsTwoProfilesSameHost(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	raw := `{"devices":[{"public_ip":"203.0.113.11","pbk":"pbk-a","sid":"sid-a","sni":"sni.example.test","last_seen":"` + now + `"},{"public_ip":"203.0.113.12","pbk":"pbk-b","sid":"sid-b","sni":"sni.example.test","last_seen":"` + now + `"}]}`
+	raw := `{"devices":[{"public_ip":"203.0.113.11","pbk":"pbk-a","sid":"sid-a","sni":"sni.example.test","last_seen":"` + now + `","singbox_ok":true},{"public_ip":"203.0.113.12","pbk":"pbk-b","sid":"sid-b","sni":"sni.example.test","last_seen":"` + now + `","singbox_ok":true}]}`
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -204,11 +205,12 @@ func TestSubscriptionPreferredSecondaryFirstAfterPromote(t *testing.T) {
 	}
 	now := time.Now().UTC()
 	type device struct {
-		PublicIP string    `json:"public_ip"`
-		PBK      string    `json:"pbk"`
-		SID      string    `json:"sid"`
-		SNI      string    `json:"sni"`
-		LastSeen time.Time `json:"last_seen"`
+		PublicIP  string    `json:"public_ip"`
+		PBK       string    `json:"pbk"`
+		SID       string    `json:"sid"`
+		SNI       string    `json:"sni"`
+		LastSeen  time.Time `json:"last_seen"`
+		SingBoxOK bool      `json:"singbox_ok"`
 	}
 	path := paths.SecondaryDevicesFile()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -217,8 +219,8 @@ func TestSubscriptionPreferredSecondaryFirstAfterPromote(t *testing.T) {
 	raw, _ := json.Marshal(struct {
 		Devices []device `json:"devices"`
 	}{Devices: []device{
-		{PublicIP: "203.0.113.11", PBK: "pbk-a", SID: "sid-a", SNI: "sni.example", LastSeen: now},
-		{PublicIP: "203.0.113.22", PBK: "pbk-b", SID: "sid-b", SNI: "sni.example", LastSeen: now},
+		{PublicIP: "203.0.113.11", PBK: "pbk-a", SID: "sid-a", SNI: "sni.example", LastSeen: now, SingBoxOK: true},
+		{PublicIP: "203.0.113.22", PBK: "pbk-b", SID: "sid-b", SNI: "sni.example", LastSeen: now, SingBoxOK: true},
 	}})
 	if err := os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatal(err)
@@ -249,8 +251,8 @@ func TestSubscriptionPreferredSecondaryFirstAfterPromote(t *testing.T) {
 	raw2, _ := json.Marshal(struct {
 		Devices []device `json:"devices"`
 	}{Devices: []device{
-		{PublicIP: "203.0.113.22", PBK: "pbk-b", SID: "sid-b", SNI: "sni.example", LastSeen: now},
-		{PublicIP: "203.0.113.33", PBK: "pbk-empty", SID: "", SNI: "sni.example", LastSeen: now},
+		{PublicIP: "203.0.113.22", PBK: "pbk-b", SID: "sid-b", SNI: "sni.example", LastSeen: now, SingBoxOK: true},
+		{PublicIP: "203.0.113.33", PBK: "pbk-empty", SID: "", SNI: "sni.example", LastSeen: now, SingBoxOK: true},
 	}})
 	_ = os.WriteFile(path, raw2, 0o600)
 	body, err = SubscriptionBody("alice")
@@ -281,10 +283,10 @@ func TestSubscriptionOmitsEmptyPBK(t *testing.T) {
 	_ = os.MkdirAll(filepath.Dir(path), 0o700)
 	now := time.Now().UTC()
 	raw, _ := json.Marshal(map[string]any{"devices": []map[string]any{
-		{"public_ip": "203.0.113.9", "pbk": "", "sid": "sid-invalid", "sni": "x", "last_seen": now},
-		{"public_ip": "203.0.113.8", "pbk": "   ", "sid": "sid-ws", "sni": "x", "last_seen": now},
-		{"public_ip": "203.0.113.7", "pbk": "good-pbk", "sid": "   ", "sni": "x", "last_seen": now},
-		{"public_ip": "203.0.113.6", "pbk": "keep-pbk", "sid": "keep-sid", "sni": "x", "last_seen": now},
+		{"public_ip": "203.0.113.9", "pbk": "", "sid": "sid-invalid", "sni": "x", "last_seen": now, "singbox_ok": true},
+		{"public_ip": "203.0.113.8", "pbk": "   ", "sid": "sid-ws", "sni": "x", "last_seen": now, "singbox_ok": true},
+		{"public_ip": "203.0.113.7", "pbk": "good-pbk", "sid": "   ", "sni": "x", "last_seen": now, "singbox_ok": true},
+		{"public_ip": "203.0.113.6", "pbk": "keep-pbk", "sid": "keep-sid", "sni": "x", "last_seen": now, "singbox_ok": true},
 	}})
 	_ = os.WriteFile(path, raw, 0o600)
 	body, err := SubscriptionBody("bob")
@@ -322,8 +324,8 @@ func TestSubscriptionIncludesPreparedPeerBeforePromote(t *testing.T) {
 	_ = os.MkdirAll(filepath.Dir(devicesPath), 0o700)
 	now := time.Now().UTC().Format(time.RFC3339)
 	devices := `{"devices":[
-		{"public_ip":"203.0.113.11","pbk":"pbk-a","sid":"sid-a","sni":"sni.example","last_seen":"` + now + `"},
-		{"public_ip":"203.0.113.22","pbk":"pbk-b","sid":"sid-b","sni":"sni.example","last_seen":"` + now + `"}
+		{"public_ip":"203.0.113.11","pbk":"pbk-a","sid":"sid-a","sni":"sni.example","last_seen":"` + now + `","singbox_ok":true},
+		{"public_ip":"203.0.113.22","pbk":"pbk-b","sid":"sid-b","sni":"sni.example","last_seen":"` + now + `","singbox_ok":true}
 	]}`
 	if err := os.WriteFile(devicesPath, []byte(devices), 0o600); err != nil {
 		t.Fatal(err)
@@ -412,8 +414,9 @@ func TestSubscriptionBodyRegionFragment(t *testing.T) {
 		"pbk":       "pbk-reg",
 		"sid":       "s1",
 		"sni":       "sni.example.test",
-		"region":    "ru-msk",
-		"last_seen": now,
+		"region":     "ru-msk",
+		"last_seen":  now,
+		"singbox_ok": true,
 	}}})
 	path := paths.SecondaryDevicesFile()
 	_ = os.MkdirAll(filepath.Dir(path), 0o700)
