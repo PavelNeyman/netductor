@@ -4,7 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
-	"net/http/httptest	"os"
+	"net/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 )
