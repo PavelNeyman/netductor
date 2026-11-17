@@ -333,6 +333,7 @@ func formatStatusPretty() string {
 
 	// Channel summary (detail screen: m:channel → tables)
 	b.WriteString(formatChannelSummaryHTML())
+	b.WriteString(string([]byte{10}) + formatClusterStatusLine())
 	return b.String()
 }
 
