@@ -46,3 +46,15 @@ func TestFromHostname(t *testing.T) {
 		t.Fatal("no region")
 	}
 }
+
+func TestHostname(t *testing.T) {
+	if Hostname("secondary", "ru-msk") != "nd-egress-ru-msk" {
+		t.Fatal(Hostname("secondary", "ru-msk"))
+	}
+	if !MatchesHostname("nd-egress-ru-msk", "secondary", "ru-msk") {
+		t.Fatal("match")
+	}
+	if !MatchesHostname("nd-secondary-ru-msk", "secondary", "ru-msk") {
+		t.Fatal("legacy match")
+	}
+}

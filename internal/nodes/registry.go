@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/region"
 )
 
 // Node is a managed host in the fleet (VPS, OpenWrt, MikroTik, …).
@@ -340,4 +341,54 @@ func MarkStaleRelays(maxAgeSec int64) {
 	if changed {
 		_ = save(r)
 	}
+}
+
+// EnsureDesiredHostnameFromRegion sets DesiredHN to nd-egress|control-<region>
+// when region is set and hostname is not already compliant. Empty region no-ops.
+// Does not change OS hostname here — agent/sync-local applies DesiredHN.
+func EnsureDesiredHostnameFromRegion(id, role, reg, currentHostname string) (bool, error) {
+	reg = region.Normalize(reg)
+	if reg == "" || !region.Valid(reg) {
+		return false, nil
+	}
+	want := region.Hostname(role, reg)
+	if want == "" {
+		return false, nil
+	}
+	if region.MatchesHostname(currentHostname, role, reg) {
+		return false, nil
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	d, err := load()
+	if err != nil {
+		return false, err
+	}
+	n, ok := d.Nodes[id]
+	if !ok {
+		// create minimal stub so DesiredHN is stored for agent poll
+		n = Node{ID: id, Role: NormalizeRole(role), Kind: "vps", Status: "online"}
+	}
+	if n.DesiredHN == want {
+		return false, nil
+	}
+	// If operator already set a different desired name, do not override
+	if n.DesiredHN != "" && n.DesiredHN != want && !region.MatchesHostname(n.DesiredHN, role, reg) {
+		return false, nil
+	}
+	if region.MatchesHostname(n.Hostname, role, reg) {
+		n.DesiredHN = ""
+		d.Nodes[id] = n
+		return false, save(d)
+	}
+	n.DesiredHN = want
+	n.Updated = time.Now().Unix()
+	if n.Role == "" {
+		n.Role = NormalizeRole(role)
+	}
+	d.Nodes[id] = n
+	if err := save(d); err != nil {
+		return false, err
+	}
+	return true, nil
 }

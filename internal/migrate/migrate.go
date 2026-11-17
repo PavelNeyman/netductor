@@ -242,6 +242,7 @@ func init() {
 		&ensureBaselineDirsMigration{},
 		&ensureInstalledVersionMigration{},
 		&fillSecondaryRegionsMigration{},
+		&ensureSecondaryDesiredHostnameMigration{},
 	}
 }
 

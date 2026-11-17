@@ -121,3 +121,56 @@ func FromHostname(hostname string) string {
 	}
 	return ""
 }
+
+// HostnameRole maps fleet role to hostname token (canonical CF-14 names).
+func HostnameRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "primary", "control", "core":
+		return "control"
+	case "secondary", "egress", "relay":
+		return "egress"
+	case "build":
+		return "build"
+	case "edge":
+		return "edge"
+	default:
+		s := strings.ToLower(strings.TrimSpace(role))
+		if s == "" {
+			return "egress"
+		}
+		return s
+	}
+}
+
+// Hostname builds nd-<role>-<region> (region must already be valid).
+func Hostname(role, reg string) string {
+	reg = Normalize(reg)
+	if reg == "" || !Valid(reg) {
+		return ""
+	}
+	return "nd-" + HostnameRole(role) + "-" + reg
+}
+
+// MatchesHostname reports whether host is already compliant for role+region
+// (exact or legacy nd-secondary-<region> / nd-primary-<region>).
+func MatchesHostname(host, role, reg string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if i := strings.IndexByte(host, '.'); i > 0 {
+		host = host[:i]
+	}
+	reg = Normalize(reg)
+	if host == "" || reg == "" {
+		return false
+	}
+	want := Hostname(role, reg)
+	if host == want {
+		return true
+	}
+	// legacy tokens
+	for _, leg := range []string{"secondary", "primary", "relay", "core"} {
+		if host == "nd-"+leg+"-"+reg {
+			return true
+		}
+	}
+	return FromHostname(host) == reg
+}

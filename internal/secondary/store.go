@@ -19,6 +19,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/region"
 )
 
@@ -924,7 +925,18 @@ func SetRegion(id, reg string) error {
 	for i := range r.Devices {
 		if r.Devices[i].ID == id {
 			r.Devices[i].Region = reg
-			return save(r)
+			if reg != "" {
+				// Keep Name aligned for sub label hints when empty/legacy
+				want := region.Hostname("secondary", reg)
+				if want != "" && (r.Devices[i].Name == "" || region.FromHostname(r.Devices[i].Name) == "") {
+					r.Devices[i].Name = want
+				}
+			}
+			if err := save(r); err != nil {
+				return err
+			}
+			_, _ = nodes.EnsureDesiredHostnameFromRegion(id, "secondary", reg, r.Devices[i].Name)
+			return nil
 		}
 	}
 	return fmt.Errorf("secondary device not found: %s", id)
@@ -962,6 +974,7 @@ func FillEmptyRegionsFromNames() (int, error) {
 	if err := save(r); err != nil {
 		return 0, err
 	}
+	_, _ = ApplyDesiredHostnamesFromRegions()
 	return n, nil
 }
 
@@ -999,6 +1012,57 @@ func CountFillableRegionsFromNames() (int, error) {
 		if region.FromHostname(d.Name) != "" {
 			n++
 		}
+	}
+	return n, nil
+}
+
+// ApplyDesiredHostnamesFromRegions sets nodes.DesiredHN from device.Region.
+func ApplyDesiredHostnamesFromRegions() (int, error) {
+	r, err := load()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, d := range r.Devices {
+		reg := strings.TrimSpace(d.Region)
+		if reg == "" {
+			continue
+		}
+		changed, err := nodes.EnsureDesiredHostnameFromRegion(d.ID, "secondary", reg, d.Name)
+		if err != nil {
+			return n, err
+		}
+		if changed {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// CountDesiredHostnamePending counts secondaries with region but non-compliant hostname desire still needed.
+func CountDesiredHostnamePending() (int, error) {
+	r, err := load()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, d := range r.Devices {
+		reg := strings.TrimSpace(d.Region)
+		if reg == "" {
+			continue
+		}
+		if region.MatchesHostname(d.Name, "secondary", reg) {
+			continue
+		}
+		if nd, ok, _ := nodes.Get(d.ID); ok {
+			if nd.DesiredHN != "" && region.MatchesHostname(nd.DesiredHN, "secondary", reg) {
+				continue
+			}
+			if region.MatchesHostname(nd.Hostname, "secondary", reg) {
+				continue
+			}
+		}
+		n++
 	}
 	return n, nil
 }

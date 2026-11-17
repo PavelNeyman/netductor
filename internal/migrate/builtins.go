@@ -386,3 +386,37 @@ func (m *fillSecondaryRegionsMigration) Verify(ctx context.Context) error {
 	}
 	return nil
 }
+
+type ensureSecondaryDesiredHostnameMigration struct{}
+
+func (m *ensureSecondaryDesiredHostnameMigration) ID() string {
+	return "2026-11-secondary-desired-hostname-from-region"
+}
+func (m *ensureSecondaryDesiredHostnameMigration) Description() string {
+	return "Set nodes desired_hostname nd-egress-<region> when region set and hostname non-compliant"
+}
+func (m *ensureSecondaryDesiredHostnameMigration) Required(ctx context.Context) (bool, error) {
+	return secondaryDesiredHostnameWorkLeft()
+}
+func (m *ensureSecondaryDesiredHostnameMigration) Apply(ctx context.Context) error {
+	_, err := secondary.ApplyDesiredHostnamesFromRegions()
+	return err
+}
+func (m *ensureSecondaryDesiredHostnameMigration) Verify(ctx context.Context) error {
+	need, err := secondaryDesiredHostnameWorkLeft()
+	if err != nil {
+		return nil
+	}
+	if need {
+		return fmt.Errorf("desired hostname still pending for some secondaries")
+	}
+	return nil
+}
+
+func secondaryDesiredHostnameWorkLeft() (bool, error) {
+	n, err := secondary.CountDesiredHostnamePending()
+	if err != nil {
+		return false, nil
+	}
+	return n > 0, nil
+}
