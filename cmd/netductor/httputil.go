@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PavelNeyman/netductor/internal/controlplane"
 	"github.com/PavelNeyman/netductor/internal/session"
 )
 
@@ -137,6 +138,15 @@ func safeAttachmentFilename(name string) string {
 func apiSessionGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		// Phase 3: control standby fences mutating requests (incl. agent plane) until promote.
+		if !controlplane.WriteAllowed() && isMutatingMethod(r.Method) && !apiPathAllowedOnStandby(path, r.Method) {
+			securityHeaders(w)
+			writeJSON(w, 503, map[string]string{
+				"error":   "control_standby",
+				"message": "this node is control standby; run: netductor control promote --confirm",
+			})
+			return
+		}
 		if apiPathExemptFromSession(path) {
 			next.ServeHTTP(w, r)
 			return
@@ -148,6 +158,27 @@ func apiSessionGate(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isMutatingMethod(m string) bool {
+	switch m {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+// apiPathAllowedOnStandby: health/read only; no SoT writes and no agent registration.
+func apiPathAllowedOnStandby(path, method string) bool {
+	switch path {
+	case "/health", "/healthz", "/api/health", "/api/bot-status":
+		return true
+	}
+	if method == http.MethodGet || method == http.MethodHead {
+		return true
+	}
+	return false
 }
 
 func apiPathExemptFromSession(path string) bool {

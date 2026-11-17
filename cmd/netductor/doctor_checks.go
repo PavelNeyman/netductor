@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/aptguard"
+	"github.com/PavelNeyman/netductor/internal/controlplane"
 	"github.com/PavelNeyman/netductor/internal/channels"
 	"github.com/PavelNeyman/netductor/internal/ci"
 	"github.com/PavelNeyman/netductor/internal/cli18n"
@@ -175,6 +176,17 @@ func doctorRunChecks(h doctorHooks) {
 		for _, is := range bl.Issues {
 			doctorPrintf("WARN host baseline: %s\n", is)
 			(*h.warn)++
+		}
+	}
+
+	{
+		r := controlplane.Get()
+		if r == controlplane.RoleStandby {
+			doctorPrintf("WARN control_role=standby (API writes fenced until: netductor control promote --confirm)\n")
+			(*h.warn)++
+		} else {
+			doctorPrintf("OK   control_role=%s write_allowed=%v\n", r, controlplane.WriteAllowed())
+			(*h.ok)++
 		}
 	}
 

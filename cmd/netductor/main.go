@@ -78,6 +78,8 @@ func main() {
 		runSites(os.Args[2:])
 	case "nodes":
 		runNodes(os.Args[2:])
+	case "control":
+		runControl(os.Args[2:])
 	case "mtls":
 		runMTLS(os.Args[2:])
 	case "tg-alerts":
