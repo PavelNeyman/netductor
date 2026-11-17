@@ -1,5 +1,20 @@
 ## 0.9.726
 
+## 0.9.757
+
+### Added
+- Fleet mesh Phases 0–4: region/capabilities, multi-egress `/sub` (`singbox_ok` + prefer), control active/standby fence + sync inbox/timer, cluster/node status API+CLI+TG+Web, egress thin local status `127.0.0.1:8791`.
+- Docs: PLAN-FLEET-MESH-EVOLUTION, RUNBOOK-CLUSTER-STATUS, UPGRADE-SAFETY-PHASE3-4 (EN/RU).
+
+### Fixed
+- Subscription tests aligned with `singbox_ok` filter; upgrade notes for brief `/sub` gap until secondary heartbeat.
+
+### Notes
+- Default `control_role` remains **active** (single control unchanged).
+- Phase 5 multi-master not included.
+- After apply: confirm `secondary status` sb=true before relying on `/sub`.
+
+
 ### Fixed
 - Uplink AB aligned with sing-box 1.12 docs: WG peers `address`+`port` (never `endpoint`); WG only as `endpoints[]`.
 - AB WS/gRPC/AnyTLS use self-signed TLS certs (not Reality on non-TCP transports).
