@@ -53,3 +53,29 @@ Role file: `/var/lib/netductor/control_role` (`active`|`standby`).
 Optional: `/etc/netductor/control_endpoints` (one URL per line).
 
 **Still open:** continuous SoT replicate; DNS cutover; automatic promote.
+
+
+## SoT pull to standby inbox (scaffold)
+
+On **active**:
+
+```bash
+netductor control token-init
+# copy /etc/netductor/secrets/control_standby_token to standby
+netductor backup now   # ensure a fresh .ndenc exists
+```
+
+On **standby**:
+
+```bash
+netductor control set-role standby --confirm
+export NETDUCTOR_CONTROL_SYNC_URL=https://ACTIVE:8789
+# token in secrets/control_standby_token
+netductor control sync-pull
+# disaster:
+netductor control restore-inbox --key "$BACKUP_KEY" --confirm
+netductor control promote --confirm
+# fence old active
+```
+
+`GET /api/control/backup/latest` on active (session or control_standby_token). Standby only stores archives under `…/backups/control-inbox/` until explicit restore.
