@@ -138,6 +138,16 @@ func runSecondary(args []string) {
 		}
 		_ = nodes.Delete(args[1])
 		fmt.Println("removed", args[1])
+	case "local-status", "thin-status":
+		st := secondary.CollectLocalStatus()
+		if o.JSON {
+			b, _ := json.MarshalIndent(st, "", "  ")
+			fmt.Println(string(b))
+			return
+		}
+		fmt.Printf("role=%s host=%s ver=%s ip=%s sb=%v uplink=%v agent=%s\n",
+			st.Role, st.Hostname, st.Version, st.PublicIP, st.SingBoxOK, st.UplinkOK, st.AgentUnit)
+		fmt.Println("hint: curl -sS http://127.0.0.1:8791/status  # while secondary agent runs")
 	case "agent":
 		if os.Getenv("NETDUCTOR_SKIP_MIGRATE") != "1" {
 			if _, merr := migrate.RunAll(context.Background()); merr != nil {

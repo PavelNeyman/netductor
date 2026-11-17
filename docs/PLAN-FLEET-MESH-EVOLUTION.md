@@ -192,7 +192,7 @@ Even with a single writer today — so standby and future replication do not req
 - [x] SoT writes already fail closed on control standby (Phase 3 fence)
 - [x] Cluster view API+CLI (`GET /api/cluster/status`, `cluster status`) from self + secondary registry
 - [ ] Web/TG UI cards wired to cluster status (catalog entry present)
-- [ ] Members without full control stack (egress-only thin API) — after hardware path exists
+- [x] Egress thin local status (`127.0.0.1:8791/status`, `secondary local-status`) — no SoT mutations
 
 **Work**
 

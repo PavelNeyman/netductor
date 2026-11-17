@@ -247,6 +247,7 @@ func scrapeLocalUserTraffic() []UserTraffic {
 func AgentLoop(coreBase, token string, interval time.Duration) {
 	vpn.EnsureReverseBridge()
 	go StartRecoveryServer()
+	StartLocalStatusServer()
 	if interval < 10*time.Second {
 		interval = 30 * time.Second
 	}
