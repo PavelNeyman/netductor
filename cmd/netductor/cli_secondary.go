@@ -399,7 +399,7 @@ func runSecondary(args []string) {
 			return
 		}
 		if len(args) < 3 {
-			fmt.Fprintln(os.Stderr, "usage: netductor secondary region <id> <eu|ru|…>")
+			fmt.Fprintln(os.Stderr, "usage: netductor secondary region <id> <ru-msk|fi-hel|…> (or legacy ru|eu)")
 			os.Exit(2)
 		}
 		if err := secondary.SetRegion(args[1], args[2]); err != nil {

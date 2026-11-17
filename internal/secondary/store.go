@@ -19,6 +19,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/region"
 )
 
 type UserTraffic struct {
@@ -32,7 +33,7 @@ type Device struct {
 	ID            string         `json:"id"`
 	Token         string         `json:"token"` // agent auth
 	Name          string         `json:"name"`
-	Region        string         `json:"region,omitempty"` // CF-14 geo label e.g. eu, ru
+	Region        string         `json:"region,omitempty"` // CF-14 placement e.g. ru-msk (or legacy ru)
 	PublicIP      string         `json:"public_ip"`
 	PBK           string         `json:"pbk"`
 	SID           string         `json:"sid"`
@@ -902,9 +903,13 @@ func sanitizeID(id string) string {
 }
 
 // SetRegion sets CF-14 region label on a secondary device (eu, ru, …).
-func SetRegion(id, region string) error {
+func SetRegion(id, reg string) error {
 	id = strings.TrimSpace(id)
-	region = strings.TrimSpace(strings.ToLower(region))
+	var err error
+	reg, err = region.Parse(reg)
+	if err != nil {
+		return err
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	unlock, lockErr := acquireRegistryLock()
@@ -918,7 +923,7 @@ func SetRegion(id, region string) error {
 	}
 	for i := range r.Devices {
 		if r.Devices[i].ID == id {
-			r.Devices[i].Region = region
+			r.Devices[i].Region = reg
 			return save(r)
 		}
 	}

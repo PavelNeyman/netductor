@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/region"
 )
 
 // ClientEndpoints holds resolved core + preferred relay for a user.
@@ -29,12 +30,24 @@ type ClientEndpoints struct {
 
 type relayDevFile struct {
 	Devices []struct {
+		Name     string    `json:"name"`
+		Region   string    `json:"region"`
 		PublicIP string    `json:"public_ip"`
 		PBK      string    `json:"pbk"`
 		SID      string    `json:"sid"`
 		SNI      string    `json:"sni"`
 		LastSeen time.Time `json:"last_seen"`
 	} `json:"devices"`
+}
+
+// OnlineSecondary is one live egress candidate for client links / subscription.
+type OnlineSecondary struct {
+	Host     string
+	PBK      string
+	SID      string
+	SNI      string
+	PublicIP string
+	Region   string
 }
 
 func preferredSecondaryIP() string {
@@ -97,7 +110,12 @@ func activeServicePlanePeers() (allowed map[string]bool, activeIP string, presen
 	return allowed, activeIP, true
 }
 
-func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
+
+func regionFromName(name string) string {
+	return region.FromHostname(name)
+}
+
+func loadOnlineSecondarys() []OnlineSecondary {
 	b, err := os.ReadFile(paths.SecondaryDevicesFile())
 	if err != nil {
 		return nil
@@ -108,8 +126,7 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 	}
 	now := time.Now().UTC()
 	activePeers, activeIP, hasPeerRegistry := activeServicePlanePeers()
-	type row struct{ Host, PBK, SID, SNI, PublicIP string }
-	var out []row
+	var out []OnlineSecondary
 	for _, d := range f.Devices {
 		d.PublicIP = strings.TrimSpace(d.PublicIP)
 		// Heartbeat proves liveness. Registry, when present, allows the active
@@ -139,11 +156,18 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 				host = h
 			}
 		}
-		out = append(out, row{host, d.PBK, d.SID, sniName, d.PublicIP})
+		reg := strings.TrimSpace(d.Region)
+		if reg == "" {
+			// Display-only hints from device name / hostname-shaped name (no write).
+			if r := regionFromName(d.Name); r != "" {
+				reg = r
+			}
+		}
+		out = append(out, OnlineSecondary{host, d.PBK, d.SID, sniName, d.PublicIP, reg})
 	}
 	// Preferred public IP first (migration / dual-S policy).
 	if pref := preferredSecondaryIP(); pref != "" && len(out) > 1 {
-		var head, tail []row
+		var head, tail []OnlineSecondary
 		for _, r := range out {
 			if r.PublicIP == pref {
 				head = append(head, r)
@@ -153,11 +177,7 @@ func loadOnlineSecondarys() []struct{ Host, PBK, SID, SNI, PublicIP string } {
 		}
 		out = append(head, tail...)
 	}
-	res := make([]struct{ Host, PBK, SID, SNI, PublicIP string }, len(out))
-	for i, r := range out {
-		res[i] = struct{ Host, PBK, SID, SNI, PublicIP string }{r.Host, r.PBK, r.SID, r.SNI, r.PublicIP}
-	}
-	return res
+	return out
 }
 
 func loadOnlineSecondary() (host, pbk, sid, sniName string) {
@@ -207,6 +227,10 @@ func ClientLinkForSecondaryProfile(name, uuid, relayIP, pbk, sid, sniName, profi
 	profileLabel = strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
 			(r >= '0' && r <= '9') || r == '-' || r == '_' {
+			return r
+		}
+		// Unicode regional-indicator symbols (flag emoji halves)
+		if r >= 0x1F1E6 && r <= 0x1F1FF {
 			return r
 		}
 		return '-'

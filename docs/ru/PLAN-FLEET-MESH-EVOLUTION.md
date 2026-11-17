@@ -113,3 +113,11 @@ Region на peer/node, capabilities (хотя бы флаги), подписи �
 - Оператор **не** ставит каждый релиз: миграции и floors обязаны переживать skip-version.
 - Смена стандартов (hostname `nd-<role>-<region>`, region, capabilities, baseline) → **миграция / host-baseline**, не только доки; существующие ноды и роутеры сходятся после update.
 - Работа по этому плану: коммиты в `main` **без** обязательного GitHub Release на каждый шаг; релиз — пакетом или когда без нового бинаря нельзя безопасно обновиться.
+
+## Sub / VLESS: region в имени профиля (зафиксировано 2026-11-17)
+
+- В fragment URI — **region + флаг** (`#🇷🇺-ru-msk`), **роль не указывать**.
+- Источник: поле `region` на peer (оператор: деплой / `secondary region`); пусто → legacy IP-label.
+- Hostname `nd-*-ru-msk` может **подсказать** region для label (и migrate backfill), IP-geo только suggest в UI.
+- Обновление без интерактива: не спрашивать в stack apply; doctor / day-2 set.
+- Смена только fragment: sub refresh подхватывает имя; UUID/endpoint не трогаем.

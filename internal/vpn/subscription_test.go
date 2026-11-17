@@ -380,3 +380,54 @@ func TestSubscriptionIncludesPreparedPeerBeforePromote(t *testing.T) {
 		t.Fatalf("removed peer must not be advertised: %q", body)
 	}
 }
+
+
+func TestSubscriptionBodyRegionFragment(t *testing.T) {
+	root := t.TempDir()
+	etcDir := filepath.Join(root, "etc")
+	stateDir := filepath.Join(root, "state")
+	t.Setenv("NETDUCTOR_ETC", etcDir)
+	t.Setenv("NETDUCTOR_STATE", stateDir)
+	t.Setenv("NETDUCTOR_VPN_HOST", "vpn.example.test")
+	if err := os.MkdirAll(filepath.Join(etcDir, "secrets"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for name, value := range map[string]string{
+		"singbox_reality_public": "core-pbk",
+		"singbox_short_id":       "core-sid",
+	} {
+		if err := os.WriteFile(filepath.Join(etcDir, "secrets", name), []byte(value), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(etcDir, "vpn-users.json"), []byte(
+		`{"users":[{"name":"alice","uuid":"00000000-0000-0000-0000-000000000001","enabled":true,"sub_profile":"secondary"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	raw, _ := json.Marshal(struct {
+		Devices []map[string]any `json:"devices"`
+	}{Devices: []map[string]any{{
+		"public_ip": "203.0.113.50",
+		"pbk":       "pbk-reg",
+		"sid":       "s1",
+		"sni":       "sni.example.test",
+		"region":    "ru-msk",
+		"last_seen": now,
+	}}})
+	path := paths.SecondaryDevicesFile()
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body, err := SubscriptionBody("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, "#🇷🇺-ru-msk") {
+		t.Fatalf("want region fragment in %q", body)
+	}
+	if strings.Contains(body, "nd-secondary-203") {
+		t.Fatalf("should not use IP label when region set: %q", body)
+	}
+}

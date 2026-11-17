@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/PavelNeyman/netductor/internal/region"
 )
 
 // Sub profiles control what the subscription URL serves (client auto-refresh).
@@ -57,15 +59,9 @@ func SetSubProfile(name, profile string) error {
 	return WriteSubscriptionFiles(name)
 }
 
-// secondaryProfileLabel is a stable URI-fragment label. Public IP is a label only.
-func secondaryProfileLabel(publicIP string, index int) string {
-	label := strings.NewReplacer(".", "-", ":", "-", "[", "", "]", "", "%", "-").
-		Replace(strings.TrimSpace(publicIP))
-	label = strings.Trim(label, "-")
-	if label == "" {
-		label = fmt.Sprintf("%d", index+1)
-	}
-	return "nd-secondary-" + label
+// secondaryProfileLabel is a URI-fragment label: region (+ flag) when set, else IP-based legacy.
+func secondaryProfileLabel(reg, publicIP string, index int) string {
+	return region.ProfileFragment(reg, publicIP, index)
 }
 
 func uniqueProfileLabel(base string, used map[string]int) string {
@@ -99,7 +95,7 @@ func SubscriptionBody(name string) (string, error) {
 	usedLabels := make(map[string]int)
 	var abRelayIP, abPBK, abSID, abSNI string
 	for i, sec := range loadOnlineSecondarys() {
-		label := uniqueProfileLabel(secondaryProfileLabel(sec.PublicIP, i), usedLabels)
+		label := uniqueProfileLabel(secondaryProfileLabel(sec.Region, sec.PublicIP, i), usedLabels)
 		link := strings.TrimSpace(ClientLinkForSecondaryProfile(
 			name, u.UUID, sec.Host, sec.PBK, sec.SID, sec.SNI,
 			label,

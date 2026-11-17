@@ -96,7 +96,16 @@ Even with a single writer today — so standby and future replication do not req
 
 ---
 
-### Phase 1 — Naming, region, capabilities (schema)
+#
+## Sub / VLESS profile labels (locked 2026-11-17)
+
+- URI fragment uses **region + flag** (`#🇷🇺-ru-msk`); **do not** put role in the fragment.
+- Source of truth: peer `region` (operator at deploy / `secondary region`); empty → legacy IP-based label.
+- Hostname `nd-*-ru-msk` may **hint** region for labels and migrate backfill; IP geolocation is UI suggest only.
+- No interactive prompts during `stack apply`; residual empty region → doctor / day-2 set.
+- Label-only change: subscription refresh updates names; UUID/endpoints unchanged (manual single-link imports keep old display name until re-added).
+
+## Phase 1 — Naming, region, capabilities (schema)
 
 **Intent:** node is a unit with labels; not only “VPN secondary”.
 
