@@ -32,6 +32,7 @@ func buildAPIMux() http.Handler {
 	registerAddonsAPI(mux)
 	registerSecondaryAPI(mux)
 	registerControlAPI(mux)
+	registerNodeAPI(mux)
 	registerSSHHostsAPI(mux)
 	registerEdgeAPI(mux)
 	registerNVRAPI(mux)

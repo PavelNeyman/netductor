@@ -184,7 +184,7 @@ func apiPathAllowedOnStandby(path, method string) bool {
 func apiPathExemptFromSession(path string) bool {
 	switch path {
 	case "/health", "/healthz", "/api/health", "/api/bot-status", "/api/session/issue",
-		"/api/control/status", "/api/control/backup/latest":
+		"/api/control/status", "/api/control/backup/latest", "/api/node/leader":
 		return true
 	case "/api/edge/enroll", "/api/edge/heartbeat", "/api/edge/commands",
 		"/api/edge/cmd_result", "/api/edge/mtls/material", "/api/edge/metrics",

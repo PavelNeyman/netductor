@@ -187,6 +187,12 @@ Even with a single writer today — so standby and future replication do not req
 
 **Intent:** every node exposes local day-2 API; cluster writes still single-writer.
 
+**Progress:**
+- [x] Thin local read: `GET /api/node/status` (session), `GET /api/node/leader`, CLI `node-status`
+- [x] SoT writes already fail closed on control standby (Phase 3 fence)
+- [ ] Op/Web/TG cluster view aggregating multiple node/status
+- [ ] Members without full control stack (egress-only thin API) — after hardware path exists
+
 **Work**
 
 1. Thin node API on members (doctor, local services, agent status) — extend existing agent/node surfaces.
