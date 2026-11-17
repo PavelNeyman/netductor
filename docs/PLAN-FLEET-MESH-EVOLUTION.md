@@ -132,8 +132,9 @@ Even with a single writer today — so standby and future replication do not req
 **Progress:**
 - [x] Multiple online secondaries in `/sub` (active + prepared/ready)
 - [x] Region labels on profiles
-- [ ] Health-driven drop from sub (beyond heartbeat age)
-- [ ] Automatic preferred failover without promote (policy)
+- [x] Health-driven drop from sub (require singbox_ok from heartbeat)
+- [x] Preferred IP order for /sub (`secondary prefer`); uplink_ok demotes sort only
+- [ ] Auto-promote / DNS cutover still manual
 
 **Intent:** first real “mesh” users care about — VPN survives loss of one entry node.
 

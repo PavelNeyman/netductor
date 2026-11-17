@@ -26,7 +26,7 @@ func runSecondary(args []string) {
 	o := parseCLIOpts(args)
 	if len(o.Rest) < 1 || o.Help {
 		fmt.Fprintln(os.Stderr, cli18n.T("secondary.usage"))
-		fmt.Fprintln(os.Stderr, "flags: --json (status); --dry-run (mutations: remove/prune/join/export/region)")
+		fmt.Fprintln(os.Stderr, "flags: --json (status); --dry-run (mutations: remove/prune/join/export/region/prefer)")
 		os.Exit(2)
 	}
 	args = o.Rest
@@ -394,6 +394,28 @@ func runSecondary(args []string) {
 		_ = vpn.ApplyConfig()
 		fmt.Println("exit_enabled", on)
 		fmt.Println("sing-box re-applied on core; relays will sync on next agent poll")
+	case "prefer":
+		if refuseIfDryRun(o, "secondary prefer") {
+			return
+		}
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor secondary prefer <ip|clear>")
+			fmt.Fprintln(os.Stderr, "  orders /sub profiles (preferred first); does not promote peer")
+			os.Exit(2)
+		}
+		ip := strings.TrimSpace(args[1])
+		if ip == "clear" || ip == "-" || ip == "none" {
+			ip = ""
+		}
+		if err := vpn.SetPreferredSecondaryIP(ip); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if ip == "" {
+			fmt.Println("preferred_secondary_ip cleared")
+		} else {
+			fmt.Println("preferred_secondary_ip", ip)
+		}
 	case "region":
 		if refuseIfDryRun(o, "secondary region") {
 			return

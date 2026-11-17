@@ -30,13 +30,15 @@ type ClientEndpoints struct {
 
 type relayDevFile struct {
 	Devices []struct {
-		Name     string    `json:"name"`
-		Region   string    `json:"region"`
-		PublicIP string    `json:"public_ip"`
-		PBK      string    `json:"pbk"`
-		SID      string    `json:"sid"`
-		SNI      string    `json:"sni"`
-		LastSeen time.Time `json:"last_seen"`
+		Name      string    `json:"name"`
+		Region    string    `json:"region"`
+		PublicIP  string    `json:"public_ip"`
+		PBK       string    `json:"pbk"`
+		SID       string    `json:"sid"`
+		SNI       string    `json:"sni"`
+		SingBoxOK bool      `json:"singbox_ok"`
+		UplinkOK  bool      `json:"uplink_ok"`
+		LastSeen  time.Time `json:"last_seen"`
 	} `json:"devices"`
 }
 
@@ -48,6 +50,7 @@ type OnlineSecondary struct {
 	SNI      string
 	PublicIP string
 	Region   string
+	UplinkOK bool
 }
 
 func preferredSecondaryIP() string {
@@ -63,6 +66,21 @@ func preferredSecondaryIP() string {
 	}
 	return ""
 }
+
+// SetPreferredSecondaryIP writes operator preference for /sub profile order (empty clears).
+func SetPreferredSecondaryIP(ip string) error {
+	ip = strings.TrimSpace(ip)
+	path := filepath.Join(paths.EtcDir(), "preferred_secondary_ip")
+	if ip == "" {
+		_ = os.Remove(path)
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(ip+"\n"), 0o600)
+}
+
 
 // activeServicePlanePeers returns public IPs that may appear in /sub and the
 // active peer's public IP (for stable VPN hostname advertising).
@@ -143,6 +161,12 @@ func loadOnlineSecondarys() []OnlineSecondary {
 		if d.LastSeen.IsZero() || now.Sub(d.LastSeen) > 3*time.Minute {
 			continue
 		}
+		// Phase 2: user /sub needs a live Reality listener. Heartbeat alone is not enough
+		// (agent can be up while sing-box is down). UplinkOK is service-plane S→P and is
+		// not required for pure client→egress internet, so it only demotes sort order.
+		if !d.SingBoxOK {
+			continue
+		}
 		sniName := d.SNI
 		if sniName == "" {
 			sniName = DefaultRealitySNI
@@ -163,19 +187,23 @@ func loadOnlineSecondarys() []OnlineSecondary {
 				reg = r
 			}
 		}
-		out = append(out, OnlineSecondary{host, d.PBK, d.SID, sniName, d.PublicIP, reg})
+		out = append(out, OnlineSecondary{host, d.PBK, d.SID, sniName, d.PublicIP, reg, d.UplinkOK})
 	}
-	// Preferred public IP first (migration / dual-S policy).
-	if pref := preferredSecondaryIP(); pref != "" && len(out) > 1 {
-		var head, tail []OnlineSecondary
+	// Preferred public IP first, then uplink-healthy, then the rest (stable order within buckets).
+	pref := preferredSecondaryIP()
+	if len(out) > 1 {
+		var head, mid, tail []OnlineSecondary
 		for _, r := range out {
-			if r.PublicIP == pref {
+			switch {
+			case pref != "" && r.PublicIP == pref:
 				head = append(head, r)
-			} else {
+			case r.UplinkOK:
+				mid = append(mid, r)
+			default:
 				tail = append(tail, r)
 			}
 		}
-		out = append(head, tail...)
+		out = append(head, append(mid, tail...)...)
 	}
 	return out
 }
