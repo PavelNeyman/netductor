@@ -16,6 +16,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/git"
 	"github.com/PavelNeyman/netductor/internal/hardening"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/migrate"
@@ -385,6 +386,13 @@ func doctorRunChecks(h doctorHooks) {
 		secReg := h.exists(paths.SecondaryDevicesFile())
 		if secReg {
 			doctorPrintln(cli18n.T("doctor.secondary_reg"))
+			if missing := secondary.OnlineMissingRegion(3 * time.Minute); len(missing) > 0 {
+				doctorPrintf("WARN secondary region unset (%d online): set via netductor secondary region <id> <ru-msk> for sub flags\n", len(missing))
+				(*h.warn)++
+			} else {
+				doctorPrintln("OK   secondary region labels")
+				(*h.ok)++
+			}
 		} else {
 			h.warnCheck("secondary registry", false)
 		}

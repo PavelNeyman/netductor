@@ -929,3 +929,76 @@ func SetRegion(id, reg string) error {
 	}
 	return fmt.Errorf("secondary device not found: %s", id)
 }
+
+// FillEmptyRegionsFromNames sets region from device Name when empty and Name
+// parses as nd-<role>-<cc-city>. Returns number of devices updated.
+func FillEmptyRegionsFromNames() (int, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	unlock, lockErr := acquireRegistryLock()
+	if lockErr != nil {
+		return 0, lockErr
+	}
+	defer unlock()
+	r, err := load()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for i := range r.Devices {
+		if strings.TrimSpace(r.Devices[i].Region) != "" {
+			continue
+		}
+		reg := region.FromHostname(r.Devices[i].Name)
+		if reg == "" {
+			continue
+		}
+		r.Devices[i].Region = reg
+		n++
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	if err := save(r); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// OnlineMissingRegion returns ids of recently-seen devices without region (doctor).
+func OnlineMissingRegion(maxAge time.Duration) []string {
+	r, err := load()
+	if err != nil {
+		return nil
+	}
+	now := time.Now().UTC()
+	var out []string
+	for _, d := range r.Devices {
+		if strings.TrimSpace(d.Region) != "" {
+			continue
+		}
+		if d.LastSeen.IsZero() || now.Sub(d.LastSeen) > maxAge {
+			continue
+		}
+		out = append(out, d.ID)
+	}
+	return out
+}
+
+// CountFillableRegionsFromNames counts devices that would gain region from Name.
+func CountFillableRegionsFromNames() (int, error) {
+	r, err := load()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, d := range r.Devices {
+		if strings.TrimSpace(d.Region) != "" {
+			continue
+		}
+		if region.FromHostname(d.Name) != "" {
+			n++
+		}
+	}
+	return n, nil
+}

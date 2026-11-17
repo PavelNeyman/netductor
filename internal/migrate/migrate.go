@@ -241,6 +241,7 @@ func init() {
 		&ensureVPNDirsMigration{},
 		&ensureBaselineDirsMigration{},
 		&ensureInstalledVersionMigration{},
+		&fillSecondaryRegionsMigration{},
 	}
 }
 

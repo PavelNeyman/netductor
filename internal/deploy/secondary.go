@@ -47,6 +47,8 @@ type SecondaryOpts struct {
 	Promote bool
 	// PeerID overrides the default peer-<ip>. Required after a removed peer reused the same IP.
 	PeerID string
+	// Region is CF-14 placement (ru-msk). Written on primary after successful deploy.
+	Region string
 	// ViaPrimary is ignored (deprecated). Always Mac-direct.
 	ViaPrimary bool
 }
@@ -1167,6 +1169,15 @@ fi
 
 	if err := checkpointDeployComplete(&prev, peerID, pack.AgentID, o.SecondaryHost); err != nil {
 		return err
+	}
+
+	if reg := strings.TrimSpace(o.Region); reg != "" && pack.AgentID != "" {
+		cmd := fmt.Sprintf("netductor secondary region %s %s", shellQuote(pack.AgentID), shellQuote(reg))
+		if outR, errR := runSSHOnPort(pPort, "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, cmd, o.PrimaryKeyPassphrase); errR != nil {
+			fmt.Fprintf(os.Stderr, "warn: set region on primary: %v (%s)\n", errR, strings.TrimSpace(outR))
+		} else {
+			fmt.Fprintf(os.Stderr, "==> region %s → %s\n", pack.AgentID, reg)
+		}
 	}
 
 	fmt.Fprintln(os.Stderr, "==> peer remains prepared and excluded from /sub; test client Reality traffic, then peer validate/ready/promote", peerID)

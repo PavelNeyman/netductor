@@ -231,7 +231,7 @@ See [POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md).
 | Phase | Status |
 |-------|--------|
 | 0 Docs / ADR | in progress (this file + ADR update) |
-| 1 Schema region/capabilities | not started |
+| 1 Schema region/capabilities | in progress (region labels, SetRegion, UI field, migrate backfill, doctor) |
 | 2 Multi-egress data-plane | partial (peers/slots exist; productize health→sub) |
 | 3 Control HA | not started |
 | 4 Node API / leader | not started |

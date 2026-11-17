@@ -108,6 +108,7 @@ func SecondaryFromFields(get FieldGetter) SecondarySpec {
 		SSHMode:              mode,
 		PrimarySSHPort:       mustSSHPort(get("primary_ssh_port")),
 		PeerID:               get("peer_id"),
+		Region:              get("region"),
 		SNI:                  orDefault(get("sni"), "api.vk.me"),
 		PrimaryKeyPassphrase: get("key_pass"),
 	}

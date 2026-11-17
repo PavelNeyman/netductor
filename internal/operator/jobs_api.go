@@ -433,6 +433,9 @@ func runSecondaryDeploy(ctx context.Context, j *jobs.Job, appendLog func(string)
 	if s.SNI == "" {
 		s.SNI = strParam(j.Params, "sni", "SNI")
 	}
+	if s.Region == "" {
+		s.Region = strParam(j.Params, "region", "Region")
+	}
 	if s.SecondaryPass == "" {
 		s.SecondaryPass = strParam(j.Params, "secondary_password", "SecondaryPass", "password", "sec_password")
 	}

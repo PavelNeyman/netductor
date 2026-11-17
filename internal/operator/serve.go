@@ -477,6 +477,7 @@ type fleetJSON struct {
 	SecondaryHost     string `json:"secondary_host"`
 	SecondaryUser     string `json:"secondary_user"`
 	SecondaryPassword string `json:"secondary_password"`
+	Region            string `json:"region"`
 	DomainBase        string `json:"domain_base"`
 	DomainPrimary     string `json:"domain_primary"`
 	DomainVPN         string `json:"domain_vpn"`
@@ -529,6 +530,7 @@ type secondaryJSON struct {
 	SecondaryHost     string `json:"secondary_host"`
 	SecondaryUser     string `json:"secondary_user"`
 	SecondaryPassword string `json:"secondary_password"`
+	Region            string `json:"region"`
 	SNI               string `json:"sni"`
 }
 
@@ -625,6 +627,7 @@ func handleFleet(w http.ResponseWriter, r *http.Request, token string) {
 		},
 		Secondary: SecondarySpec{
 			SecondaryHost: body.SecondaryHost, SecondaryUser: su, SecondaryPass: body.SecondaryPassword,
+			Region:               body.Region,
 			SNI:                  orDefault(body.SNI, "api.vk.me"),
 			PrimaryKeyPassphrase: body.KeyPassphrase,
 		},
@@ -713,7 +716,7 @@ func handleSecondary(w http.ResponseWriter, r *http.Request, token string) {
 		PrimaryHost: body.PrimaryHost, PrimaryUser: orDefault(body.PrimaryUser, "root"),
 		PrimaryKey: key, PrimaryKeyPassphrase: body.PrimaryKeyPass,
 		SecondaryHost: body.SecondaryHost, SecondaryUser: orDefault(body.SecondaryUser, "root"),
-		SecondaryPass: body.SecondaryPassword, SNI: orDefault(body.SNI, "api.vk.me"),
+		SecondaryPass: body.SecondaryPassword, Region: body.Region, SNI: orDefault(body.SNI, "api.vk.me"),
 	}
 	fl, okf := streamStart(w)
 	rep := streamRep(w, fl, okf)

@@ -11,6 +11,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/firewall"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/secondary"
 	ndver "github.com/PavelNeyman/netductor/internal/version"
 	"github.com/PavelNeyman/netductor/internal/vpn"
 )
@@ -353,6 +354,35 @@ func (m *ensureInstalledVersionMigration) Verify(ctx context.Context) error {
 	}
 	if need {
 		return fmt.Errorf("installed_version still missing")
+	}
+	return nil
+}
+
+type fillSecondaryRegionsMigration struct{}
+
+func (m *fillSecondaryRegionsMigration) ID() string { return "2026-11-fill-secondary-region-from-name" }
+func (m *fillSecondaryRegionsMigration) Description() string {
+	return "Backfill empty secondary device region from hostname-shaped Name"
+}
+func (m *fillSecondaryRegionsMigration) Required(ctx context.Context) (bool, error) {
+	n, err := secondary.CountFillableRegionsFromNames()
+	if err != nil {
+		// No registry yet — not required
+		return false, nil
+	}
+	return n > 0, nil
+}
+func (m *fillSecondaryRegionsMigration) Apply(ctx context.Context) error {
+	_, err := secondary.FillEmptyRegionsFromNames()
+	return err
+}
+func (m *fillSecondaryRegionsMigration) Verify(ctx context.Context) error {
+	n, err := secondary.CountFillableRegionsFromNames()
+	if err != nil {
+		return nil
+	}
+	if n > 0 {
+		return fmt.Errorf("%d devices still fillable", n)
 	}
 	return nil
 }

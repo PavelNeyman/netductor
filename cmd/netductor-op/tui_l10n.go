@@ -290,6 +290,7 @@ var formDict = map[string][2]string{
 	"primary_host":            {"Primary VPS host / IP", "Primary VPS host / IP"},
 	"primary_host_desc":       {"Empty = install on THIS machine", "Пусто = install на ЭТОЙ машине"},
 	"secondary_host":          {"Secondary (RU) IP / host", "Secondary (RU) IP / host"},
+	"region":                  {"Region (cc-city, e.g. ru-msk)", "Регион (cc-city, напр. ru-msk)"},
 	"router_lan":              {"Router LAN IP", "LAN IP роутера"},
 	"password":                {"Password", "Пароль"},
 	"device_id":               {"Device ID", "Device ID"},
