@@ -548,3 +548,7 @@ TG widget: multi-shell hub/spark, dual apply-then-answer, lockChatPush, Screen s
 
 Direction: phased resilience — not multi-master first. Plan: [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md). ADR role≠geography amended: [ADR-ROLE-REGION.md](ADR-ROLE-REGION.md). Next eng: Phase 1 region/capabilities on peers + Phase 0 FREEZE wording.
 
+## Update / convergence policy (2026-11-17)
+
+**Mandatory:** [POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md). Skip-version normal; desired-state after apply; commits without per-change releases unless binary required.
+

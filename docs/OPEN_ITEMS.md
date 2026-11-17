@@ -219,3 +219,7 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 ## Fleet / mesh evolution
 
 Phased plan (naming → multi-egress → control HA → node API; multi-master optional): [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md) · [ru](ru/PLAN-FLEET-MESH-EVOLUTION.md).
+
+## Update convergence policy
+
+Mandatory: [POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md).

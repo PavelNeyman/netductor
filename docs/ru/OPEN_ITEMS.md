@@ -130,3 +130,7 @@
 ## Флот / mesh
 
 Поэтапный план: [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md) (EN: [../PLAN-FLEET-MESH-EVOLUTION.md](../PLAN-FLEET-MESH-EVOLUTION.md)).
+
+## Политика обновлений / convergence
+
+[POLICY-UPDATE-CONVERGENCE.md](POLICY-UPDATE-CONVERGENCE.md).
