@@ -70,7 +70,51 @@ func registerNodesAPI(mux *http.ServeMux) {
 	})
 
 	// R7b: issue session from loopback only (op SSH tunnel / local curl) — no hours in shell string on node.
-	mux.HandleFunc("/api/session/issue", func(w http.ResponseWriter, r *http.Request) {
+	
+	mux.HandleFunc("/api/nodes/capability", func(w http.ResponseWriter, r *http.Request) {
+		if !requireSession(w, r) {
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			id := r.URL.Query().Get("id")
+			if id == "" {
+				writeJSON(w, 400, map[string]any{"error": "id required"})
+				return
+			}
+			caps, err := nodes.CapabilityList(id)
+			if err != nil {
+				writeJSON(w, 400, map[string]any{"error": err.Error()})
+				return
+			}
+			writeJSON(w, 200, map[string]any{"id": id, "capabilities": caps})
+		case http.MethodPost:
+			body := readJSON(r)
+			id, _ := body["id"].(string)
+			cap, _ := body["capability"].(string)
+			if id == "" || cap == "" {
+				writeJSON(w, 400, map[string]any{"error": "id and capability required"})
+				return
+			}
+			on := true
+			if v, ok := body["on"].(bool); ok {
+				on = v
+			} else if s, ok := body["on"].(string); ok {
+				on = s == "1" || s == "true" || s == "on" || s == "yes"
+			}
+			n, err := nodes.SetCapability(id, cap, on)
+			if err != nil {
+				writeJSON(w, 400, map[string]any{"error": err.Error()})
+				return
+			}
+			audit.Log("session", "nodes.capability", id, cap)
+			writeJSON(w, 200, map[string]any{"ok": true, "node": n})
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "GET or POST"})
+		}
+	})
+
+mux.HandleFunc("/api/session/issue", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method"})
 			return

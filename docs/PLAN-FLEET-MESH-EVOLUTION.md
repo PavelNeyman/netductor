@@ -129,6 +129,12 @@ Even with a single writer today — so standby and future replication do not req
 
 ### Phase 2 — Data-plane resilience (multi-egress)
 
+**Progress:**
+- [x] Multiple online secondaries in `/sub` (active + prepared/ready)
+- [x] Region labels on profiles
+- [ ] Health-driven drop from sub (beyond heartbeat age)
+- [ ] Automatic preferred failover without promote (policy)
+
 **Intent:** first real “mesh” users care about — VPN survives loss of one entry node.
 
 **Work**

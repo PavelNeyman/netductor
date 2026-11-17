@@ -50,3 +50,23 @@ func TestStableIDRename(t *testing.T) {
 		t.Fatalf("%+v", list[0])
 	}
 }
+
+func TestSetCapability(t *testing.T) {
+	// uses default paths — skip if no writable state in CI; Upsert then set
+	id := "cap-test-node"
+	_, err := UpsertFromDevice(Node{ID: id, Hostname: "nd-egress-ru-msk", Role: "secondary", Kind: "vps"})
+	if err != nil {
+		t.Skip(err)
+	}
+	n, err := SetCapability(id, "vpn_ingress", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Labels["cap.vpn_ingress"] != "1" {
+		t.Fatalf("%v", n.Labels)
+	}
+	caps, err := CapabilityList(id)
+	if err != nil || len(caps) == 0 {
+		t.Fatal(caps, err)
+	}
+}

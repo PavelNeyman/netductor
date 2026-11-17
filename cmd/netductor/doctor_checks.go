@@ -393,6 +393,13 @@ func doctorRunChecks(h doctorHooks) {
 				doctorPrintln("OK   secondary region labels")
 				(*h.ok)++
 			}
+			if pending, _ := secondary.CountDesiredHostnamePending(); pending > 0 {
+				doctorPrintf("WARN secondary desired_hostname pending (%d): agent will rename on next poll or: netductor nodes list\n", pending)
+				(*h.warn)++
+			} else {
+				doctorPrintln("OK   secondary hostname desire")
+				(*h.ok)++
+			}
 		} else {
 			h.warnCheck("secondary registry", false)
 		}

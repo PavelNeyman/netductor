@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/capabilities"
 	"github.com/PavelNeyman/netductor/internal/region"
 )
 
@@ -391,4 +392,70 @@ func EnsureDesiredHostnameFromRegion(id, role, reg, currentHostname string) (boo
 		return false, err
 	}
 	return true, nil
+}
+
+// SetCapability toggles cap.<id> on node Labels. Empty id errors.
+func SetCapability(id, capID string, on bool) (Node, error) {
+	capID = strings.TrimSpace(strings.ToLower(capID))
+	if id == "" || capID == "" {
+		return Node{}, fmt.Errorf("id and capability required")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	d, err := load()
+	if err != nil {
+		return Node{}, err
+	}
+	n, ok := d.Nodes[id]
+	if !ok {
+		return Node{}, fmt.Errorf("unknown node %s", id)
+	}
+	n.Labels = capabilities.Set(n.Labels, capID, on)
+	n.Updated = time.Now().Unix()
+	d.Nodes[id] = n
+	if err := save(d); err != nil {
+		return Node{}, err
+	}
+	return n, nil
+}
+
+// CapabilityList returns enabled capability ids for a node.
+func CapabilityList(id string) ([]string, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	d, err := load()
+	if err != nil {
+		return nil, err
+	}
+	n, ok := d.Nodes[id]
+	if !ok {
+		return nil, fmt.Errorf("unknown node %s", id)
+	}
+	var out []string
+	for _, c := range []string{
+		capabilities.VPNIngress, capabilities.VPNEgress, capabilities.DNS,
+		capabilities.Media, capabilities.Build, capabilities.NVR,
+	} {
+		if capabilities.Has(n.Labels, c) {
+			out = append(out, c)
+		}
+	}
+	// also any other cap.* keys
+	for k, v := range n.Labels {
+		if !strings.HasPrefix(k, "cap.") {
+			continue
+		}
+		idc := strings.TrimPrefix(k, "cap.")
+		known := false
+		for _, x := range out {
+			if x == idc {
+				known = true
+				break
+			}
+		}
+		if !known && (v == "1" || v == "true" || v == "yes") {
+			out = append(out, idc)
+		}
+	}
+	return out, nil
 }

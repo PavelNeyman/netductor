@@ -418,7 +418,7 @@ func runSecondary(args []string) {
 		}
 		if o.JSON {
 			type row struct {
-				ID, Name, State, IP, Agent string
+				ID, Name, State, IP, Agent, Region string
 				SingBoxOK                  bool
 				ConfigVer                  int
 				Seen                       int64
@@ -433,7 +433,7 @@ func runSecondary(args []string) {
 				if !d.LastSeen.IsZero() {
 					seen = d.LastSeen.Unix()
 				}
-				rows = append(rows, row{d.ID, d.Name, on, d.PublicIP, d.Version, d.SingBoxOK, d.ConfigVer, seen})
+				rows = append(rows, row{d.ID, d.Name, on, d.PublicIP, d.Version, d.Region, d.SingBoxOK, d.ConfigVer, seen})
 			}
 			out := map[string]any{"secondaries": rows}
 			if cv, err := secondary.ConfigVerE(); err == nil {
@@ -462,7 +462,7 @@ func runSecondary(args []string) {
 			if !d.LastSeen.IsZero() {
 				seen = d.LastSeen.Unix()
 			}
-			fmt.Printf("%s\t%s\t%s\tip=%s\tsb=%v\tconfig_ver=%d\tagent=%s\tseen=%d\n", d.ID, d.Name, on, d.PublicIP, d.SingBoxOK, d.ConfigVer, d.Version, seen)
+			fmt.Printf("%s\t%s\t%s\tip=%s\tregion=%s\tsb=%v\tconfig_ver=%d\tagent=%s\tseen=%d\n", d.ID, d.Name, on, d.PublicIP, d.Region, d.SingBoxOK, d.ConfigVer, d.Version, seen)
 		}
 		configVer, err := secondary.ConfigVerE()
 		if err != nil {

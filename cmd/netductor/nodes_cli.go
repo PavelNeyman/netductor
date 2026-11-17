@@ -53,8 +53,8 @@ func runNodes(args []string) {
 			os.Exit(1)
 		}
 		for _, n := range list {
-			fmt.Printf("id=%s\thost=%s\trole=%s\tkind=%s\tip=%s\tstatus=%s\tdesired=%s\n",
-				n.ID, n.Hostname, n.Role, n.Kind, n.PublicIP, n.Status, n.DesiredHN)
+			fmt.Printf("id=%s\thost=%s\trole=%s\tkind=%s\tip=%s\tstatus=%s\tdesired=%s\tcaps=%v\n",
+				n.ID, n.Hostname, n.Role, n.Kind, n.PublicIP, n.Status, n.DesiredHN, n.Labels)
 		}
 	case "rename":
 		if len(args) < 3 {
@@ -70,6 +70,52 @@ func runNodes(args []string) {
 		}
 		_ = secondary.Rename(args[1], args[2])
 		fmt.Printf("desired_hostname=%s for %s\n", n.DesiredHN, n.ID)
+	case "cap", "capability":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nodes cap list <id>")
+			fmt.Fprintln(os.Stderr, "       netductor nodes cap set <id> <name> on|off")
+			os.Exit(2)
+		}
+		switch args[1] {
+		case "list":
+			if len(args) < 3 {
+				fmt.Fprintln(os.Stderr, "usage: netductor nodes cap list <id>")
+				os.Exit(2)
+			}
+			caps, err := nodes.CapabilityList(args[2])
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			if len(caps) == 0 {
+				fmt.Println("(none)")
+				return
+			}
+			for _, c := range caps {
+				fmt.Println(c)
+			}
+		case "set":
+			if len(args) < 5 {
+				fmt.Fprintln(os.Stderr, "usage: netductor nodes cap set <id> <vpn_ingress|dns|build|…> on|off")
+				os.Exit(2)
+			}
+			on := args[4] == "on" || args[4] == "1" || args[4] == "true"
+			if args[4] == "off" || args[4] == "0" || args[4] == "false" {
+				on = false
+			} else if !on {
+				fmt.Fprintln(os.Stderr, "need on|off")
+				os.Exit(2)
+			}
+			n, err := nodes.SetCapability(args[2], args[3], on)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Printf("node=%s labels=%v\n", n.ID, n.Labels)
+		default:
+			fmt.Fprintln(os.Stderr, "usage: netductor nodes cap list|set …")
+			os.Exit(2)
+		}
 	case "sync-local":
 		if err := nodes.SyncLocalHostname(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
