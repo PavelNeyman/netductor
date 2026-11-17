@@ -36,3 +36,20 @@ SERVERS=https://standby-control:8789
 ```
 
 Or `SERVER_FALLBACK=...` (same parse). Ordered try on enroll/heartbeat/poll; sticky `SERVER` updates to the working base in-process. **Does not** promote standby to SoT writer.
+
+
+## Control role (shipped scaffold)
+
+On the node (default **active** if file missing — existing single-control installs unchanged):
+
+```bash
+netductor control status
+netductor control sot-check
+netductor control set-role standby --confirm
+netductor control promote --confirm
+```
+
+Role file: `/var/lib/netductor/control_role` (`active`|`standby`).
+Optional: `/etc/netductor/control_endpoints` (one URL per line).
+
+**Still open:** continuous SoT replicate; DNS cutover; automatic promote.

@@ -161,8 +161,8 @@ Even with a single writer today — so standby and future replication do not req
 
 **Progress:**
 - [x] Agent multi-endpoint read path (`SERVER` + `SERVERS` failover)
-- [ ] SoT replicate to standby
-- [ ] Control promote + fencing
+- [ ] SoT replicate to standby (encrypted backup/restore; no live dual-writer)
+- [x] Control role + promote CLI + API write fence on standby
 - [ ] DNS/API cutover runbook live test
 
 **Intent:** management plane survives loss of the active control node.
