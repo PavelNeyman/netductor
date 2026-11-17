@@ -544,3 +544,7 @@ https://github.com/PavelNeyman/netductor/releases/tag/v0.9.754
 Assets: node/tg/agent multi-arch + op darwin + SHA256SUMS + upgrade.json.
 TG widget: multi-shell hub/spark, dual apply-then-answer, lockChatPush, Screen sync for Back.
 
+## Fleet mesh evolution (2026-11-17)
+
+Direction: phased resilience — not multi-master first. Plan: [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md). ADR role≠geography amended: [ADR-ROLE-REGION.md](ADR-ROLE-REGION.md). Next eng: Phase 1 region/capabilities on peers + Phase 0 FREEZE wording.
+

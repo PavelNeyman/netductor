@@ -2,7 +2,7 @@
 
 # Architecture
 
-Fleet: **primary** (abroad control plane) + optional **secondary** (RU VPN entry only). See [FLEET.md](FLEET.md). Plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
+Fleet: **control** (management plane / SoT; legacy *primary*) + optional **egress** (VPN entry/path; legacy *secondary*). Roles are not geographic — see [ADR-ROLE-REGION.md](ADR-ROLE-REGION.md), [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md). See [FLEET.md](FLEET.md). Plan: [PLAN-SECONDARY-VPN-ONLY.md](PLAN-SECONDARY-VPN-ONLY.md).
 
 **netductor** on each VPS (node). **netductor-op** on Mac (UI + deploy).
 

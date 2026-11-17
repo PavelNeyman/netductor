@@ -126,3 +126,7 @@
 
 - [x] Mac Mail.app Gmail SMTP via VPN — mitigated in SR operator profiles: mail-direct domains (smtp.gmail.com, gmail.com, yandex/mail.ru SMTP/IMAP) → DIRECT + skip-proxy; override `/etc/netductor/mail-direct-domains` or NETDUCTOR_MAIL_DIRECT_DOMAINS. Re-import SR config to pick up. Verify on device.
 - CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles status scaffold + migrate attention (gated)
+
+## Флот / mesh
+
+Поэтапный план: [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md) (EN: [../PLAN-FLEET-MESH-EVOLUTION.md](../PLAN-FLEET-MESH-EVOLUTION.md)).

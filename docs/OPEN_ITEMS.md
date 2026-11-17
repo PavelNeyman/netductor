@@ -215,3 +215,7 @@ See [WEB-UI-FIXES.md](WEB-UI-FIXES.md) — **implemented** 0.9.93–94 / 0.9.259
 
 - [x] Mac Mail.app Gmail SMTP via VPN — mitigated in SR operator profiles: mail-direct domains (smtp.gmail.com, gmail.com, yandex/mail.ru SMTP/IMAP) → DIRECT + skip-proxy; override `/etc/netductor/mail-direct-domains` or NETDUCTOR_MAIL_DIRECT_DOMAINS. Re-import SR config to pick up. Verify on device.
 - CF-18 UX: conditional migrate TG, bash completion, unix CLI; HTMLBubbles status scaffold + migrate attention (gated)
+
+## Fleet / mesh evolution
+
+Phased plan (naming → multi-egress → control HA → node API; multi-master optional): [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md) · [ru](ru/PLAN-FLEET-MESH-EVOLUTION.md).

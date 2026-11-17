@@ -8,7 +8,7 @@
 
 | Rule | Detail |
 |------|--------|
-| Roles | **primary** (abroad control) + **secondary** (RU VPN entry). Not full mirror of primary on RU |
+| Roles | **control** (management SoT; legacy *primary*) + **egress** (VPN entry/path; legacy *secondary*). Geography is orthogonal — see ADR-ROLE-REGION and PLAN-FLEET-MESH-EVOLUTION. Not full mirror of primary on RU |
 | Users plane | VLESS Reality; clients → secondary → uplink primary |
 | Service plane | Dual **SP/PS** WG-over-WSS (`10.87.10.0/30`, `10.87.11.0/30`); agent S→P on SP; recovery P→S on PS |
 | API :8789 | mTLS only; WAN deny except service CIDRs + `api-allow.cidr`; temporary open **only** `api-public arm` (UI/CLI), **no** permanent env |

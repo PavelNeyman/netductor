@@ -8,7 +8,7 @@
 
 | Правило | Деталь |
 |---------|--------|
-| Роли | **primary** (зарубежный control) + **secondary** (вход VPN в РФ). Не полное зеркало primary на RU |
+| Роли | **primary** (плоскость управления / SoT (не привязана к стране)) + **secondary** (вход/путь VPN (region опционален)). Не полное зеркало primary на RU |
 | Пользователи | VLESS Reality; клиенты → secondary → uplink primary |
 | Service plane | Dual **SP/PS** WG-over-WSS (`10.87.10.0/30`, `10.87.11.0/30`); agent S→P на SP; recovery P→S на PS |
 | API :8789 | только mTLS; WAN deny кроме service CIDR + `api-allow.cidr`; временный open **только** `api-public arm` (UI/CLI), **без** permanent env |
