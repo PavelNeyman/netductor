@@ -91,7 +91,7 @@ func (s *session) writeFrame(id uint32, flag byte, payload []byte) error {
 		return fmt.Errorf("frame too large")
 	}
 	hdr := make([]byte, 9)
-	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload)))
+	binary.BigEndian.PutUint32(hdr[0:4], uint32(len(payload))) // length ≤ maxFrame (1MiB)
 	binary.BigEndian.PutUint32(hdr[4:8], id)
 	hdr[8] = flag
 	s.writeMu.Lock()

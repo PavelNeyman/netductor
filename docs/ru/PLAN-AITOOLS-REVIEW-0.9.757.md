@@ -88,3 +88,13 @@ G204/G304 на deploy SSH · G402 на probe/vendor · SHA1/MD5 Tapo/ONVIF · G1
 
 `staticcheck -checks U1000 ./cmd/...` = 0. Full `./...` residual listed under deferred.
 
+## G115 pass 2026-11-18
+
+Journal: [audits/2026-11-18-G115-integer-overflow.md](audits/2026-11-18-G115-integer-overflow.md) (RU: [ru/audits/…](ru/audits/2026-11-18-G115-integer-overflow.md)).
+
+- [x] Site-by-site classification (43 findings)
+- [x] Real: ws frame DoS bound; nvr Statfs math; euid compare without uint32 narrow
+- [x] safe-bound: firewall hostU32, backup chunk len helper
+- [ ] Re-run ai-tools/gosec for delta count
+- [ ] U1000 residual internal (separate)
+

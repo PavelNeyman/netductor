@@ -37,7 +37,7 @@ func openBuildRecoveryBackup(path string) (*os.File, unix.Stat_t, error) {
 		_ = unix.Close(fd)
 		return nil, unix.Stat_t{}, err
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) {
 		_ = unix.Close(fd)
 		return nil, unix.Stat_t{}, fmt.Errorf("backup is not a regular file owned by the service user")
 	}
@@ -58,7 +58,7 @@ func ensureBuildRecoveryToken() (string, error) {
 			_ = unix.Close(fd)
 			return "", fmt.Errorf("inspect recovery token: %w", statErr)
 		}
-		if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 || st.Size > 4096 {
+		if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0o077 != 0 || st.Size > 4096 {
 			_ = unix.Close(fd)
 			return "", fmt.Errorf("recovery token must be a private regular file owned by the service user")
 		}

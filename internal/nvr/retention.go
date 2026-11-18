@@ -73,7 +73,15 @@ func diskFree(path string) int64 {
 			return 0
 		}
 	}
-	return int64(st.Bavail) * int64(st.Bsize)
+	if st.Bsize <= 0 {
+		return 0
+	}
+	// Bavail is uint64 on linux; avoid wrap on int64 multiply (G115).
+	bsize := uint64(st.Bsize)
+	if st.Bavail > uint64(^uint64(0)>>1)/bsize {
+		return int64(^uint64(0) >> 1)
+	}
+	return int64(st.Bavail * bsize)
 }
 
 // RunRetention deletes old/large segments per Config.

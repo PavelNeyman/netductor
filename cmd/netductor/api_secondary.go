@@ -472,7 +472,7 @@ func openRegularFileNoFollow(path string) (*os.File, unix.Stat_t, error) {
 		_ = unix.Close(fd)
 		return nil, unix.Stat_t{}, fmt.Errorf("not a regular file")
 	}
-	if st.Uid != uint32(os.Geteuid()) {
+	if int64(st.Uid) != int64(os.Geteuid()) {
 		_ = unix.Close(fd)
 		return nil, unix.Stat_t{}, fmt.Errorf("file is not owned by the service user")
 	}

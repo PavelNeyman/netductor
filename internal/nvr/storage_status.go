@@ -39,9 +39,11 @@ func GetStorageStatus() StorageStatus {
 		_ = os.Remove(test)
 	}
 	var s syscall.Statfs_t
-	if syscall.Statfs(cfg.Path, &s) == nil {
-		st.FreeGB = float64(s.Bavail*uint64(s.Bsize)) / (1024 * 1024 * 1024)
-		st.TotalGB = float64(s.Blocks*uint64(s.Bsize)) / (1024 * 1024 * 1024)
+	if syscall.Statfs(cfg.Path, &s) == nil && s.Bsize > 0 {
+		// Prefer float path: avoids uint64(int64 Bsize) and mul overflow (G115).
+		bsize := float64(s.Bsize)
+		st.FreeGB = float64(s.Bavail) * bsize / (1024 * 1024 * 1024)
+		st.TotalGB = float64(s.Blocks) * bsize / (1024 * 1024 * 1024)
 	}
 	files, _ := ListSegmentFiles(cfg.Path)
 	st.SegmentCnt = len(files)

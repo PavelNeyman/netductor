@@ -79,7 +79,7 @@ func acquireRevokeLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("inspect revocation lock: %w", err)
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0o077 != 0 {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("revocation lock must be a private regular file owned by the current user")
 	}

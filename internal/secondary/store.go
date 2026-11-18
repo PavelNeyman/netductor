@@ -99,7 +99,7 @@ func acquireRegistryLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("inspect secondary registry lock: %w", err)
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0o077 != 0 {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("secondary registry lock must be a private regular file owned by the current user")
 	}
@@ -141,7 +141,7 @@ func load() (*registry, error) {
 	if st.Mode&unix.S_IFMT != unix.S_IFREG {
 		return nil, fmt.Errorf("secondary registry is not a regular file")
 	}
-	if st.Uid != uint32(os.Geteuid()) {
+	if int64(st.Uid) != int64(os.Geteuid()) {
 		return nil, fmt.Errorf("secondary registry is not owned by the current user")
 	}
 	if st.Size < 0 || st.Size > maxSecondaryRegistrySize {

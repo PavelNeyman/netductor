@@ -23,6 +23,9 @@ From `aitools` pass on **0.9.757** / `37f6dac`. **No release** until P1 closed o
 - [x] **N2** mTLS G123 (VerifyPeerCertificate vs session resumption)
 - [x] **N3** U1000 UI/cmd cleaned; residual internal deploy/firewall/svcpaths deferred
 - [x] Re-run review with **ai-tools ≥ v1.12.1** (Go tools get `./...`)
+- [x] **N5 G115** site-by-site journal + fixes (ws frame cap, euid int64, nvr Statfs, backup len) — [audits/2026-11-18-G115-integer-overflow.md](audits/2026-11-18-G115-integer-overflow.md)
+- [ ] Re-run ai-tools after G115 pass (delta)
+- [ ] N3 residual **U1000** internal wire-or-delete
 
 ## Backup offsite false fail during stack apply (2026-11-13) — mitigated 0.9.729
 

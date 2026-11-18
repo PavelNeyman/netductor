@@ -39,7 +39,7 @@ func acquireBootstrapMutationLock() (func(), error) {
 	}
 	parentStat, ok := parentInfo.Sys().(*syscall.Stat_t)
 	if !ok || !parentInfo.IsDir() || parentInfo.Mode()&os.ModeSymlink != 0 ||
-		parentStat.Uid != uint32(os.Geteuid()) || parentInfo.Mode().Perm()&0o022 != 0 {
+		int64(parentStat.Uid) != int64(os.Geteuid()) || parentInfo.Mode().Perm()&0o022 != 0 {
 		return nil, fmt.Errorf("bootstrap lock parent must be a real directory owned by euid %d and not writable by group/others", os.Geteuid())
 	}
 	fd, err := syscall.Open(bootstrapLockPath, syscall.O_CREAT|syscall.O_RDWR|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0o600)
@@ -58,7 +58,7 @@ func acquireBootstrapMutationLock() (func(), error) {
 	}
 	lockStat, ok := opened.Sys().(*syscall.Stat_t)
 	if !ok || !opened.Mode().IsRegular() || pathInfo.Mode()&os.ModeSymlink != 0 ||
-		!os.SameFile(opened, pathInfo) || lockStat.Uid != uint32(os.Geteuid()) ||
+		!os.SameFile(opened, pathInfo) || int64(lockStat.Uid) != int64(os.Geteuid()) ||
 		opened.Mode().Perm()&0o077 != 0 {
 		return fail(fmt.Errorf("bootstrap mutation lock must be a private regular file owned by euid %d", os.Geteuid()))
 	}
@@ -545,7 +545,7 @@ func recoverBootstrapFileTransactions() error {
 		}
 		st, ok := info.Sys().(*syscall.Stat_t)
 		if !ok || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 ||
-			st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
+			int64(st.Uid) != int64(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
 			return fmt.Errorf("bootstrap journal entry %s is not a private regular file owned by euid %d", path, os.Geteuid())
 		}
 		if strings.HasPrefix(name, ".bootstrap-journal-") {
@@ -848,7 +848,7 @@ func ensureBootstrapJournalDirectory(dir string) error {
 	}
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
+		int64(st.Uid) != int64(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
 		return fmt.Errorf("bootstrap journal parent must be a real private directory owned by euid %d", os.Geteuid())
 	}
 
@@ -871,7 +871,7 @@ func validateBootstrapJournalDirectory(dir string) error {
 	}
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
+		int64(st.Uid) != int64(os.Geteuid()) || info.Mode().Perm()&0o077 != 0 {
 		return fmt.Errorf("bootstrap journal directory must be a real private directory owned by euid %d", os.Geteuid())
 	}
 	return nil

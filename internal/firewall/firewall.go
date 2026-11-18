@@ -92,7 +92,7 @@ func readFirewallJSON(path string, dst any) (bool, error) {
 	if err := unix.Fstat(fd, &st); err != nil {
 		return false, fmt.Errorf("stat %s: %w", path, err)
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 1<<20 {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0o022 != 0 || st.Size < 0 || st.Size > 1<<20 {
 		return false, fmt.Errorf("%s must be an owned regular file, not group/world-writable, and <=1MiB", path)
 	}
 	// These files can contain WireGuard private keys. Tighten legacy
@@ -2485,10 +2485,15 @@ func ufwSourceRangeFirstAllow(rules []ufwRule, port, sourceCIDR string) (covered
 	}
 	start := uint64(binary.BigEndian.Uint32(base))
 	count := uint64(1) << uint(32-ones)
+	// ones >= 16 above → count ≤ 65536; start+offset stays in uint32.
 	uncovered := false
 	for offset := uint64(0); offset < count; offset++ {
 		host := make(net.IP, net.IPv4len)
-		binary.BigEndian.PutUint32(host, uint32(start+offset))
+		hostU32 := start + offset
+		if hostU32 > 0xffffffff {
+			return false, true
+		}
+		binary.BigEndian.PutUint32(host, uint32(hostU32))
 		hostCIDR := host.String() + "/32"
 		found := false
 		for _, rule := range rules {

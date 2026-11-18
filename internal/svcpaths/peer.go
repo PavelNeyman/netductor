@@ -32,7 +32,7 @@ func validatePeerDirectory(path string) error {
 		uid = stat.Uid
 	}
 	if !ok || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 ||
-		uid != uint32(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
+		int64(uid) != int64(os.Geteuid()) || info.Mode().Perm()&0o022 != 0 {
 		return fmt.Errorf("peer data directory %s is unsafe (stat=%t dir=%t symlink=%t uid=%d euid=%d mode=%04o)", path, ok, info.IsDir(), info.Mode()&os.ModeSymlink != 0, uid, os.Geteuid(), info.Mode().Perm())
 	}
 	return nil
@@ -62,7 +62,7 @@ func readPeerFile(path string, maxBytes int64) ([]byte, error) {
 	defer f.Close()
 	var st unix.Stat_t
 	if err := unix.Fstat(fd, &st); err != nil { return nil, fmt.Errorf("stat %s: %w", path, err) }
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) ||
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) ||
 		st.Mode&0o022 != 0 || st.Size < 0 || st.Size > maxBytes {
 		return nil, fmt.Errorf("%s must be an owned regular file, not group/world-writable, and <=%d bytes", path, maxBytes)
 	}
@@ -179,7 +179,7 @@ func acquirePeerRegistryLock() (func(), error) {
 	}
 	dirStat, ok := dirInfo.Sys().(*syscall.Stat_t)
 	if !ok || !dirInfo.IsDir() || dirInfo.Mode()&os.ModeSymlink != 0 ||
-		dirStat.Uid != uint32(os.Geteuid()) || dirInfo.Mode().Perm()&0o022 != 0 {
+		int64(dirStat.Uid) != int64(os.Geteuid()) || dirInfo.Mode().Perm()&0o022 != 0 {
 		return nil, fmt.Errorf("peer registry directory must be a real directory owned by euid %d and not writable by group/others", os.Geteuid())
 	}
 	path := filepath.Join(keysRoot, "peers.lock")
@@ -192,7 +192,7 @@ func acquirePeerRegistryLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("inspect peer registry lock: %w", err)
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o077 != 0 {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0o077 != 0 {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("peer registry lock must be a private regular file owned by euid %d", os.Geteuid())
 	}
@@ -231,7 +231,7 @@ func acquireFirewallMutationLock() (func(), error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("inspect firewall mutation lock: %w", err)
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Uid != uint32(os.Geteuid()) || st.Mode&0o022 != 0 {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int64(st.Uid) != int64(os.Geteuid()) || st.Mode&0o022 != 0 {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("firewall mutation lock must be owned by euid %d and not writable by group/others", os.Geteuid())
 	}

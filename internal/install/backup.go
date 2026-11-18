@@ -118,6 +118,16 @@ func encryptFile(inPath, outPath, pass string) error {
 const ndg2Magic = "NDG2"
 const ndg2Chunk = 1 << 20 // 1 MiB
 
+// ndg2PutChunkLen writes a uint32 length; rejects sizes that cannot fit.
+func ndg2PutChunkLen(sz []byte, n int) error {
+	if n < 0 || n > int(^uint32(0)) {
+		return fmt.Errorf("ndg2: chunk length out of range: %d", n)
+	}
+	binary.BigEndian.PutUint32(sz, uint32(n))
+	return nil
+}
+
+
 func ndg2AADData(i uint64) []byte {
 	var b [16]byte
 	copy(b[:8], "NDG2DATA")
@@ -173,7 +183,9 @@ func encryptFileStreamGCM(inPath, outPath, pass string) error {
 			if _, err := out.Write(nonce); err != nil {
 				return err
 			}
-			binary.BigEndian.PutUint32(sz[:], uint32(len(ct)))
+			if err := ndg2PutChunkLen(sz[:], len(ct)); err != nil {
+				return err
+			}
 			if _, err := out.Write(sz[:]); err != nil {
 				return err
 			}
@@ -199,7 +211,9 @@ func encryptFileStreamGCM(inPath, outPath, pass string) error {
 	if _, err := out.Write(endNonce); err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint32(sz[:], uint32(len(endCT)))
+	if err := ndg2PutChunkLen(sz[:], len(endCT)); err != nil {
+		return err
+	}
 	if _, err := out.Write(sz[:]); err != nil {
 		return err
 	}
@@ -257,7 +271,7 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 			return fmt.Errorf("ndg2: truncated chunk len: %w", err)
 		}
 		ctLen := binary.BigEndian.Uint32(sz[:])
-		if ctLen == 0 || ctLen > (ndg2Chunk+uint32(gcm.Overhead())+64) {
+		if ctLen == 0 || ctLen > uint32(ndg2Chunk+gcm.Overhead()+64) {
 			return fmt.Errorf("ndg2: bad chunk len %d", ctLen)
 		}
 		ct := make([]byte, ctLen)

@@ -561,3 +561,7 @@ Direction: phased resilience — not multi-master first. Plan: [PLAN-FLEET-MESH-
 - `control token-init` / `sync-pull` / `sync-timer install` (standby only, 30min inbox)
 - Cutover: docs/RUNBOOK-CONTROL-CUTOVER.md
 - No auto-promote
+
+## 2026-11-18 G115
+
+Site journal `docs/audits/2026-11-18-G115-integer-overflow.md`. Real fix: revbridge WS frame size cap. Euid checks use int64 compare. No release.

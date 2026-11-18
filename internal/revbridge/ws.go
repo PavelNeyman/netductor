@@ -97,7 +97,16 @@ func (w *wsConn) Read(p []byte) (int, error) {
 			if _, err := io.ReadFull(w.bufr, ext[:]); err != nil {
 				return 0, err
 			}
-			n = int(binary.BigEndian.Uint64(ext[:]))
+			u := binary.BigEndian.Uint64(ext[:])
+			// Cap before int conversion / allocation (DoS / G115).
+			const maxWSFrame = 64 << 20 // 64 MiB
+			if u > maxWSFrame {
+				return 0, fmt.Errorf("websocket frame too large: %d", u)
+			}
+			n = int(u)
+		}
+		if n < 0 || n > 64<<20 {
+			return 0, fmt.Errorf("websocket frame length invalid: %d", n)
 		}
 		var mask [4]byte
 		if masked {
