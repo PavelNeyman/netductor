@@ -111,7 +111,7 @@ func decodePoint(b []byte) (*ecPoint, error) {
 		if y == nil {
 			return nil, fmt.Errorf("invalid compressed point")
 		}
-		if byte(y.Bit(0)) != (b[0] & 1) {
+		if (y.Bit(0) == 1) != (b[0]&1 != 0) {
 			y.Sub(p256P, y)
 		}
 		return &ecPoint{x, y}, nil
@@ -289,7 +289,7 @@ func applyExtraCrypt(passcode string, extra map[string]any) (string, error) {
 
 type tpapSession struct {
 	stok      string
-	seq       int
+	seq       uint32
 	key       []byte
 	nonce0    []byte
 	expiresAt time.Time
@@ -441,10 +441,18 @@ func (c *Client) loginTPAPOnce(credentialHash string) error {
 		return fmt.Errorf("tpap: dev_confirm mismatch (wrong cloud password?)")
 	}
 	stok, _ := sres["stok"].(string)
-	seq := 0
+	var seq uint32
 	switch v := sres["start_seq"].(type) {
 	case float64:
-		seq = int(v)
+		if v < 0 || v > float64(^uint32(0)) {
+			return fmt.Errorf("tpap: start_seq out of range")
+		}
+		seq = uint32(v)
+	case int:
+		if v < 0 || v > int(^uint32(0)) {
+			return fmt.Errorf("tpap: start_seq out of range")
+		}
+		seq = uint32(v)
 	}
 	bk := hkdfSHA256(shared, []byte("tp-kdf-salt-aes128-key"), []byte("tp-kdf-info-aes128-key"), 32)
 	bn := hkdfSHA256(shared, []byte("tp-kdf-salt-aes128-iv"), []byte("tp-kdf-info-aes128-iv"), 32)
@@ -479,10 +487,10 @@ func (c *Client) loginTPAP() error {
 	return last
 }
 
-func (c *Client) tpapNonce(seq int) []byte {
+func (c *Client) tpapNonce(seq uint32) []byte {
 	n := make([]byte, 12)
 	copy(n, c.tpapSess.nonce0[:8])
-	binary.BigEndian.PutUint32(n[8:], uint32(seq))
+	binary.BigEndian.PutUint32(n[8:], seq)
 	return n
 }
 
@@ -518,7 +526,7 @@ func (c *Client) executeTPAP(method string, params map[string]any) (map[string]a
 		return nil, err
 	}
 	body := make([]byte, 4+len(ct))
-	binary.BigEndian.PutUint32(body[:4], uint32(seq))
+	binary.BigEndian.PutUint32(body[:4], seq)
 	copy(body[4:], ct)
 
 	url := fmt.Sprintf("https://%s/stok=%s/ds", c.controlHost(), c.tpapSess.stok)
@@ -545,7 +553,7 @@ func (c *Client) executeTPAP(method string, params map[string]any) (map[string]a
 	if len(raw) < 4+16 {
 		return nil, fmt.Errorf("tpap /ds short reply %d", len(raw))
 	}
-	respSeq := int(binary.BigEndian.Uint32(raw[:4]))
+	respSeq := binary.BigEndian.Uint32(raw[:4])
 	pt, err := ccm.open(c.tpapNonce(respSeq), raw[4:])
 	if err != nil {
 		return nil, err

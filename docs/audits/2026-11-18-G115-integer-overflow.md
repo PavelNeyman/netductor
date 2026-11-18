@@ -98,3 +98,20 @@ No further code change required for residual G115 unless product policy demands 
 - deadcode / govulncheck: killed (OOM) in sandbox — not used as evidence
 - shellcheck: completed
 
+
+## Tapo G115 pass 2026-11-18 (user: do site analysis)
+
+Not “left by agreement” — full pass on 16 findings.
+
+| Site | Was | Fix |
+|--|--|--|
+| `ccm.go` L/tagSize/length→byte | fixed L=3 tag=16; silent 24-bit truncate | const flags `0x3a`, ctr `2`; **reject** PT/CT > `0xffffff`; length via `& 0xff` |
+| `klap.go` seq int32↔uint32 | signed wire | **`uint32` seq** + `packSeq(uint32)` |
+| `tpap.go` seq int→uint32 | same | **`uint32` seq**, range check on `start_seq`, `respSeq` from wire uint32 |
+| `tpap.go` `byte(y.Bit(0))` | EC parity | bool compare `(y.Bit(0)==1) != (b[0]&1!=0)` |
+| `client.go` pkcs7 `byte(pad)` | pad 1..block | validate block/pad; `uint8(pad)` |
+
+**gosec `./internal/tapo/...` after fix: G115 count = 0.**
+
+Other tapo gosec noise (G401/G501 weak hashes, G402 TLS) is protocol/device reality — separate from G115.
+

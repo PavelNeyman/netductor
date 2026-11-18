@@ -253,8 +253,14 @@ func (c *Client) token(tokenType, nonce string) []byte {
 }
 
 func pkcs7Pad(b []byte, block int) []byte {
+	if block <= 0 || block > 255 {
+		panic("pkcs7Pad: invalid block size")
+	}
 	pad := block - len(b)%block
-	return append(b, bytes.Repeat([]byte{byte(pad)}, pad)...)
+	if pad <= 0 || pad > block {
+		panic("pkcs7Pad: invalid pad")
+	}
+	return append(b, bytes.Repeat([]byte{uint8(pad)}, pad)...)
 }
 
 func pkcs7Unpad(b []byte) ([]byte, error) {

@@ -27,16 +27,22 @@ func (c *aesCCM) seal(nonce, plaintext []byte) ([]byte, error) {
 	if len(nonce) != 12 {
 		return nil, errors.New("ccm: nonce must be 12 bytes")
 	}
-	tagSize := 16
-	L := 15 - len(nonce) // 3
+	// Tapo /ds: AES-128-CCM, nonce 12 → L=3, tag 16. Max payload 2^24-1.
+	const tagSize = 16
+	const ccmL = 3
+	const maxPT = 0xffffff
+	if len(plaintext) > maxPT {
+		return nil, errors.New("ccm: plaintext too long for L=3")
+	}
 	// CBC-MAC over B0 || len-prefixed plaintext (no AAD)
 	b0 := make([]byte, 16)
-	b0[0] = byte(((tagSize-2)/2)<<3 | (L - 1))
+	// flags = ((t-2)/2)<<3 | (L-1) for t=16,L=3 → 0x3a
+	b0[0] = 0x3a
 	copy(b0[1:], nonce)
 	ln := len(plaintext)
-	b0[13] = byte(ln >> 16)
-	b0[14] = byte(ln >> 8)
-	b0[15] = byte(ln)
+	b0[13] = uint8((ln >> 16) & 0xff)
+	b0[14] = uint8((ln >> 8) & 0xff)
+	b0[15] = uint8(ln & 0xff)
 
 	x := make([]byte, 16)
 	c.b.Encrypt(x, b0)
@@ -55,7 +61,7 @@ func (c *aesCCM) seal(nonce, plaintext []byte) ([]byte, error) {
 
 	// CTR encrypt
 	ctr := make([]byte, 16)
-	ctr[0] = byte(L - 1)
+	ctr[0] = 2 // L-1 for L=3
 	copy(ctr[1:], nonce)
 	s0 := make([]byte, 16)
 	c.b.Encrypt(s0, ctr)
@@ -84,15 +90,19 @@ func (c *aesCCM) open(nonce, ciphertextAndTag []byte) ([]byte, error) {
 	if len(nonce) != 12 {
 		return nil, errors.New("ccm: nonce must be 12 bytes")
 	}
-	tagSize := 16
+	const tagSize = 16
+	const ccmL = 3
+	const maxPT = 0xffffff
 	if len(ciphertextAndTag) < tagSize {
 		return nil, errors.New("ccm: short ciphertext")
 	}
 	ct := ciphertextAndTag[:len(ciphertextAndTag)-tagSize]
+	if len(ct) > maxPT {
+		return nil, errors.New("ccm: ciphertext too long for L=3")
+	}
 	tag := ciphertextAndTag[len(ciphertextAndTag)-tagSize:]
-	L := 15 - len(nonce)
 	ctr := make([]byte, 16)
-	ctr[0] = byte(L - 1)
+	ctr[0] = 2 // L-1 for L=3
 	copy(ctr[1:], nonce)
 	s0 := make([]byte, 16)
 	c.b.Encrypt(s0, ctr)
@@ -112,12 +122,12 @@ func (c *aesCCM) open(nonce, ciphertextAndTag []byte) ([]byte, error) {
 	}
 	// recompute tag
 	b0 := make([]byte, 16)
-	b0[0] = byte(((tagSize-2)/2)<<3 | (L - 1))
+	b0[0] = 0x3a
 	copy(b0[1:], nonce)
 	ln := len(pt)
-	b0[13] = byte(ln >> 16)
-	b0[14] = byte(ln >> 8)
-	b0[15] = byte(ln)
+	b0[13] = uint8((ln >> 16) & 0xff)
+	b0[14] = uint8((ln >> 8) & 0xff)
+	b0[15] = uint8(ln & 0xff)
 	x := make([]byte, 16)
 	c.b.Encrypt(x, b0)
 	for i := 0; i < len(pt); {

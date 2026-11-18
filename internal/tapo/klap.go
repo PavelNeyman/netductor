@@ -27,7 +27,7 @@ type klapSession struct {
 	authHash   []byte
 	key        []byte
 	iv         []byte // 12 bytes
-	seq        int32
+	seq        uint32
 	sig        []byte // 28 bytes
 	cookie     string
 	baseURL    string // e.g. http://ip/app or https://ip:443/app
@@ -72,9 +72,9 @@ func handshake2Hash(v int, local, remote, auth []byte) []byte {
 	return sha256b(append(remote, auth...))
 }
 
-func packSeq(seq int32) []byte {
+func packSeq(seq uint32) []byte {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(seq))
+	binary.BigEndian.PutUint32(b, seq)
 	return b
 }
 
@@ -218,12 +218,12 @@ func klapHandshake(base, user, pass string, version int) (*klapSession, error) {
 	s.key = sha256b(append(append(append([]byte("lsk"), local...), remote...), auth...))[:16]
 	fulliv := sha256b(append(append(append([]byte("iv"), local...), remote...), auth...))
 	s.iv = fulliv[:12]
-	s.seq = int32(binary.BigEndian.Uint32(fulliv[12:16]))
+	s.seq = binary.BigEndian.Uint32(fulliv[12:16])
 	s.sig = sha256b(append(append(append([]byte("ldk"), local...), remote...), auth...))[:28]
 	return s, nil
 }
 
-func (s *klapSession) encrypt(msg []byte) (payload []byte, seq int32, err error) {
+func (s *klapSession) encrypt(msg []byte) (payload []byte, seq uint32, err error) {
 	s.seq++
 	seq = s.seq
 	ivSeq := append(append([]byte{}, s.iv...), packSeq(seq)...)
