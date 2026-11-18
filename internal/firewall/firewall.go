@@ -1229,7 +1229,6 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	return nil
 }
 
-func applyUFW(role string) error { return applyUFWMode(role, false) }
 
 // preflightSecondaryRestrictedAllows detects pre-existing administrator ALLOWs
 // before WSS migration can mutate any numbered UFW rules. UFW is first-match;

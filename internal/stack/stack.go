@@ -354,9 +354,6 @@ func promotePrevSnapshot() error {
 	return syncDir(root)
 }
 
-func recoverPrevSnapshotSwap() error {
-	return recoverPrevSnapshotSwapForOwner(applyOwnerActive())
-}
 
 func recoverPrevSnapshotSwapForOwner(ownerActive bool) error {
 	// An active Apply owns prev.next/prev.old. Startup during its API restart

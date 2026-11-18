@@ -75,25 +75,10 @@ func appSessUnlocked() *appSession {
 	return s
 }
 
-func appGetScreen() string {
-	appMu.Lock()
-	defer appMu.Unlock()
-	return appSessUnlocked().Screen
-}
 func appSetScreen(v string) {
 	appMu.Lock()
 	defer appMu.Unlock()
 	appSessUnlocked().Screen = v
-}
-func appGetFocus() string {
-	appMu.Lock()
-	defer appMu.Unlock()
-	return appSessUnlocked().Focus
-}
-func appSetFocus(v string) {
-	appMu.Lock()
-	defer appMu.Unlock()
-	appSessUnlocked().Focus = v
 }
 func appGetConfirmTarget() string {
 	appMu.Lock()
@@ -105,63 +90,12 @@ func appSetConfirmTarget(v string) {
 	defer appMu.Unlock()
 	appSessUnlocked().ConfirmTarget = v
 }
-func appGetListIDs() []string {
-	appMu.Lock()
-	defer appMu.Unlock()
-	return append([]string(nil), appSessUnlocked().ListIDs...)
-}
-func appSetListIDs(ids []string) {
-	appMu.Lock()
-	defer appMu.Unlock()
-	appSessUnlocked().ListIDs = append([]string(nil), ids...)
-}
-func appGetRebootTarget() string {
-	appMu.Lock()
-	defer appMu.Unlock()
-	return appSessUnlocked().RebootTarget
-}
-func appSetRebootTarget(v string) {
-	appMu.Lock()
-	defer appMu.Unlock()
-	appSessUnlocked().RebootTarget = v
-}
-func appGetBackupName() string {
-	appMu.Lock()
-	defer appMu.Unlock()
-	return appSessUnlocked().BackupName
-}
-func appSetBackupName(v string) {
-	appMu.Lock()
-	defer appMu.Unlock()
-	appSessUnlocked().BackupName = v
-}
-func appGetCompose() (text, mode string) {
-	appMu.Lock()
-	defer appMu.Unlock()
-	s := appSessUnlocked()
-	return s.Compose, s.ComposeMode
-}
-func appSetCompose(text, mode string) {
-	appMu.Lock()
-	defer appMu.Unlock()
-	s := appSessUnlocked()
-	s.Compose, s.ComposeMode = text, mode
-}
-func appGetComposeText() string {
-	t, _ := appGetCompose()
-	return t
-}
-func appGetComposeMode() string {
-	_, m := appGetCompose()
-	return m
-}
 
 const appWidgetBootHub = `(function(){var W=window.TelegramWidget;var LAB={en:{home:"Menu",status:"Status",users:"Users",fleet:"Fleet",tools:"Tools",operator:"Oper",updates:"Updates",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Channel",versions:"Ver",nodes:"Nodes",devices:"Dev",sites:"Sites",edge:"Edge",media:"Media",data:"Data",adv:"More",logs:"Logs",stack:"Stack",help:"Help",git:"Git",backup:"Backup",alerts:"Alerts",incident:"Incident",reboot:"Reboot",session:"Session",sessions:"Sessions",sshkeys:"SSH",presets:"Presets",mtls:"mTLS",secops:"Sec ops",routers:"Routers",pending:"Pending",addons:"Addons",seclist:"Sec",doctor:"Doctor",admin:"Admin",certs:"Certs",fw:"FW",dns:"DNS",nvr:"NVR",digest:"Dig",netmap:"Map",probes:"Prb",actions:"Act",audit:"Aud",lampac:"Lam",canary:"Can",aptguard:"Apt",svcpaths:"SP",cleanup:"Clean",ulist:"List",ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"On",di:"Off",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"OK?",up:"Upgrade",rb:"Reboot",jn:"Log",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Rename",add:"Add",qr:"QR",heal:"Heal",al_test:"Test",al_clr:"Clear",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"U→SP",vpnref:"↻ links",upol:"Policy",pr_new:"New",pr_draft:"Draft",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Stor",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+room",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours",srev:"Revoke all",cy:"Canary",kd:"→dev",ku:"→usr",sp:"Sub↕",qn:"Quota#",sr:"SR",rbk:"RB",wd:"WD",heal:"Heal",vt_p:"P ✓",vt_s:"S ✓",v_all:"All",v_none:"None",v_apply:"Apply",v_ref:"↻"},ru:{home:"Меню",status:"Статус",users:"Юзеры",fleet:"Флот",tools:"Tools",operator:"Опер.",updates:"Обнов.",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Канал",versions:"Вер.",nodes:"Ноды",devices:"Устр.",sites:"Сайты",edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",git:"Git",backup:"Бэкап",alerts:"Алерты",incident:"Инцид.",reboot:"Ребут",session:"Сесс.",sessions:"Сесс.",sshkeys:"SSH",presets:"Пресс",mtls:"mTLS",secops:"Sec ops",routers:"Роутеры",pending:"Pending",addons:"Аддоны",seclist:"Sec",doctor:"Doctor",admin:"Админ",certs:"Серты",fw:"FW",dns:"DNS",nvr:"NVR",digest:"Dig",netmap:"Map",probes:"Prb",actions:"Act",audit:"Aud",lampac:"Lam",canary:"Can",aptguard:"Apt",svcpaths:"SP",cleanup:"Очистка",ulist:"Список",ucard:"User",ncard:"Node",menu:"Меню",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Отозвать",y_rv:"OK?",up:"Upgrade",rb:"Ребут",jn:"Журнал",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Имя",add:"Добавить",qr:"QR",heal:"Heal",al_test:"Тест",al_clr:"Сброс",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"Ю→SP",vpnref:"Обновить",upol:"Policy",pr_new:"Новый",pr_draft:"Черновик",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Stor",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+комн",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1ч",sess4:"4ч",sess24:"24ч",sess72:"72ч",sessx:"Часы",srev:"Сбросить",cy:"Canary",kd:"→устр",ku:"→юзер",sp:"Sub↕",qn:"Квота#",sr:"SR",rbk:"RB",wd:"WD",heal:"Heal",vt_p:"P ✓",vt_s:"S ✓",v_all:"Все",v_none:"Нет",v_apply:"Применить",v_ref:"↻"}};function L(d){return (d&&d.L==="en")?"en":"ru";}function tr(d,k){var lang=L(d);return (LAB[lang]&&LAB[lang][k])||(LAB.en[k])||k;}function esc(s){s=String(s==null?'':s);return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}function read(){try{if(W&&W.chatData){var x=W.chatData;return typeof x==="string"?JSON.parse(x):x;}}catch(e){}return null;}function paint(d){if(!d){d={s:"home",t:"Menu",b:"—",L:"ru"};}var title=document.getElementById("t");var body=document.getElementById("b");var hint=document.getElementById("h");var nav=document.getElementById("n");var tabs=document.getElementById("tabs");var seg=document.getElementById("seg");if(title)title.textContent=d.t||tr(d,d.s)||"Netductor";if(hint)hint.textContent=d.h||"";function mk(act,label,cls,parent){var btn=document.createElement("button");btn.textContent=label;if(cls)btn.className=cls;btn.addEventListener("click",function(){send(act);});parent.appendChild(btn);}if(tabs){tabs.innerHTML="";var tops=["status","users","fleet","tools","operator"];for(var ti=0;ti<tops.length;ti++){var id=tops[ti], cls=(d.s===id)?"primary":"";mk("g:"+id,tr(d,id),cls,tabs);}}if(seg){seg.innerHTML="";if(d.segs&&d.segs.length){for(var si=0;si<d.segs.length;si++){var sid=d.segs[si], sc=(d.seg===sid)?"primary":"";mk("sg:"+sid,tr(d,sid)||sid,sc,seg);}}}if(body){if(d.rows&&d.rows.length){var html="";for(var i=0;i<d.rows.length;i++){var r=d.rows[i];html+='<div class="row"><span class="k">'+esc(r[0]||"")+'</span><span class="v">'+esc(r[1]||"—")+'</span></div>';if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){var p=Math.max(0,Math.min(100,+d.pct[i]||0));html+='<div class="bar"><i style="width:'+p+'%"></i></div>';}}if(d.lines){html+='<div class="pre"></div>';}body.innerHTML=html;if(d.lines){body.querySelector(".pre").textContent=d.lines;}}else if(d.lines){body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.lines;}else{body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.b||tr(d,"nodata");}}if(nav){nav.innerHTML="";function add(act,label,cls){mk(act,label,cls,nav);}add("r",tr(d,"refresh"),"primary");if(d.s&&d.s!=="home")add("b",tr(d,"back"));if(d.nav){for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));}if(d.ids){var ids=String(d.ids).split(",");for(var k=0;k<ids.length&&k<12;k++){if(ids[k])add("o:"+(k+1),String(k+1));}}if(d.acts){var acts=String(d.acts).split(",");for(var a=0;a<acts.length;a++){if(!acts[a])continue;var lab=tr(d,acts[a]);var cls="";if(/^(rv|y_rv|rb|y_rb|y_rbk|y_rst)$/.test(acts[a]))cls="danger";if(acts[a]==="en"||acts[a]==="et_on"||acts[a]==="et_soft_on")cls="on";add(acts[a],lab,cls);}}if(d.btns&&d.btns.length){for(var bi=0;bi<d.btns.length;bi++){var pair=d.btns[bi];if(!pair||!pair[0])continue;var bl=String(pair[1]||pair[0]); var bc="";if(/·\s*(on|OPEN|вкл)/i.test(bl))bc="on";add(String(pair[0]),bl,bc);}}if(d.s!=="home")add("g:home",tr(d,"menu"));if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}}}function send(act){act=String(act||"r");if(act.length>64)act=act.slice(0,64);if(!(W&&W.request))return;W.request(act).then(function(ans){if(ans&&ans.result){try{paint(JSON.parse(ans.result));}catch(e){}}},function(){});}function run(){paint(read());}run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
 
 const appWidgetBootSpark = `(function(){var W=window.TelegramWidget;var LAB={en:{home:"Menu",status:"Status",users:"Users",fleet:"Fleet",tools:"Tools",operator:"Oper",updates:"Updates",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Channel",versions:"Ver",nodes:"Nodes",devices:"Dev",sites:"Sites",edge:"Edge",media:"Media",data:"Data",adv:"More",logs:"Logs",stack:"Stack",help:"Help",git:"Git",backup:"Backup",alerts:"Alerts",incident:"Incident",reboot:"Reboot",session:"Session",sessions:"Sessions",sshkeys:"SSH",presets:"Presets",mtls:"mTLS",secops:"Sec ops",routers:"Routers",pending:"Pending",addons:"Addons",seclist:"Sec",doctor:"Doctor",admin:"Admin",certs:"Certs",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Clean",ulist:"List",ucard:"User",ncard:"Node",menu:"Menu",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"On",di:"Off",lk:"Link",sb:"Sub",rv:"Revoke",y_rv:"OK?",up:"Upgrade",rb:"Reboot",jn:"Log",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Rename",add:"Add",qr:"QR",heal:"Heal",al_test:"Test",al_clr:"Clear",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"U→SP",vpnref:"↻ links",upol:"Policy",pr_new:"New",pr_draft:"Draft",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Stor",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+room",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1h",sess4:"4h",sess24:"24h",sess72:"72h",sessx:"Hours",srev:"Revoke all",cy:"Canary",kd:"→dev",ku:"→usr",sp:"Sub↕",qn:"Quota#",sr:"SR",rbk:"RB",wd:"WD",heal:"Heal",vt_p:"P ✓",vt_s:"S ✓",v_all:"All",v_none:"None",v_apply:"Apply",v_ref:"↻"},ru:{home:"Меню",status:"Статус",users:"Юзеры",fleet:"Флот",tools:"Tools",operator:"Опер.",updates:"Обнов.",primary:"Primary",secondary:"Sec",edge_a:"Edge",channel:"Канал",versions:"Вер.",nodes:"Ноды",devices:"Устр.",sites:"Сайты",edge:"Edge",media:"Медиа",data:"Данные",adv:"Ещё",logs:"Логи",stack:"Стек",help:"Справка",git:"Git",backup:"Бэкап",alerts:"Алерты",incident:"Инцид.",reboot:"Ребут",session:"Сесс.",sessions:"Сесс.",sshkeys:"SSH",presets:"Пресс",mtls:"mTLS",secops:"Sec ops",routers:"Роутеры",pending:"Pending",addons:"Аддоны",seclist:"Sec",doctor:"Doctor",admin:"Админ",certs:"Серты",fw:"FW",dns:"DNS",nvr:"NVR",cleanup:"Очистка",ulist:"Список",ucard:"User",ncard:"Node",menu:"Меню",back:"←",refresh:"↻",nodata:"—",empty:"∅",en:"Вкл",di:"Выкл",lk:"Ссылка",sb:"Sub",rv:"Отозвать",y_rv:"OK?",up:"Upgrade",rb:"Ребут",jn:"Журнал",y_rb:"OK?",q50:"50G",q200:"200G",q0:"∞",rn:"Имя",add:"Добавить",qr:"QR",heal:"Heal",al_test:"Тест",al_clr:"Сброс",gsync:"Sync",gship:"Ship",gjobs:"Jobs",spa_apply:"Apply",api_tg:"API",usp_tg:"Ю→SP",vpnref:"Обновить",upol:"Policy",pr_new:"Новый",pr_draft:"Черновик",es_bak:"Backup",es_rst:"Restore",es_list:"USB",es_mute:"Mute",es_fmt:"Format",y_fmt:"OK?",et_on:"Tpl on",et_off:"Tpl off",eg_code:"Grant",glog:"Log",gpause:"Pause",gresume:"Resume",grm:"Del",edgestor:"Stor",edgetpl:"Tpl",edgeguest:"Guest",edgeluci:"LuCI",edgepol:"Policy",edgelife:"Life",loc:"Loc",room_add:"+комн",mt_list:"List",mt_rot:"Rotate",sec_exp:"Export",sec_enr:"Enroll",er_reg:"Reg",er_bind:"Bind",er_apply:"Apply",cert_ren:"Renew",fw_apply:"FW",ag_scan:"Scan",sess1:"1ч",sess4:"4ч",sess24:"24ч",sess72:"72ч",sessx:"Часы",srev:"Сбросить",cy:"Canary",kd:"→устр",ku:"→юзер",sp:"Sub↕",qn:"Квота#",sr:"SR",rbk:"RB",wd:"WD",heal:"Heal",vt_p:"P ✓",vt_s:"S ✓",v_all:"Все",v_none:"Нет",v_apply:"Применить",v_ref:"↻"}};function L(d){return (d&&d.L==="en")?"en":"ru";}function tr(d,k){var lang=L(d);return (LAB[lang]&&LAB[lang][k])||(LAB.en[k])||k;}function esc(s){s=String(s==null?'':s);return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}function read(){try{if(W&&W.chatData){var x=W.chatData;return typeof x==="string"?JSON.parse(x):x;}}catch(e){}return null;}function paint(d){if(!d){d={s:"home",t:"Menu",b:"—",L:"ru"};}var title=document.getElementById("t");var body=document.getElementById("b");var hint=document.getElementById("h");var nav=document.getElementById("n");var tabs=document.getElementById("tabs");var seg=document.getElementById("seg");if(title)title.textContent=d.t||tr(d,d.s)||"Netductor";if(hint)hint.textContent=d.h||"";function mk(act,label,cls,parent){var btn=document.createElement("button");btn.textContent=label;if(cls)btn.className=cls;btn.addEventListener("click",function(){send(act);});parent.appendChild(btn);}if(tabs){tabs.innerHTML="";var tops=["status","users","fleet","tools","operator"];for(var ti=0;ti<tops.length;ti++){var id=tops[ti], cls=(d.s===id)?"primary":"";mk("g:"+id,tr(d,id),cls,tabs);}}if(seg){seg.innerHTML="";if(d.segs&&d.segs.length){for(var si=0;si<d.segs.length;si++){var sid=d.segs[si], sc=(d.seg===sid)?"primary":"";mk("sg:"+sid,tr(d,sid)||sid,sc,seg);}}}if(body){if(d.rows&&d.rows.length){var html="";for(var i=0;i<d.rows.length;i++){var r=d.rows[i];html+='<div class="row"><span class="k">'+esc(r[0]||"")+'</span><span class="v">'+esc(r[1]||"—")+'</span></div>';if(d.pct&&d.pct[i]!=null&&d.pct[i]>=0){var p=Math.max(0,Math.min(100,+d.pct[i]||0));html+='<div class="bar"><i style="width:'+p+'%"></i></div>';}}if(d.spk)html+='<canvas id="spk" width="300" height="36" style="width:100%;height:36px;margin:4px 0"></canvas>';if(d.lines){html+='<div class="pre"></div>';}body.innerHTML=html;if(d.lines){body.querySelector(".pre").textContent=d.lines;}if(d.spk)drawSpk(d.spk);}else if(d.lines){body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.lines;}else{body.innerHTML='<div class="pre"></div>';body.firstChild.textContent=d.b||tr(d,"nodata");}}if(nav){nav.innerHTML="";function add(act,label,cls){mk(act,label,cls,nav);}add("r",tr(d,"refresh"),"primary");if(d.s&&d.s!=="home")add("b",tr(d,"back"));if(d.nav){for(var j=0;j<d.nav.length;j++)add("g:"+d.nav[j],tr(d,d.nav[j]));}if(d.ids){var ids=String(d.ids).split(",");for(var k=0;k<ids.length&&k<12;k++){if(ids[k])add("o:"+(k+1),String(k+1));}}if(d.acts){var acts=String(d.acts).split(",");for(var a=0;a<acts.length;a++){if(!acts[a])continue;var lab=tr(d,acts[a]);var cls="";if(/^(rv|y_rv|rb|y_rb|y_rbk|y_rst)$/.test(acts[a]))cls="danger";if(acts[a]==="en"||acts[a]==="et_on"||acts[a]==="et_soft_on")cls="on";add(acts[a],lab,cls);}}if(d.btns&&d.btns.length){for(var bi=0;bi<d.btns.length;bi++){var pair=d.btns[bi];if(!pair||!pair[0])continue;var bl=String(pair[1]||pair[0]); var bc="";if(/·\s*(on|OPEN|вкл)/i.test(bl))bc="on";add(String(pair[0]),bl,bc);}}if(d.s!=="home")add("g:home",tr(d,"menu"));if(d.s==="home"){add("L:ru","RU");add("L:en","EN");}}}function drawSpk(s){var c=document.getElementById("spk");if(!c||!c.getContext)return;var a=String(s).split(",");var ctx=c.getContext("2d"),w=c.width,h=c.height,n=a.length;if(n<2)return;ctx.clearRect(0,0,w,h);ctx.strokeStyle="#2a6df4";ctx.lineWidth=2;ctx.beginPath();for(var i=0;i<n;i++){var v=Math.max(0,Math.min(100,+a[i]||0));var x=i/(n-1)*(w-2)+1,y=h-1-(v/100)*(h-4);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}function send(act){act=String(act||"r");if(act.length>64)act=act.slice(0,64);if(!(W&&W.request))return;W.request(act).then(function(ans){if(ans&&ans.result){try{paint(JSON.parse(ans.result));}catch(e){}}},function(){});}function run(){paint(read());}run();if(W&&W.onEvent)W.onEvent("chatDataChanged",run);})();`
 
 // Deprecated alias: spark-capable boot (status/channel).
-const appWidgetBoot = appWidgetBootSpark
 
 
 func appWidgetCSS() string {
@@ -371,29 +305,6 @@ func sparkCPU(n int) string {
 	return strings.Join(vals, ",")
 }
 
-func parseResPct(res string) []int {
-	// res like "cpu 12% mem 40%" — optional bars aligned to version/host/nodes/svc/cpu row index 4
-	out := []int{-1, -1, -1, -1, -1, -1, -1}
-	res = strings.ToLower(res)
-	var cpu, mem int
-	fmt.Sscanf(res, "cpu %d", &cpu)
-	if i := strings.Index(res, "mem"); i >= 0 {
-		fmt.Sscanf(res[i:], "mem %d", &mem)
-	}
-	if cpu > 0 {
-		out[4] = cpu
-	}
-	if mem > 0 && cpu == 0 {
-		out[4] = mem
-	}
-	// keep only if any set
-	for _, v := range out {
-		if v >= 0 {
-			return out
-		}
-	}
-	return nil
-}
 
 func formatCmdOut(s string) string {
 	s = strings.TrimSpace(s)
@@ -781,44 +692,6 @@ func buildAppRebootChallenge(target, display string) (string, error) {
 	})
 }
 
-func buildAppGit() (string, error) {
-	list, err := gitstore.LoadProjects()
-	if err != nil {
-		return appMarshal(appState{S: "git", T: "Git", B: err.Error()})
-	}
-	var lines []string
-	var ids []string
-	for i, pr := range list {
-		if i >= 10 {
-			break
-		}
-		lines = append(lines, fmt.Sprintf("%d %s", i+1, pr.Name))
-		ids = append(ids, pr.Name)
-	}
-	appMu.Lock()
-	appSessUnlocked().ListIDs = ids
-	appMu.Unlock()
-	st := appState{
-		S: "git", T: "Git",
-		H: appTitle("# project · bulk actions below", "# проект · массовые действия ниже"),
-		Btns: [][2]string{
-			{"gsall", appTitle("Sync all", "Sync все")},
-			{"gship", appTitle("Ship", "Ship")},
-			{"gbuild", appTitle("Build", "Сборка")},
-			{"gjobs", appTitle("Jobs", "Jobs")},
-			{"gadd", appTitle("Add project", "Добавить")},
-			{"gmirror", appTitle("Mirror", "Mirror")},
-			{"gmig", appTitle("Migrate", "Миграция")},
-		},
-	}
-	if len(lines) == 0 {
-		st.B = appTitle("no projects", "нет проектов")
-	} else {
-		st.Lines = strings.Join(lines, "\n")
-		st.IDs = strings.Join(ids, ",")
-	}
-	return appMarshal(st)
-}
 
 func buildAppAlerts() (string, error) {
 	st := notify.GetAlertsRoutingStatus()

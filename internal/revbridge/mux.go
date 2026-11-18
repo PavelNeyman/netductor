@@ -75,12 +75,10 @@ func (s *session) keepAliveLoop() {
 		if s.closed.Load() {
 			return
 		}
-		select {
-		case <-t.C:
-			if err := s.writeFrame(0, flagPing, nil); err != nil {
-				s.Close()
-				return
-			}
+		<-t.C
+		if err := s.writeFrame(0, flagPing, nil); err != nil {
+			s.Close()
+			return
 		}
 	}
 }

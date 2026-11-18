@@ -29,15 +29,6 @@ func residualShell(title, fields, body, screen, extraBtns string) string {
 <script>` + phase1WidgetJS(screen) + `</script></body></html>`
 }
 
-func residualNavFull(token string, q *widgetQuery, admin int64, screen string, full func(token string, chat int64, msgID int)) bool {
-	chat := admin
-	if q.Chat != nil {
-		chat = q.Chat.ID
-	}
-	answerWidgetQuery(token, q.ID, `{"ok":true,"nav":"full"}`)
-	full(token, chat, q.MessageID)
-	return true
-}
 
 // --- digest ---
 

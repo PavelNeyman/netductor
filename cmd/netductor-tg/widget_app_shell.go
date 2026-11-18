@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PavelNeyman/netductor/internal/fleet"
 )
 
 // Shell kinds for SPA multi-HTML (hub lean / spark + canvas) and dual info metadata.
@@ -85,29 +84,6 @@ func parseScreenFromChatData(cd string) string {
 	return "home"
 }
 
-func formatSecondaryLines() (lines []string, ids []string) {
-	d := fleet.Build()
-	for i, s := range d.Secondaries {
-		if i >= 12 {
-			break
-		}
-		name := s.Name
-		if name == "" {
-			name = s.ID
-		}
-		on := "off"
-		if s.Online {
-			on = "on"
-		}
-		lines = append(lines, fmt.Sprintf("%d %s %s %s", len(ids)+1, name, s.Version, on))
-		id := s.ID
-		if id == "" {
-			id = name
-		}
-		ids = append(ids, id)
-	}
-	return lines, ids
-}
 
 func formatGitHubLines() (rows [][2]string, lines string) {
 	out := appLines(runND("git", "status"))

@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -64,16 +63,10 @@ func parseModeFlags(args []string) runMode {
 var (
 	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205")).Padding(0, 1)
 	subStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Padding(0, 1)
-	docStyle   = lipgloss.NewStyle().Padding(0, 1)
-	helpStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("250")).Background(lipgloss.Color("236")).Padding(0, 1)
-	chipStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Background(lipgloss.Color("63")).Padding(0, 1).MarginRight(1)
 	okStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 	errStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 )
 
-type menuItem struct {
-	title, desc, id string
-}
 
 func parseRemoteFlags(args []string) (host, user, key, pass string) {
 	user = "root"
@@ -108,9 +101,6 @@ func parseRemoteFlags(args []string) (host, user, key, pass string) {
 	return host, user, key, pass
 }
 
-func (i menuItem) Title() string       { return i.title }
-func (i menuItem) Description() string { return i.desc }
-func (i menuItem) FilterValue() string { return i.title }
 
 type screen int
 
@@ -133,7 +123,6 @@ const (
 type tuiResult struct {
 	action string
 	mode   runMode
-	output string
 }
 
 type model struct {
@@ -150,7 +139,6 @@ type model struct {
 	langPref       string
 	helpY          int
 	hits           []hitRect
-	list           list.Model
 	wizStep        wizStep
 	wizTarget      wizTarget
 	wizFields      []wizField
@@ -188,31 +176,6 @@ func max(a, b int) int {
 	return b
 }
 
-func capture(fn func()) string {
-	r, w, err := os.Pipe()
-	if err != nil {
-		fn()
-		return ""
-	}
-	oldOut, oldErr := os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = w, w
-	fn()
-	_ = w.Close()
-	os.Stdout, os.Stderr = oldOut, oldErr
-	var buf strings.Builder
-	tmp := make([]byte, 4096)
-	for {
-		n, er := r.Read(tmp)
-		if n > 0 {
-			buf.Write(tmp[:n])
-		}
-		if er != nil {
-			break
-		}
-	}
-	_ = r.Close()
-	return buf.String()
-}
 
 func runTUI(args []string) {
 	s := loadTUISettings()

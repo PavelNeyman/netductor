@@ -75,3 +75,16 @@ G204/G304 на deploy SSH · G402 на probe/vendor · SHA1/MD5 Tapo/ONVIF · G1
 | **N2** | **done** | `ServerTLSConfig`: `VerifyConnection` + `SessionTicketsDisabled` (revoke on every conn). |
 | **N3** | **partial** | Removed unused `reFrom`, `dirSizeBytes`, `lastFlush`, `isChecksumish`, `holdHostLock`, `runCmd`. op TUI U1000 still open. |
 
+## Progress 2026-11-18 (pass 2)
+
+| ID | Status |
+|----|--------|
+| **N1** | done (prior) |
+| **N2** | done (prior) |
+| **N3 UI/cmd** | **done** — op TUI dead styles/menuItem/list/capture; cli_flags helpers; TG widget dead helpers; formatClusterHTML; lastAccessMsg; thin wrappers applyUFW/installHealthTimer/recoverPrevSnapshotSwap |
+| **N4** | partial — mux S1000 fixed |
+| **N3 internal residual** | **deferred** — ~20 U1000 in deploy/firewall/install/svcpaths/secondary (need wire-or-delete audit, not blind delete) |
+| **N5 G115** | deferred — needs per-site bounds review |
+
+`staticcheck -checks U1000 ./cmd/...` = 0. Full `./...` residual listed under deferred.
+

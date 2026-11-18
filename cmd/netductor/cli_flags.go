@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 )
 
 // CF-18.3 shared flag layer: noun verb [options]
@@ -39,39 +38,8 @@ func parseCLIOpts(args []string) cliOpts {
 	return o
 }
 
-func wantHelp(args []string) bool {
-	for _, a := range args {
-		if a == "-h" || a == "--help" || a == "help" {
-			return true
-		}
-	}
-	return false
-}
 
-func unknownFlag(args []string, allowed map[string]bool) string {
-	for _, a := range args {
-		if !strings.HasPrefix(a, "-") {
-			continue
-		}
-		if allowed != nil && allowed[a] {
-			continue
-		}
-		// allow --flag=value form if base known
-		if i := strings.IndexByte(a, '='); i > 0 {
-			base := a[:i]
-			if allowed != nil && allowed[base] {
-				continue
-			}
-		}
-		return a
-	}
-	return ""
-}
 
-func dieUnknownFlag(flag string) {
-	fmt.Fprintf(os.Stderr, "unknown flag: %s\n", flag)
-	os.Exit(2)
-}
 
 // refuseIfDryRun prints a one-liner and returns true when --dry-run was set.
 // Callers must return without mutating state.

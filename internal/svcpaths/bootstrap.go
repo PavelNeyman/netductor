@@ -828,7 +828,6 @@ func healthTimerProbeAddrs() (pSP, sSP, pPS, sPS string, err error) {
 	return pSP, sSP, pPS, sPS, nil
 }
 
-func installHealthTimer() error { return installHealthTimerWithTransaction(nil) }
 
 func installHealthTimerWithTransaction(tx *bootstrapFileTransaction) error {
 	script := `/usr/local/bin/nd-svc-paths-health`

@@ -66,12 +66,6 @@ func setLastAppShell(chat int64, shell string) {
 	saveWidgetUIStore()
 }
 
-func getLastAppShell(chat int64) string {
-	loadWidgetUIStore()
-	lastAppMu.Lock()
-	defer lastAppMu.Unlock()
-	return lastAppShell[chat]
-}
 
 func forgetAppMsg(chat int64) {
 	loadWidgetUIStore()

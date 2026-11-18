@@ -542,9 +542,6 @@ func sendAppDeepLink(token string, chat int64, name, mode, client string) {
 
 var accessShowMu sync.Mutex
 
-// lastAccessMsg tracks the live Access card per chat+user so we can delete without racing photo edits.
-var lastAccessMsg = map[string]int{}
-
 func showUserAccess(token string, chat int64, msgID int, name, mode string) {
 	accessShowMu.Lock()
 	defer accessShowMu.Unlock()
