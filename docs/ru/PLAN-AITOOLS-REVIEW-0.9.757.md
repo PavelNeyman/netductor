@@ -55,3 +55,14 @@ G204/G304 на deploy SSH · G402 на probe/vendor · SHA1/MD5 Tapo/ONVIF · G1
 | Дата | Событие |
 |------|---------|
 | 2026-11-18 | Первичный план по прогону 0.9.757 |
+
+## Перепрогон 2026-11-18 (ai-tools 1.12.1-dev)
+
+- Сообщение `no Go files` **исчезло**.
+- **errcheck**: ~330 hits (defer Close/Remove — triage позже).
+- **ineffassign**: ~37 (TG keyboards, mtls rollover, vpn apply…).
+- **deadcode/govulncheck**: `signal: killed` (OOM на полном дереве в sandbox) — повторить на машине с запасом RAM или с `-test=false`/узким scope.
+- **SA4023** подтверждён staticcheck.
+
+Артефакт: `artifacts/aitools-report-netductor-0.9.757-r2.*`
+

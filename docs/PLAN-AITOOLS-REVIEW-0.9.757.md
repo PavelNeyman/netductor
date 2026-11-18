@@ -70,3 +70,14 @@ Re-run full review after ai-tools **≥ v1.12.1** before treating deadcode/errch
 | Date | Event |
 |------|--------|
 | 2026-11-18 | Initial plan from aitools 1.12.0 pass on 0.9.757 |
+
+## 2026-11-18 re-run (ai-tools 1.12.1-dev local)
+
+- **`no Go files` gone** with `./...` args.
+- **errcheck**: ~330 findings (mostly deferred Close/Remove — triage later).
+- **ineffassign**: ~37 (TG keyboards, mtls rollover, vpn apply…).
+- **deadcode / govulncheck**: `signal: killed` (sandbox OOM on full tree) — re-run on larger host or narrower package set.
+- **SA4023** confirmed again via staticcheck.
+
+Artifact: `artifacts/aitools-report-netductor-0.9.757-r2.*`
+
