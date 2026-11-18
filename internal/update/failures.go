@@ -1,7 +1,6 @@
 package update
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -66,6 +65,3 @@ func ErrRollbackFailed(health, restore error) error {
 	return fmt.Errorf("rollback: restore previous binary failed: %v (health: %w)", restore, health)
 }
 
-func isChecksumish(err error) bool {
-	return errors.Is(err, err) && ClassifyFailure(err) == FailChecksum
-}

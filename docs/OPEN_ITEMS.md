@@ -19,9 +19,9 @@ Plan: [PLAN-AITOOLS-REVIEW-0.9.757.md](PLAN-AITOOLS-REVIEW-0.9.757.md) · [RU](r
 
 From `aitools` pass on **0.9.757** / `37f6dac`. **No release** until P1 closed or deferred in that plan.
 
-- [ ] **N1** revbridge SA4023 (`sessionOnce` always-true nil iface)
-- [ ] **N2** mTLS G123 (VerifyPeerCertificate vs session resumption)
-- [ ] **N3** U1000 dead symbols (devices/notify/nvr/update/vpscheck/op TUI)
+- [x] **N1** revbridge SA4023 (`sessionOnce` always-true nil iface)
+- [x] **N2** mTLS G123 (VerifyPeerCertificate vs session resumption)
+- [~] **N3** U1000 dead symbols (partial: devices/notify/nvr/update/vpscheck; op TUI remains)
 - [ ] Re-run review with **ai-tools ≥ v1.12.1** (Go tools get `./...`)
 
 ## Backup offsite false fail during stack apply (2026-11-13) — mitigated 0.9.729

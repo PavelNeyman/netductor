@@ -34,7 +34,6 @@ var (
 	batchMu      sync.Mutex
 	pending      = map[string]string{} // key → html body
 	flushOnce    sync.Once
-	lastFlush    time.Time
 	lastHubPin   time.Time
 	firstPending time.Time // when current batch started filling
 	soloTimer    *time.Timer
@@ -165,7 +164,6 @@ func FlushAlerts(force bool) error {
 	} else {
 		firstPending = time.Now()
 	}
-	lastFlush = time.Now()
 	doHub := time.Since(lastHubPin) >= hubRepinMin
 	if doHub {
 		lastHubPin = time.Now()

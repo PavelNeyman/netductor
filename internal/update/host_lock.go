@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 )
@@ -60,15 +59,4 @@ func tryHostLockOnce(component ComponentID, instance InstanceID) (unlock func(),
 	}, nil
 }
 
-// sleep holds the lock briefly for concurrent tests.
-func holdHostLock(component ComponentID, instance InstanceID, d time.Duration) (done <-chan struct{}) {
-	ch := make(chan struct{})
-	go func() {
-		_ = withHostComponentLock(component, instance, func() error {
-			time.Sleep(d)
-			close(ch)
-			return nil
-		})
-	}()
-	return ch
-}
+

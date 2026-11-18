@@ -63,14 +63,6 @@ func EnsureToolsCtx(ctx context.Context) (string, error) {
 	return "installed " + strings.Join(install, ","), nil
 }
 
-func runCmd(ctx context.Context, name string, args ...string) (string, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	cmd := exec.CommandContext(ctx, name, args...)
-	out, err := cmd.CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
 
 func truncate(s string, n int) string {
 	if len(s) <= n {

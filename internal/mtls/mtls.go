@@ -207,14 +207,17 @@ func ServerTLSConfig() (*tls.Config, error) {
 		ClientCAs:    pool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		MinVersion:   tls.VersionTLS13,
-		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
-			if len(rawCerts) == 0 {
+		// SessionTicketsDisabled avoids resumed handshakes that would skip
+		// per-connection revoke checks if only VerifyPeerCertificate were set.
+		// Agent plane volume is low; prefer fail-closed revoke over ticket reuse.
+		SessionTicketsDisabled: true,
+		// VerifyConnection runs for every connection (including any future
+		// resumption path). G123: do not rely on VerifyPeerCertificate alone.
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
 				return fmt.Errorf("mtls: no client certificate")
 			}
-			c, err := x509.ParseCertificate(rawCerts[0])
-			if err != nil {
-				return err
-			}
+			c := cs.PeerCertificates[0]
 			revoked, err := IsRevoked(c.SerialNumber)
 			if err != nil {
 				return fmt.Errorf("mtls: revoke check failed: %w", err)

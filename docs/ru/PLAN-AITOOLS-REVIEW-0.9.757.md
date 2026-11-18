@@ -66,3 +66,12 @@ G204/G304 на deploy SSH · G402 на probe/vendor · SHA1/MD5 Tapo/ONVIF · G1
 
 Артефакт: `artifacts/aitools-report-netductor-0.9.757-r2.*`
 
+
+## Progress 2026-11-18
+
+| ID | Status | Evidence |
+|----|--------|----------|
+| **N1** | **done** | `sessionOnce` returns `nil` on normal end, `errClientStopped` on Stop; loopKind distinguishes. Test `TestSessionOnceReturnsNilInterfacePossible`. staticcheck SA4023 cleared on package. |
+| **N2** | **done** | `ServerTLSConfig`: `VerifyConnection` + `SessionTicketsDisabled` (revoke on every conn). |
+| **N3** | **partial** | Removed unused `reFrom`, `dirSizeBytes`, `lastFlush`, `isChecksumish`, `holdHostLock`, `runCmd`. op TUI U1000 still open. |
+

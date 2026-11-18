@@ -38,9 +38,7 @@ func storePath() string {
 var (
 	// [Pavel] inbound connection from 46.x:port
 	reUserFrom = regexp.MustCompile(`\[([A-Za-z0-9._-]+)\][^\n]*inbound connection from ([0-9.]+):`)
-	// inbound connection from IP without name — skip or unknown
-	reFrom = regexp.MustCompile(`inbound connection from ([0-9.]+):`)
-	reDest = regexp.MustCompile(`inbound connection to ([^\s]+)`)
+	reDest     = regexp.MustCompile(`inbound connection to ([^\s]+)`)
 )
 
 // RefreshFromJournal scans recent sing-box logs and merges into store.

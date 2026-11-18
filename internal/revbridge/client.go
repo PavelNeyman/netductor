@@ -1,12 +1,17 @@
 package revbridge
 
 import (
+	"errors"
 	"fmt"
-	"os"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
+
+// errClientStopped is returned when the client is shutting down.
+// loopKind treats it as a clean exit (no reconnect backoff).
+var errClientStopped = errors.New("revbridge: client stopped")
 
 // Client runs on Primary: dials Secondary public ports and services local targets per stream.
 type Client struct {
@@ -49,7 +54,11 @@ func (c *Client) loopKind(p PortPlan) {
 		default:
 		}
 		err := c.sessionOnce(p)
+		if errors.Is(err, errClientStopped) {
+			return
+		}
 		if err != nil {
+			// Dial / upgrade failures: exponential backoff then retry.
 			select {
 			case <-c.stop:
 				return
@@ -60,14 +69,20 @@ func (c *Client) loopKind(p PortPlan) {
 			}
 			continue
 		}
+		// Session ended normally — reconnect promptly.
 		backoff = time.Second
 	}
 }
 
+// sessionOnce dials Secondary and blocks until the mux session ends.
+// Returns:
+//   - nil — session ran and ended; caller should reconnect without long backoff
+//   - errClientStopped — client Stop(); do not reconnect
+//   - other error — dial/upgrade failure; caller should backoff
 func (c *Client) sessionOnce(p PortPlan) error {
 	select {
 	case <-c.stop:
-		return fmt.Errorf("stopped")
+		return errClientStopped
 	default:
 	}
 	addr := fmt.Sprintf("%s:%d", c.host, p.PublicPort)
@@ -109,7 +124,12 @@ func (c *Client) sessionOnce(p PortPlan) error {
 		}
 	}()
 	<-done
-	return fmt.Errorf("session ended")
+	select {
+	case <-c.stop:
+		return errClientStopped
+	default:
+		return nil
+	}
 }
 
 func (c *Client) Stop() {

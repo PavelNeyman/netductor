@@ -46,18 +46,6 @@ func dirSizeBytesErr(root string) (int64, error) {
 	return total, err
 }
 
-func dirSizeBytes(root string) int64 {
-	var sum int64
-	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info == nil || info.IsDir() {
-			return nil
-		}
-		sum += info.Size()
-		return nil
-	})
-	return sum
-}
-
 func cameraQuotaBytes(cfg Config) int64 {
 	if cfg.MaxCameraGB > 0 {
 		return int64(cfg.MaxCameraGB * 1024 * 1024 * 1024)

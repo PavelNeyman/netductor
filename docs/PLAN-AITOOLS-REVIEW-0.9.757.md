@@ -81,3 +81,12 @@ Re-run full review after ai-tools **≥ v1.12.1** before treating deadcode/errch
 
 Artifact: `artifacts/aitools-report-netductor-0.9.757-r2.*`
 
+
+## Progress 2026-11-18
+
+| ID | Status | Evidence |
+|----|--------|----------|
+| **N1** | **done** | `sessionOnce` returns `nil` on normal end, `errClientStopped` on Stop; loopKind distinguishes. Test `TestSessionOnceReturnsNilInterfacePossible`. staticcheck SA4023 cleared on package. |
+| **N2** | **done** | `ServerTLSConfig`: `VerifyConnection` + `SessionTicketsDisabled` (revoke on every conn). |
+| **N3** | **partial** | Removed unused `reFrom`, `dirSizeBytes`, `lastFlush`, `isChecksumish`, `holdHostLock`, `runCmd`. op TUI U1000 still open. |
+
