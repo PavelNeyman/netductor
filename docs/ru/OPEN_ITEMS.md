@@ -16,6 +16,16 @@
 
 План: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
+## Очередь static review ai-tools (2026-11-18) — открыта
+
+План: [PLAN-AITOOLS-REVIEW-0.9.757.md](PLAN-AITOOLS-REVIEW-0.9.757.md) · [EN](../PLAN-AITOOLS-REVIEW-0.9.757.md)
+
+- [ ] **N1** revbridge SA4023
+- [ ] **N2** mTLS G123
+- [ ] **N3** U1000
+- [ ] Повторный review **ai-tools ≥ v1.12.1**
+
+
 ## Стоп-линия
 
 **v0.9.427** (tip кода 2026-10-19; доки синхронизированы 2026-10-20) — Operate Result dock (0.9.422–0.9.426), fallback токена в offline-prep (0.9.427). Последний опубликованный релиз: v0.9.426. Ранее: 0.9.414 thin-UI jobs core; 0.9.404 чистка.
