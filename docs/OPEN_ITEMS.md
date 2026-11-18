@@ -13,6 +13,16 @@ Phases 0–4 implemented on `main` (not released). Phase 5 multi-master deferred
 
 Authoritative plan: [ARCHITECTURE-PLAN.md](ARCHITECTURE-PLAN.md) · freeze: [ARCHITECTURE-FREEZE.md](ARCHITECTURE-FREEZE.md)
 
+## ai-tools static review queue (2026-11-18) — open
+
+Plan: [PLAN-AITOOLS-REVIEW-0.9.757.md](PLAN-AITOOLS-REVIEW-0.9.757.md) · [RU](ru/PLAN-AITOOLS-REVIEW-0.9.757.md)
+
+From `aitools` pass on **0.9.757** / `37f6dac`. **No release** until P1 closed or deferred in that plan.
+
+- [ ] **N1** revbridge SA4023 (`sessionOnce` always-true nil iface)
+- [ ] **N2** mTLS G123 (VerifyPeerCertificate vs session resumption)
+- [ ] **N3** U1000 dead symbols (devices/notify/nvr/update/vpscheck/op TUI)
+- [ ] Re-run review with **ai-tools ≥ v1.12.1** (Go tools get `./...`)
 
 ## Backup offsite false fail during stack apply (2026-11-13) — mitigated 0.9.729
 

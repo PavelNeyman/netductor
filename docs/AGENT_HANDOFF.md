@@ -1,3 +1,5 @@
+**2026-11-18:** Static review via **ai-tools** on tip **0.9.757**. Queue: [PLAN-AITOOLS-REVIEW-0.9.757.md](PLAN-AITOOLS-REVIEW-0.9.757.md) (P1: revbridge SA4023, mTLS G123). ai-tools **v1.12.1** fixes Go analyzer package patterns (`./...`). **Do not cut netductor release** until that plan progresses.
+
 **2026-11-17:** Fleet mesh Phases 0–4 **code complete** on `main` (region/capabilities, multi-egress sub filter, control standby fence + sync, cluster/node status API+CLI+TG+Web, egress thin `127.0.0.1:8791`). Phase 5 multi-master **not** scheduled. **No release cut yet** — production still on published tag (e.g. v0.9.756); see [PLAN-FLEET-MESH-EVOLUTION.md](PLAN-FLEET-MESH-EVOLUTION.md), [RUNBOOK-CLUSTER-STATUS.md](RUNBOOK-CLUSTER-STATUS.md), [UPGRADE-SAFETY-PHASE3-4.md](UPGRADE-SAFETY-PHASE3-4.md).
 
 
