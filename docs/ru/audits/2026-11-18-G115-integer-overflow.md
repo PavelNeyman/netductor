@@ -40,3 +40,25 @@ CCM/KLAP/TPAP/PKCS7 — **protocol**, без правок в этом прохо
 
 Дальше: повторный прогон ai-tools; отдельный журнал по U1000 residual.
 
+
+## Повторный прогон 2026-11-18 (после фикса, tip `9205bbe`)
+
+Инструмент: **ai-tools v1.12.1** · артефакты: `aitools-report-netductor-post-g115.json`
+
+| Метрика | До (v1121) | После |
+|--|--|--|
+| gosec всего | 1213 | 1186 |
+| **G115** | **43** | **20** |
+| G123 | 1 | **0** |
+
+### Снято G115: 27 мест
+
+Все FP-uid, firewall, backup старые, nvr, **ws read**, mux/secondary/svcpaths как в EN-журнале.
+
+### Осталось 20
+
+- **tapo** 16 — protocol  
+- backup / nvr / mux / ws write — **safe-bound** (см. EN)
+
+Доп. правки по residual G115 не обязательны. deadcode/govulncheck в песочнице убиты по OOM — не доказательство.
+

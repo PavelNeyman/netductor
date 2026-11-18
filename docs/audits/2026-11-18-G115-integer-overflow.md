@@ -65,3 +65,36 @@ go test -count=1 ./internal/revbridge/ ./internal/nvr/ ./internal/install/ \
 - N3 residual **U1000** in internal deploy/firewall/svcpaths: wire-or-delete audit (separate journal).  
 - No production release until operator smoke after apply.
 
+
+## Re-run 2026-11-18 (post-fix tip `9205bbe`)
+
+Tool: **ai-tools v1.12.1** · report artifacts: `aitools-report-netductor-post-g115.json`
+
+| Metric | Before (v1121 / pre-fix) | After |
+|--|--|--|
+| gosec total | 1213 | 1186 |
+| **G115** | **43** | **20** |
+| G123 (mTLS) | 1 (pre-N2) | **0** |
+
+### G115 cleared (27 sites)
+
+All **FP-uid** euid sites, firewall hostU32, backup PutUint32/old Overhead form, nvr Statfs old form, **ws read Uint64→int**, mux old line, secondary/store, svcpaths peer/bootstrap.
+
+### G115 remaining (20)
+
+| Sites | Class | Note |
+|--|--|--|
+| **tapo/** (16) | protocol | CCM / KLAP / TPAP / PKCS7 — leave |
+| `install/backup.go:274` | safe-bound | `ctLen > uint32(ndg2Chunk+Overhead()+64)` — chunk cap |
+| `nvr/retention.go:84` | safe-bound | final `int64(Bavail*bsize)` after overflow check |
+| `revbridge/mux.go:94` | safe-bound | `len ≤ maxFrame` (1MiB) before `uint32` |
+| `revbridge/ws.go:177` | protocol | `byte(n>>8)` in write; Write() splits ≤32KiB |
+
+No further code change required for residual G115 unless product policy demands nosec/helpers for the four non-tapo lines.
+
+### Other tools this run
+
+- staticcheck / errcheck / revive / gofumpt / ineffassign: completed (findings not re-triaged here)
+- deadcode / govulncheck: killed (OOM) in sandbox — not used as evidence
+- shellcheck: completed
+

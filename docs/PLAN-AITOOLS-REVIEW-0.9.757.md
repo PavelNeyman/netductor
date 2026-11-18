@@ -110,6 +110,6 @@ Journal: [audits/2026-11-18-G115-integer-overflow.md](audits/2026-11-18-G115-int
 - [x] Site-by-site classification (43 findings)
 - [x] Real: ws frame DoS bound; nvr Statfs math; euid compare without uint32 narrow
 - [x] safe-bound: firewall hostU32, backup chunk len helper
-- [ ] Re-run ai-tools/gosec for delta count
+- [x] Re-run ai-tools/gosec for delta count (G115 43→20, G123=0; tip 9205bbe)
 - [ ] U1000 residual internal (separate)
 
