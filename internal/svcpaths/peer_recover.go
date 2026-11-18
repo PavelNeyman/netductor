@@ -314,11 +314,3 @@ func RecoverIncompletePeerAdd(peerID string) (string, error) {
 	return "recovered to prepared", nil
 }
 
-// mSlot resolves slot or returns slot 0 only when index is 0 and present in table.
-// Prefer slotFromTable for validation paths.
-func mSlot(m *Material) PeerSlot {
-	if s, ok := slotFromTable(m.Slot); ok {
-		return s
-	}
-	return PeerSlot{}
-}

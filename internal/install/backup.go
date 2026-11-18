@@ -302,16 +302,6 @@ func decryptFileStreamGCM(inPath, outPath, pass string) error {
 	}
 }
 
-// encryptFileOpenSSL: legacy only (decrypt still supports old CBC archives).
-func encryptFileOpenSSL(inPath, outPath, pass string) error {
-	cmd := exec.Command("openssl", "enc", "-aes-256-cbc", "-salt", "-pbkdf2",
-		"-in", inPath, "-out", outPath, "-pass", "env:NETDUCTOR_BACKUP_PASS")
-	cmd.Env = append(os.Environ(), "NETDUCTOR_BACKUP_PASS="+pass)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("openssl enc: %w (%s)", err, strings.TrimSpace(string(out)))
-	}
-	return os.Chmod(outPath, 0o600)
-}
 
 func decryptFile(inPath, outPath, pass string) error {
 	const gcmTryMax = 64 << 20 // never ReadFile multi-GB into RAM
@@ -869,12 +859,6 @@ func RecoverFromBuildHost(baseURL, recoveryToken, keyArg string) error {
 	return RecoverFromSecondary(baseURL, recoveryToken, keyArg)
 }
 
-func caPathFromEnv() string {
-	if v := strings.TrimSpace(os.Getenv("NETDUCTOR_RECOVERY_CA")); v != "" {
-		return v
-	}
-	return "/etc/netductor/secrets/recovery_peer.crt"
-}
 
 // recoveryHTTPClient: pin required (CA PEM or certificate fingerprint). No silent insecure.
 // For a specific secondary set NETDUCTOR_RECOVERY_DEVICE_ID to select its stored pin.

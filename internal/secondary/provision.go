@@ -217,19 +217,6 @@ func runSSH(client *ssh.Client, cmd string) (string, error) {
 	return string(out), err
 }
 
-func runSSHWithStdin(client *ssh.Client, cmd string, stdin []byte) (string, error) {
-	s, err := client.NewSession()
-	if err != nil {
-		return "", err
-	}
-	defer s.Close()
-	s.Stdin = bytes.NewReader(stdin)
-	var buf bytes.Buffer
-	s.Stdout = &buf
-	s.Stderr = &buf
-	err = s.Run(cmd)
-	return buf.String(), err
-}
 
 // InstallOperatorKeys writes authorized_keys only (password auth stays enabled).
 func InstallOperatorKeys(client *ssh.Client, pubKeys ...string) error {

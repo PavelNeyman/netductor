@@ -435,16 +435,7 @@ func canSkipBootstrapForMaterial(st *DeployOrchState, shipSHA string) bool {
 	return st.BootstrappedMaterialSHA != "" && st.BootstrappedMaterialSHA == shipSHA
 }
 
-// Legacy helpers for older call sites / tests.
-func writeDeployJournal(peerID, agentID, host, stage string) {
-	var prev *DeployOrchState
-	_ = checkpointSuccess(&prev, peerID, agentID, host, stage)
-}
 
-func writeDeployJournalErr(lastErr, peerID, agentID, host, _ string) {
-	var prev *DeployOrchState
-	_ = checkpointFailure(&prev, peerID, agentID, host, lastErr)
-}
 
 // ListDeployStates returns all state-*.json under the journal dir (may be empty).
 func ListDeployStates() ([]*DeployOrchState, error) {

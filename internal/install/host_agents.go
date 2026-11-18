@@ -30,20 +30,6 @@ var unwantedUnits = []string{
 	"avahi-daemon", "cups", "cups-browsed", "rpcbind",
 }
 
-// Exact package names preferred for apt purge when installed.
-var unwantedPackages = []string{
-	"zabbix-agent", "zabbix-agent2", "zabbix-release", "zabbix-agent-timeweb",
-	"telegraf", "datadog-agent", "newrelic-infra",
-	"prometheus-node-exporter", "collectd", "netdata",
-	"salt-minion", "salt-master", "salt-common",
-	"puppet-agent", "puppet", "chef", "chef-client",
-	"landscape-client", "nagios-nrpe-server", "monitoring-plugins",
-	"snmpd", "snmp", "monit",
-	"wazuh-agent", "ossec-hids-agent",
-	"avahi-daemon", "cups", "rpcbind",
-	"amazon-cloudwatch-agent",
-}
-
 // Substrings matched against installed package names (hoster forks).
 // Prefer anchors: avoid bare "puppet" matching unrelated names.
 var unwantedPackageSubstr = []string{

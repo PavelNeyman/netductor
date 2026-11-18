@@ -29,7 +29,6 @@ func (c *aesCCM) seal(nonce, plaintext []byte) ([]byte, error) {
 	}
 	// Tapo /ds: AES-128-CCM, nonce 12 → L=3, tag 16. Max payload 2^24-1.
 	const tagSize = 16
-	const ccmL = 3
 	const maxPT = 0xffffff
 	if len(plaintext) > maxPT {
 		return nil, errors.New("ccm: plaintext too long for L=3")
@@ -91,7 +90,6 @@ func (c *aesCCM) open(nonce, ciphertextAndTag []byte) ([]byte, error) {
 		return nil, errors.New("ccm: nonce must be 12 bytes")
 	}
 	const tagSize = 16
-	const ccmL = 3
 	const maxPT = 0xffffff
 	if len(ciphertextAndTag) < tagSize {
 		return nil, errors.New("ccm: short ciphertext")

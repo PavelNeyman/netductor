@@ -20,7 +20,6 @@ import (
 	"github.com/PavelNeyman/netductor/internal/version"
 )
 
-var currentComps []string
 
 type Options struct {
 	Components   []string // empty = default core set
@@ -33,7 +32,6 @@ func DefaultComponents() []string {
 }
 
 func Run(opts Options) error {
-	currentComps = opts.Components
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("install requires root")
 	}

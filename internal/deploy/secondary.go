@@ -291,18 +291,6 @@ func extractJSONObject(s string) (string, error) {
 	return string(raw), nil
 }
 
-// materialIdentityPubs extracts stable public identity fields from ship JSON for verify on B.
-func materialIdentityPubs(ship []byte) (spPubP, psPubP string) {
-	var obj map[string]any
-	if json.Unmarshal(ship, &obj) != nil {
-		return "", ""
-	}
-	get := func(k string) string {
-		v, _ := obj[k].(string)
-		return strings.TrimSpace(v)
-	}
-	return get("sp_pub_p"), get("ps_pub_p")
-}
 
 // materialVerifyRemoteCmd is the remote script for full material compare on B.
 // Expected JSON is supplied only via SSH stdin (never argv, never a file on B).

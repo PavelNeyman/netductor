@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -184,23 +183,6 @@ func writeEmptySingBox(confDir, priv, sid, sni string) error {
 	return os.WriteFile(filepath.Join(confDir, "config.json"), append(b, '\n'), 0o600)
 }
 
-func latestTag(repo string) (string, error) {
-	resp, err := http.Get("https://api.github.com/repos/" + repo + "/releases/latest")
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	var m struct {
-		Tag string `json:"tag_name"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
-		return "", err
-	}
-	if m.Tag == "" {
-		return "", fmt.Errorf("no tag for %s", repo)
-	}
-	return m.Tag, nil
-}
 
 func httpDownload(rawURL, dest string) error {
 	return download.Get(rawURL, dest, download.Options{

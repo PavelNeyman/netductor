@@ -887,21 +887,6 @@ func StoreRecoveryPeerFingerprint(deviceID, fp string) error {
 	return nil
 }
 
-func sanitizeID(id string) string {
-	var b strings.Builder
-	for _, r := range id {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('_')
-		}
-	}
-	s := b.String()
-	if len(s) > 64 {
-		s = s[:64]
-	}
-	return s
-}
 
 // SetRegion sets CF-14 region label on a secondary device (eu, ru, …).
 func SetRegion(id, reg string) error {

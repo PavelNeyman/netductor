@@ -707,13 +707,6 @@ func PeerPromote(peerID string) error {
 	return nil
 }
 
-func readPreferredIP() string {
-	b, err := os.ReadFile(preferredIPPath)
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
-}
 
 // PeerRollback promotes explicit id or first ready peer.
 func PeerRollback(toPeerID string) error {
@@ -1088,12 +1081,6 @@ func peerUFWRuleNumber(status, source, port string, expectedComments ...string) 
 	return number, found, owned, nil
 }
 
-func errString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
-}
 
 func markPeerState(idx *PeersIndex, peerID, state string) error {
 	for i := range idx.Peers {

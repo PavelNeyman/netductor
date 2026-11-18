@@ -1028,12 +1028,6 @@ func ufwIPv6Enabled() (bool, error) {
 	return true, nil
 }
 
-// ufwPreflightPolicy rejects existing ordered rules that would override or
-// broaden the role policy. Missing rules are safe to append; conflicting rules
-// are never deleted automatically because they may be administrator-owned.
-func ufwPreflightPolicy(status, role string) error {
-	return ufwPreflightPolicyMode(status, role, false)
-}
 
 func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	rules := parseUfwNumbered(status)
@@ -1737,7 +1731,6 @@ func iptablesHasExactRule(rules, chain string, variants ...[]string) bool {
 	return false
 }
 
-func applyIPTables(role string) error { return applyIPTablesMode(role, false) }
 
 func applyIPTablesMode(role string, bootstrapSSH bool) error {
 	if err := requireIPv6Disabled(); err != nil {
@@ -2322,16 +2315,6 @@ func ufwFromIsWAN(from string) bool {
 	return from == "" || from == "Anywhere" || from == "Anywhere (v6)" || strings.EqualFold(from, "any")
 }
 
-func cidrEqual(a, b string) bool {
-	_, na, ea := net.ParseCIDR(strings.TrimSpace(a))
-	_, nb, eb := net.ParseCIDR(strings.TrimSpace(b))
-	if ea != nil || eb != nil {
-		return strings.TrimSpace(a) == strings.TrimSpace(b)
-	}
-	oa, _ := na.Mask.Size()
-	ob, _ := nb.Mask.Size()
-	return oa == ob && na.IP.Equal(nb.IP)
-}
 
 // firstTCPActionFromWANFamily returns the first matching WAN action for one
 // address family. Rule order is evaluated independently for IPv4 and IPv6.
@@ -2799,14 +2782,6 @@ func ufwLineMentionsPort(ln, port string) bool {
 	return ufwLineMentionsPortProto(ln, port, "tcp")
 }
 
-func ufwLineAnyPort(lines []string, port string) bool {
-	for _, ln := range lines {
-		if ufwLineMentionsPort(ln, port) {
-			return true
-		}
-	}
-	return false
-}
 
 func firstLines(s string, n int) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")

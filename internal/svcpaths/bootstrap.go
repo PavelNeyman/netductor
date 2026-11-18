@@ -398,32 +398,6 @@ func MaterialIfacesStrict() (sp, ps string, err error) {
 	return sp, ps, nil
 }
 
-func (m *Material) resolvedAddrs() (pSP, sSP, pPS, sPS string, portSP, portPS, wssSP, wssPS int, ifaceSP, ifacePS string) {	pSP, sSP, pPS, sPS = AddrP_SP, AddrS_SP, AddrP_PS, AddrS_PS
-	portSP, portPS, wssSP, wssPS = PortSP, PortPS, WSS_SP, WSS_PS
-	ifaceSP, ifacePS = "nd-svc-sp", "nd-svc-ps"
-	if m != nil && m.AddrP_SP != "" {
-		pSP, sSP, pPS, sPS = m.AddrP_SP, m.AddrS_SP, m.AddrP_PS, m.AddrS_PS
-	}
-	if m != nil && m.PortSP != 0 {
-		portSP = m.PortSP
-	}
-	if m != nil && m.PortPS != 0 {
-		portPS = m.PortPS
-	}
-	if m != nil && m.WSS_SP != 0 {
-		wssSP = m.WSS_SP
-	}
-	if m != nil && m.WSS_PS != 0 {
-		wssPS = m.WSS_PS
-	}
-	if m != nil && m.IfaceSP != "" {
-		ifaceSP = m.IfaceSP
-	}
-	if m != nil && m.IfacePS != "" {
-		ifacePS = m.IfacePS
-	}
-	return
-}
 
 func writeFile(path, body string, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -474,9 +448,6 @@ WantedBy=multi-user.target
 	return tx.writeFile("/etc/systemd/system/"+name+".service", body, 0o644)
 }
 
-func enableRestart(units ...string) error {
-	return enableRestartWithTransaction(nil, units...)
-}
 
 func enableRestartWithTransaction(tx *bootstrapFileTransaction, units ...string) error {
 	if len(units) == 0 {
@@ -917,11 +888,6 @@ func ufwOpenPortAnywherePattern(port int) string {
 	return fmt.Sprintf(`(^|[[:space:]])%d(/tcp)?([[:space:]]+\(v6\))?[[:space:]]+ALLOW([[:space:]]+IN)?[[:space:]]+Anywhere`, port)
 }
 
-// applyPrimaryWSSFirewall restricts WSS_SP to secondary public IP when ufw is active.
-// Also removes Anywhere rules for every SlotTable WSS_SP port (legacy A on slot 0 when adding B).
-func applyPrimaryWSSFirewall(secondaryPub, sSP string, wssSP int) error {
-	return applyPrimaryWSSFirewallWithTransaction(nil, secondaryPub, sSP, wssSP)
-}
 
 func applyPrimaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, secondaryPub, sSP string, wssSP int) error {
 	unlock, err := firewall.AcquireMutationLockTimeout(30 * time.Second)
@@ -932,10 +898,6 @@ func applyPrimaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, second
 	return applyPrimaryWSSFirewallLockedWithTransaction(tx, secondaryPub, sSP, wssSP)
 }
 
-// applyPrimaryWSSFirewallLocked requires the shared Netductor firewall lock.
-func applyPrimaryWSSFirewallLocked(secondaryPub, sSP string, wssSP int) error {
-	return applyPrimaryWSSFirewallLockedWithTransaction(nil, secondaryPub, sSP, wssSP)
-}
 
 func applyPrimaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction, secondaryPub, sSP string, wssSP int) error {
 	if strings.TrimSpace(secondaryPub) == "" || strings.TrimSpace(sSP) == "" || wssSP <= 0 {
@@ -1006,9 +968,6 @@ func applyPrimaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction, 
 	return fmt.Errorf("primary WSS: no supported firewall backend")
 }
 
-func applySecondaryWSSFirewall(primaryPub string, wssPS int) error {
-	return applySecondaryWSSFirewallWithTransaction(nil, primaryPub, wssPS)
-}
 
 func applySecondaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, primaryPub string, wssPS int) error {
 	unlock, err := firewall.AcquireMutationLockTimeout(30 * time.Second)
@@ -1019,10 +978,6 @@ func applySecondaryWSSFirewallWithTransaction(tx *bootstrapFileTransaction, prim
 	return applySecondaryWSSFirewallLockedWithTransaction(tx, primaryPub, wssPS)
 }
 
-// applySecondaryWSSFirewallLocked requires the shared Netductor firewall lock.
-func applySecondaryWSSFirewallLocked(primaryPub string, wssPS int) error {
-	return applySecondaryWSSFirewallLockedWithTransaction(nil, primaryPub, wssPS)
-}
 
 func applySecondaryWSSFirewallLockedWithTransaction(tx *bootstrapFileTransaction, primaryPub string, wssPS int) error {
 	if strings.TrimSpace(primaryPub) == "" || wssPS <= 0 {
