@@ -3,8 +3,8 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -24,6 +24,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/nodes"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/paths"
+	"github.com/PavelNeyman/netductor/internal/region"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/svcpaths"
 	"github.com/PavelNeyman/netductor/internal/vpn"
@@ -348,10 +349,16 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		log := redactSecondaryCmdLog(in.CmdDone, in.CmdLog)
 		_ = notify.Telegram(fmt.Sprintf("%s <b>Secondary cmd</b> <code>%s</code> on <code>%s</code>\n<pre>%s</pre>", ok, in.CmdDone, d.ID, log))
 	}
-	// Register as node role=secondary so rename / fleet UI work
+	// Inventory hostname: prefer existing nodes OS-ish hostname while rename pending.
+	// d.Name is the logical/registry label (may already be nd-egress-*), not proof of OS rename.
 	host := d.Name
 	if host == "" || host == "secondary" {
 		host = "nd-secondary"
+	}
+	if nPrev, ok, err := nodes.Get(d.ID); err == nil && ok {
+		if nPrev.DesiredHN != "" && nPrev.Hostname != "" && nPrev.Hostname != nPrev.DesiredHN {
+			host = nPrev.Hostname
+		}
 	}
 	st := "online"
 	_, _ = nodes.UpsertFromDevice(nodes.Node{
@@ -364,6 +371,12 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if n, ok, err := nodes.Get(d.ID); err == nil && ok && n.DesiredHN != "" {
 		desired = n.DesiredHN
 	}
+	if desired == "" && strings.TrimSpace(d.Region) != "" {
+		if w := region.Hostname("secondary", d.Region); w != "" {
+			desired = w
+			_, _ = nodes.SetDesiredHostname(d.ID, w)
+		}
+	}
 	cmds, err := secondary.TakeCmds(d.ID)
 	if err != nil {
 		http.Error(w, "secondary command queue unavailable", http.StatusInternalServerError)
@@ -372,12 +385,12 @@ func handleSecondaryAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	pol := svcpaths.LoadPolicy()
 	writeJSON(w, 200, map[string]any{
 		"ok": true, "config_ver": ver, "need_sync": in.ConfigVer < ver, "id": d.ID,
-		"desired_hostname": desired,
-		"desired_release":  "", /* operator-driven upgrades only */
-		"commands":         cmds,
-		"failover_policy":  pol,
+		"desired_hostname":        desired,
+		"desired_release":         "", /* operator-driven upgrades only */
+		"commands":                cmds,
+		"failover_policy":         pol,
 		"mtls_rollover_confirmed": rolloverConfirmed,
-		"mtls_material_confirmed":  materialConfirmed,
+		"mtls_material_confirmed": materialConfirmed,
 	})
 }
 
@@ -417,9 +430,14 @@ func StartAgentPlane() error {
 	mux.HandleFunc("/api/secondary/agent/mtls/material", func(w http.ResponseWriter, r *http.Request) {
 		tok := agentToken(r)
 		d, ok := lookupSecondaryAgentDevice(w, r, tok)
-		if !ok { return }
+		if !ok {
+			return
+		}
 		ca, cert, key, err := mtls.ReadMaterial(d.ID)
-		if err != nil { http.Error(w, err.Error(), 404); return }
+		if err != nil {
+			http.Error(w, err.Error(), 404)
+			return
+		}
 		writeJSON(w, 200, map[string]any{"ca_pem": string(ca), "cert_pem": string(cert), "key_pem": string(key), "node_id": d.ID})
 	})
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200); _, _ = w.Write([]byte("ok\n")) })
@@ -436,14 +454,24 @@ func StartAgentPlane() error {
 	if os.Getenv("NETDUCTOR_PLAIN_AGENT") == "1" {
 		return fmt.Errorf("NETDUCTOR_PLAIN_AGENT is unsupported; only mTLS agent plane is allowed")
 	}
-	if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil { return fmt.Errorf("mtls.EnsureAll: %w", err) }
-	if !mtls.ServerReady() { return fmt.Errorf("agent plane mTLS certificates are missing") }
+	if err := mtls.EnsureAll(os.Getenv("NETDUCTOR_PUBLIC_IP")); err != nil {
+		return fmt.Errorf("mtls.EnsureAll: %w", err)
+	}
+	if !mtls.ServerReady() {
+		return fmt.Errorf("agent plane mTLS certificates are missing")
+	}
 	tlsCfg, err := mtls.ServerTLSConfig()
-	if err != nil { return fmt.Errorf("mtls server config: %w", err) }
+	if err != nil {
+		return fmt.Errorf("mtls server config: %w", err)
+	}
 	tlsAddr := strings.TrimSpace(os.Getenv("NETDUCTOR_AGENT_MTLS"))
-	if tlsAddr == "" { tlsAddr = ":" + mtls.AgentTLSPort }
+	if tlsAddr == "" {
+		tlsAddr = ":" + mtls.AgentTLSPort
+	}
 	listener, err := net.Listen("tcp", tlsAddr)
-	if err != nil { return fmt.Errorf("agent plane listen %s: %w", tlsAddr, err) }
+	if err != nil {
+		return fmt.Errorf("agent plane listen %s: %w", tlsAddr, err)
+	}
 	lim := httpx.NewPlaneLimiter(180, time.Minute)
 	srv := &http.Server{
 		Addr: tlsAddr, Handler: lim.Middleware(withSecurity(mux)), TLSConfig: tlsCfg,
@@ -453,7 +481,9 @@ func StartAgentPlane() error {
 	agentPlaneReady.Store(true)
 	go func() {
 		fmt.Fprintln(os.Stderr, "agent plane mTLS on", tlsAddr)
-		if err := srv.ServeTLS(listener, "", ""); err != nil && err != http.ErrServerClosed { fmt.Fprintln(os.Stderr, "mtls serve:", err) }
+		if err := srv.ServeTLS(listener, "", ""); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintln(os.Stderr, "mtls serve:", err)
+		}
 		agentPlaneReady.Store(false)
 	}()
 	return nil

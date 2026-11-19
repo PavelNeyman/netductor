@@ -116,6 +116,16 @@ func runNodes(args []string) {
 			fmt.Fprintln(os.Stderr, "usage: netductor nodes cap list|set …")
 			os.Exit(2)
 		}
+	case "delete", "rm":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor nodes delete <id>")
+			os.Exit(2)
+		}
+		if err := nodes.Delete(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("deleted", args[1])
 	case "sync-local":
 		if err := nodes.SyncLocalHostname(); err != nil {
 			fmt.Fprintln(os.Stderr, err)

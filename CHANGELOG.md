@@ -1,3 +1,10 @@
+## 0.9.760
+
+### Fixed
+- Secondary `desired_hostname`: no longer cleared when nodes Hostname is only the registry Name (list/heartbeat sync); agent gets rename until OS matches.
+- Heartbeat pushes `desired_hostname` from region (`nd-egress-<region>`) when DesiredHN empty.
+- `netductor nodes delete <id>` for inventory orphans (offline ghost not in secondary registry).
+
 ## 0.9.759
 
 ### Fixed

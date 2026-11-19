@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/capabilities"
+	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/region"
 )
 
@@ -125,11 +125,18 @@ func UpsertFromDevice(n Node) (Node, error) {
 		n.Status = "online"
 	}
 	if prev, ok := d.Nodes[n.ID]; ok {
-		// keep desired hostname set by operator if not yet applied
-		if n.Hostname != "" && n.Hostname == prev.DesiredHN {
-			n.DesiredHN = ""
-		} else if prev.DesiredHN != "" && n.Hostname != prev.DesiredHN {
+		// Preserve operator desired_hostname until the device OS actually renames.
+		// Do NOT clear DesiredHN when Hostname is only the secondary *Name*
+		// (registry label) — heartbeat/list sync used Name as Hostname and
+		// falsely cleared desired before hostnamectl ran on the VPS.
+		if prev.DesiredHN != "" {
 			n.DesiredHN = prev.DesiredHN
+			// Optional: clear only if caller reports OS hostname already matches
+			// (Hostname equals DesiredHN AND previous OS hostname differed).
+			if n.Hostname != "" && n.Hostname == prev.DesiredHN &&
+				prev.Hostname != "" && prev.Hostname != prev.DesiredHN {
+				n.DesiredHN = ""
+			}
 		}
 		if n.Role == "" {
 			n.Role = prev.Role
