@@ -1,3 +1,14 @@
+## 0.9.758
+
+### Fixed
+- G115 integer overflow audit: euid int64, WebSocket frame cap, NVR/backup/firewall bounds; Tapo CCM 24-bit length, seq uint32, PKCS7/EC (gosec/ai-tools).
+- revbridge SA4023; mTLS VerifyConnection hardening (aitools N1/N2).
+- Clear residual U1000 deadcode (UI/cmd and package-wide).
+
+### Notes
+- No intentional fleet/mesh behaviour change vs 0.9.757.
+- Tapo media 8800 / NVR sd-pull not in this tag (still tree-local if any).
+
 ## 0.9.726
 
 ## 0.9.757
