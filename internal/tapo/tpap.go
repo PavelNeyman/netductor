@@ -449,7 +449,7 @@ func (c *Client) loginTPAPOnce(credentialHash string) error {
 		}
 		seq = uint32(v)
 	case int:
-		if v < 0 || v > int(^uint32(0)) {
+		if v < 0 || uint64(v) > uint64(^uint32(0)) {
 			return fmt.Errorf("tpap: start_seq out of range")
 		}
 		seq = uint32(v)
