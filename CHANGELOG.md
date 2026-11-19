@@ -1,3 +1,12 @@
+## 0.9.759
+
+### Fixed
+- Subscription profile labels: `🇷🇺 ru-msk` (space) instead of `🇷🇺-ru-msk`.
+- Doctor false WARN `blocky :53 on 0.0.0.0` when another UDP port contains `:53` (e.g. 53623).
+
+### Notes
+- Includes smoke-post-upgrade.sh from main; no mesh behaviour change.
+
 ## 0.9.758
 
 ### Fixed
