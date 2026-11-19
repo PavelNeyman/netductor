@@ -427,7 +427,7 @@ func TestSubscriptionBodyRegionFragment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(body, "#🇷🇺-ru-msk") {
+	if !strings.Contains(body, "#🇷🇺 ru-msk") {
 		t.Fatalf("want region fragment in %q", body)
 	}
 	if strings.Contains(body, "nd-secondary-203") {

@@ -26,7 +26,7 @@ func TestFlagEmoji(t *testing.T) {
 
 func TestProfileFragment(t *testing.T) {
 	got := ProfileFragment("ru-msk", "1.2.3.4", 0)
-	if got != "🇷🇺-ru-msk" {
+	if got != "🇷🇺 ru-msk" {
 		t.Fatalf("got %q", got)
 	}
 	got = ProfileFragment("", "203.0.113.11", 0)

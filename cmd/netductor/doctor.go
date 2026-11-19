@@ -37,6 +37,29 @@ func sshdT(key string) string {
 	return ""
 }
 
+// ssPortToken is ":"+port as a local-address suffix (not a prefix of another port).
+// Avoids matching :53623 when looking for :53.
+func ssAddrHasPort(addr, port string) bool {
+	suf := ":" + port
+	if !strings.Contains(addr, suf) {
+		return false
+	}
+	// Find each occurrence; next rune after port digits must not be a digit.
+	for i := 0; i+len(suf) <= len(addr); {
+		j := strings.Index(addr[i:], suf)
+		if j < 0 {
+			return false
+		}
+		j += i
+		end := j + len(suf)
+		if end == len(addr) || (addr[end] < '0' || addr[end] > '9') {
+			return true
+		}
+		i = j + 1
+	}
+	return false
+}
+
 func listeningOnAll(port string) bool {
 	for _, flag := range []string{"-tlnp", "-ulnp"} {
 		out, err := exec.Command("ss", flag).Output()
@@ -44,10 +67,16 @@ func listeningOnAll(port string) bool {
 			continue
 		}
 		for _, line := range strings.Split(string(out), "\n") {
-			if !strings.Contains(line, ":"+port) {
+			fields := strings.Fields(line)
+			if len(fields) < 5 {
 				continue
 			}
-			if strings.Contains(line, "*:"+port) || strings.Contains(line, "0.0.0.0:"+port) || strings.Contains(line, "[::]:"+port) {
+			// Local address is typically fields[3] for ss -tlnp/-ulnp
+			local := fields[3]
+			if !ssAddrHasPort(local, port) {
+				continue
+			}
+			if strings.HasPrefix(local, "*:") || strings.HasPrefix(local, "0.0.0.0:") || strings.HasPrefix(local, "[::]:") {
 				return true
 			}
 		}
@@ -62,8 +91,15 @@ func listeningLocalhost(port string) bool {
 			continue
 		}
 		for _, line := range strings.Split(string(out), "\n") {
-			if strings.Contains(line, "127.0.0.1:"+port) || strings.Contains(line, "[::1]:"+port) {
-				return true
+			fields := strings.Fields(line)
+			if len(fields) < 5 {
+				continue
+			}
+			local := fields[3]
+			if strings.HasPrefix(local, "127.0.0.1:") || strings.HasPrefix(local, "[::1]:") {
+				if ssAddrHasPort(local, port) {
+					return true
+				}
 			}
 		}
 	}

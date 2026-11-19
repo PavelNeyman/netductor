@@ -92,7 +92,8 @@ func ProfileFragment(region, publicIP string, index int) string {
 	region = Normalize(region)
 	if region != "" && Valid(region) {
 		if fl := FlagEmoji(region); fl != "" {
-			return fl + "-" + region
+			// Space looks cleaner in client UIs than "🇷🇺-ru-msk"
+			return fl + " " + region
 		}
 		return "nd-" + region
 	}

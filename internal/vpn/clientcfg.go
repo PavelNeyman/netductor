@@ -81,7 +81,6 @@ func SetPreferredSecondaryIP(ip string) error {
 	return os.WriteFile(path, []byte(ip+"\n"), 0o600)
 }
 
-
 // activeServicePlanePeers returns public IPs that may appear in /sub and the
 // active peer's public IP (for stable VPN hostname advertising).
 // Registry present: active_id (if still active) plus prepared/ready peers, so a
@@ -127,7 +126,6 @@ func activeServicePlanePeers() (allowed map[string]bool, activeIP string, presen
 	}
 	return allowed, activeIP, true
 }
-
 
 func regionFromName(name string) string {
 	return region.FromHostname(name)
@@ -256,7 +254,7 @@ func ClientLinkForSecondaryProfile(name, uuid, relayIP, pbk, sid, sniName, profi
 	}
 	profileLabel = strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '-' || r == '_' {
+			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == ' ' {
 			return r
 		}
 		// Unicode regional-indicator symbols (flag emoji halves)
@@ -265,7 +263,7 @@ func ClientLinkForSecondaryProfile(name, uuid, relayIP, pbk, sid, sniName, profi
 		}
 		return '-'
 	}, profileLabel)
-	profileLabel = strings.Trim(profileLabel, "-")
+	profileLabel = strings.Trim(profileLabel, "- ")
 	if profileLabel == "" {
 		profileLabel = "nd-secondary"
 	}
