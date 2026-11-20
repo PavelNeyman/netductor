@@ -24,8 +24,12 @@ func TestPreferredFragmentAndSubscriptionNoHY2(t *testing.T) {
 	}
 	u := findUser(r, "tuser")
 	link := VLESSLink(u.Name, u.UUID)
-	if !strings.Contains(link, "#nd-primary") {
-		t.Fatalf("expected #nd-primary got %s", link)
+	// Core fragment is CF-14 style (flag+region / nd-control-*) — never legacy #nd-primary only.
+	if strings.Contains(link, "#nd-primary") && !strings.Contains(link, "#nd-primary-") {
+		t.Fatalf("legacy #nd-primary fragment still used: %s", link)
+	}
+	if !strings.Contains(link, "#") {
+		t.Fatalf("missing fragment: %s", link)
 	}
 	_ = writeArtifacts(u.Name, u.UUID)
 	// subscription removed from product surface

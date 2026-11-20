@@ -15,6 +15,7 @@ import (
 
 	"github.com/PavelNeyman/netductor/internal/paths"
 	"github.com/PavelNeyman/netductor/internal/policy"
+	"github.com/PavelNeyman/netductor/internal/region"
 	"github.com/PavelNeyman/netductor/internal/session"
 	"github.com/PavelNeyman/netductor/internal/statefile"
 )
@@ -249,10 +250,69 @@ func genUUID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", raw[0:4], raw[4:6], raw[6:8], raw[8:10], raw[10:16])
 }
 
+// coreProfileLabel is the VLESS URI fragment for the control/core entry.
+// Prefer CF-14 region fragment (flag + cc-city) from hostname; else nd-control-*.
+func coreProfileLabel() string {
+	try := func(host string) string {
+		host = strings.TrimSpace(host)
+		if host == "" {
+			return ""
+		}
+		if i := strings.IndexByte(host, '.'); i > 0 {
+			host = host[:i]
+		}
+		host = strings.ToLower(host)
+		if reg := region.FromHostname(host); reg != "" {
+			if frag := region.ProfileFragment(reg, "", 0); frag != "" {
+				return frag
+			}
+		}
+		if strings.HasPrefix(host, "nd-control-") || strings.HasPrefix(host, "nd-primary-") {
+			return host
+		}
+		return ""
+	}
+	if hn, err := os.Hostname(); err == nil {
+		if l := try(hn); l != "" {
+			return sanitizeProfileFragment(l)
+		}
+	}
+	if b, err := os.ReadFile(filepath.Join(paths.EtcDir(), "public_hostname")); err == nil {
+		if l := try(string(b)); l != "" {
+			return sanitizeProfileFragment(l)
+		}
+	}
+	return "nd-control"
+}
+
+// sanitizeProfileFragment keeps letters, digits, - _ space and regional-indicator flags.
+func sanitizeProfileFragment(label string) string {
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return "nd-control"
+	}
+	label = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == ' ' {
+			return r
+		}
+		if r >= 0x1F1E6 && r <= 0x1F1FF {
+			return r
+		}
+		return '-'
+	}, label)
+	label = strings.Trim(label, "- ")
+	if label == "" {
+		return "nd-control"
+	}
+	return label
+}
+
 func VLESSLink(name, uuid string) string {
 	return fmt.Sprintf(
-		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#nd-primary",
+		"vless://%s@%s:%d?encryption=none&flow=xtls-rprx-vision&security=reality&sni=%s&fp=%s&pbk=%s&sid=%s&type=tcp#%s",
 		uuid, coreAdvertiseHost(), vlessPort(), sni(), DefaultUTLSFingerprint, secret("singbox_reality_public"), secret("singbox_short_id"),
+		coreProfileLabel(),
 	)
 }
 
