@@ -300,7 +300,7 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 	if err := json.Unmarshal(b, &s); err != nil {
 		return nil, fmt.Errorf("edge params: %w", err)
 	}
-	// map common snake_case from web if needed
+	// map common snake_case from web / TUI (json.Unmarshal misses untagged EdgeSpec fields)
 	if s.RouterHost == "" {
 		s.RouterHost = strParam(j.Params, "router_host")
 	}
@@ -308,19 +308,22 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 		s.RouterUser = strParam(j.Params, "router_user")
 	}
 	if s.RouterPass == "" {
-		s.RouterPass = strParam(j.Params, "router_pass")
+		s.RouterPass = strParam(j.Params, "router_pass", "router_password", "password")
 	}
 	if s.PrimaryKey == "" {
-		s.PrimaryKey = strParam(j.Params, "primary_key")
+		s.PrimaryKey = strParam(j.Params, "primary_key", "PrimaryKey")
 	}
 	if s.PrimaryKeyPassphrase == "" {
-		s.PrimaryKeyPassphrase = strParam(j.Params, "key_pass")
+		s.PrimaryKeyPassphrase = strParam(j.Params, "key_pass", "key_passphrase", "primary_key_passphrase")
 	}
 	if s.DeviceID == "" {
-		s.DeviceID = strParam(j.Params, "device_id")
+		s.DeviceID = strParam(j.Params, "device_id", "DeviceID")
 	}
 	if s.NewRootPassword == "" {
-		s.NewRootPassword = strParam(j.Params, "new_root_password")
+		s.NewRootPassword = strParam(j.Params, "new_root_password", "NewRootPassword")
+	}
+	if !s.SkipRootPass {
+		s.SkipRootPass = truthyParam(j.Params, "skip_root_pass", "SkipRootPass")
 	}
 	if s.ServerURL == "" {
 		s.ServerURL = strParam(j.Params, "server_url", "server", "ServerURL")
@@ -336,6 +339,51 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 	}
 	if s.BootstrapToken == "" {
 		s.BootstrapToken = strParam(j.Params, "bootstrap_token", "BootstrapToken", "token")
+	}
+	if !s.NetConfigure {
+		s.NetConfigure = truthyParam(j.Params, "net_configure", "NetConfigure", "net")
+	}
+	if !s.Reboot {
+		s.Reboot = truthyParam(j.Params, "reboot", "Reboot")
+	}
+	if s.MTLSCAFile == "" {
+		s.MTLSCAFile = strParam(j.Params, "mtls_ca", "mtls_ca_file", "MTLSCAFile")
+	}
+	if s.MTLSCertFile == "" {
+		s.MTLSCertFile = strParam(j.Params, "mtls_cert", "mtls_cert_file", "MTLSCertFile")
+	}
+	if s.MTLSKeyFile == "" {
+		s.MTLSKeyFile = strParam(j.Params, "mtls_key", "mtls_key_file", "MTLSKeyFile")
+	}
+	// Offline pack defaults when UI did not pass token/mTLS paths.
+	if s.BootstrapToken == "" || s.MTLSCAFile == "" || s.MTLSCertFile == "" {
+		off := deploy.OfflineEdgeDir()
+		if s.BootstrapToken == "" {
+			if b, err := os.ReadFile(filepath.Join(off, "edge_bootstrap_token")); err == nil {
+				s.BootstrapToken = strings.TrimSpace(string(b))
+			}
+		}
+		if s.MTLSCAFile == "" {
+			if p := filepath.Join(off, "mtls-ca.crt"); fileExistsLocal(p) {
+				s.MTLSCAFile = p
+			}
+		}
+		if s.MTLSCertFile == "" {
+			if s.DeviceID != "" {
+				p := filepath.Join(off, "clients", s.DeviceID, "client.crt")
+				if fileExistsLocal(p) {
+					s.MTLSCertFile = p
+					s.MTLSKeyFile = filepath.Join(off, "clients", s.DeviceID, "client.key")
+				}
+			}
+			if s.MTLSCertFile == "" {
+				p := filepath.Join(off, "mtls-client.crt")
+				if fileExistsLocal(p) {
+					s.MTLSCertFile = p
+					s.MTLSKeyFile = filepath.Join(off, "mtls-client.key")
+				}
+			}
+		}
 	}
 	done := make(chan error, 1)
 	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeployEdge(s) }) }()
@@ -583,4 +631,33 @@ func runVpsPrecheck(ctx context.Context, j *jobs.Job, appendLog func(string), se
 	appendLog(rep.Text())
 	setStep(jobs.Step{ID: "vpscheck", Message: rep.SummaryEN, Done: true})
 	return rep, nil
+}
+
+func truthyParam(p map[string]any, keys ...string) bool {
+	for _, k := range keys {
+		v, ok := p[k]
+		if !ok || v == nil {
+			continue
+		}
+		switch x := v.(type) {
+		case bool:
+			if x {
+				return true
+			}
+		case string:
+			s := strings.ToLower(strings.TrimSpace(x))
+			if s == "1" || s == "true" || s == "yes" || s == "on" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func fileExistsLocal(p string) bool {
+	if p == "" {
+		return false
+	}
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
 }
