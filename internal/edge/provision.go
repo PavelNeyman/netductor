@@ -58,24 +58,20 @@ func Provision(opts ProvisionOpts) error {
 		server = forceAgentMTLSURL(server)
 	}
 
-	// Factory OpenWrt often has empty root password. Prefer password auth (including empty)
-	// for first contact; do not BatchMode+operator key (pubkey not on router yet).
-	sshBase := []string{
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "PreferredAuthentications=password",
-		"-o", "PubkeyAuthentication=no",
-		"-o", "NumberOfPasswordPrompts=3",
+	// TOFU pin + password (incl. empty factory) or explicit key-only re-provision.
+	sshBase, err := sshBaseForProvision(opts)
+	if err != nil {
+		return fmt.Errorf("ssh host key: %w", err)
 	}
-	// Re-provision path: no password attempt, operator key already on router.
 	useKeyOnly := strings.TrimSpace(opts.Password) == "" && opts.SSHKey != "" && opts.NewRootPassword == "" && os.Getenv("NETDUCTOR_EDGE_KEY_ONLY") == "1"
-	if useKeyOnly {
-		sshBase = []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
-	}
 	// OpenWrt/Dropbear: modern OpenSSH scp uses SFTP subsystem → "subsystem request failed".
 	// Prefer ssh + stdin (always works). Fallback: scp -O (legacy SCP protocol).
 	if err := putFileSSH(opts.Password, sshBase, opts.SSHTarget, agent, "/tmp/netductor-agent"); err != nil {
 		if opts.SSHKey != "" && !useKeyOnly {
-			keyBase := []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
+			keyBase, kerr := hardenSSHBasePinned(ProvisionOpts{SSHTarget: opts.SSHTarget, Password: "", SSHKey: opts.SSHKey})
+			if kerr != nil {
+				return fmt.Errorf("put agent: %v (key pin: %v)", err, kerr)
+			}
 			if err2 := putFileSSH("", keyBase, opts.SSHTarget, agent, "/tmp/netductor-agent"); err2 != nil {
 				return fmt.Errorf("put agent: %v (key fallback: %v); empty password = factory OpenWrt, leave router password blank", err, err2)
 			}
@@ -281,7 +277,10 @@ func InstallOperatorKeys(opts ProvisionOpts) error {
 	if pub == "" {
 		return fmt.Errorf("operator pubkey required")
 	}
-	sshBase := hardenSSHBase(opts)
+	sshBase, err := hardenSSHBasePinned(opts)
+	if err != nil {
+		return fmt.Errorf("ssh host key: %w", err)
+	}
 	esc := strings.ReplaceAll(pub, "'", `'"'"'`)
 	script := fmt.Sprintf(`set -e
 mkdir -p /root/.ssh
@@ -307,7 +306,10 @@ grep -qxF '%s' /etc/dropbear/authorized_keys || echo '%s' >> /etc/dropbear/autho
 // CommitPasswordOff disables password SSH in UCI/sshd config but does NOT reload daemons.
 // Password login keeps working until reboot (or explicit dropbear restart).
 func CommitPasswordOff(opts ProvisionOpts) error {
-	sshBase := hardenSSHBase(opts)
+	sshBase, err := hardenSSHBasePinned(opts)
+	if err != nil {
+		return fmt.Errorf("ssh host key: %w", err)
+	}
 	script := `set -e
 if [ -f /etc/config/dropbear ] && command -v uci >/dev/null 2>&1; then
   uci set dropbear.@dropbear[0].PasswordAuth='off' 2>/dev/null || true
@@ -334,16 +336,22 @@ fi
 	return nil
 }
 
+// hardenSSHBase is legacy unpinned accept-new; prefer hardenSSHBasePinned.
 func hardenSSHBase(opts ProvisionOpts) []string {
-	if strings.TrimSpace(opts.Password) == "" && opts.SSHKey != "" {
-		return []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
+	args, err := hardenSSHBasePinned(opts)
+	if err != nil {
+		// Fallback only if pin path unavailable — still better than silent MITM-open without try.
+		if strings.TrimSpace(opts.Password) == "" && opts.SSHKey != "" {
+			return []string{"-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-i", opts.SSHKey}
+		}
+		return []string{
+			"-o", "StrictHostKeyChecking=accept-new",
+			"-o", "PreferredAuthentications=password",
+			"-o", "PubkeyAuthentication=no",
+			"-o", "NumberOfPasswordPrompts=3",
+		}
 	}
-	return []string{
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "PreferredAuthentications=password",
-		"-o", "PubkeyAuthentication=no",
-		"-o", "NumberOfPasswordPrompts=3",
-	}
+	return args
 }
 
 // Harden is InstallOperatorKeys + CommitPasswordOff (no daemon reload).

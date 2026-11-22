@@ -168,17 +168,16 @@ netductor mtls ensure >/dev/null 2>&1 || true
 netductor mtls issue-client %s >/dev/null 2>&1
 CA=/etc/netductor/secrets/mtls/ca.crt
 DIR=/etc/netductor/secrets/mtls/clients/%s
-if [ ! -f "$DIR/client.crt" ]; then
-  DIR=$(find /etc/netductor/secrets/mtls/clients -maxdepth 1 -type d 2>/dev/null | while read d; do
-    [ -f "$d/client.crt" ] || continue
-    echo "$d"
-  done | head -1)
+# Fail closed: never pick another device's cert (no find|head).
+if [ ! -f "$DIR/client.crt" ] || [ ! -f "$DIR/client.key" ]; then
+  echo "mtls: client material missing for device %s under $DIR" >&2
+  exit 1
 fi
 b64() { base64 -w0 "$1" 2>/dev/null || base64 "$1" | tr -d '\n'; }
 echo CA:$(b64 "$CA")
 echo CERT:$(b64 "$DIR/client.crt")
 echo KEY:$(b64 "$DIR/client.key")
-`, shellQuote(o.DeviceID), shellQuote(o.DeviceID))
+`, shellQuote(o.DeviceID), shellQuote(o.DeviceID), shellQuote(o.DeviceID))
 		mout, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost, remote, o.PrimaryKeyPassphrase)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warn: mTLS material from primary:", err)
@@ -254,10 +253,14 @@ echo KEY:$(b64 "$DIR/client.key")
 	}); err != nil {
 		return err
 	}
-	// After setPass, subsequent SSH must use the NEW root password.
+	// After setPass, subsequent SSH must use the NEW root password — verify once.
 	sshPass := o.RouterPass
 	if np := strings.TrimSpace(o.NewRootPassword); np != "" {
 		sshPass = np
+		if _, err := runSSHOnPort(factorySSHPort(), sshPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "true", o.PrimaryKeyPassphrase); err != nil {
+			return fmt.Errorf("new root password not accepted over SSH (passwd may have failed): %w", err)
+		}
+		fmt.Fprintln(os.Stderr, "==> new root password verified over SSH")
 	}
 	o.RouterPass = sshPass
 
@@ -353,6 +356,9 @@ echo KEY:$(b64 "$DIR/client.key")
 			}
 		}
 	} else {
+		if o.Reboot || needNet {
+			return fmt.Errorf("operator pubkey required for harden before reboot (missing %s.pub or OperatorPubKey) — refuse leave password-only after net changes", o.PrimaryKey)
+		}
 		fmt.Fprintln(os.Stderr, "warn: no operator pubkey/key — skip harden (password SSH remains)")
 	}
 
@@ -414,7 +420,7 @@ echo KEY:$(b64 "$DIR/client.key")
 	// Control plane: agent must appear on primary (enrolled), not only SSH to the router.
 	if !o.DryRun && o.PrimaryHost != "" && o.PrimaryKey != "" {
 		fmt.Fprintln(os.Stderr, "==> wait control-plane sighting for", o.DeviceID)
-		if err := waitEdgeOnControlPlane(o, 90*time.Second); err != nil {
+		if err := waitEdgeOnControlPlane(o, 180*time.Second); err != nil {
 			return err
 		}
 	}
