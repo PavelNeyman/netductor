@@ -149,6 +149,43 @@ func DeployEdge(o EdgeOpts) error {
 			mtlsKey = b
 		}
 	}
+	// Prefer offline pack from edge.offline-prep (Mac cache) — avoid SSH to primary when possible.
+	if token == "" || len(mtlsCert) == 0 {
+		off := OfflineEdgeDir()
+		if token == "" {
+			if _, tok, err := LoadEdgeOfflineManifest(); err == nil && tok != "" {
+				token = tok
+				fmt.Fprintln(os.Stderr, "==> bootstrap token from offline pack")
+			} else if b, err := os.ReadFile(filepath.Join(off, "edge_bootstrap_token")); err == nil {
+				token = strings.TrimSpace(string(b))
+				if token != "" {
+					fmt.Fprintln(os.Stderr, "==> bootstrap token from", filepath.Join(off, "edge_bootstrap_token"))
+				}
+			}
+		}
+		if len(mtlsCA) == 0 {
+			if b, err := os.ReadFile(filepath.Join(off, "mtls-ca.crt")); err == nil {
+				mtlsCA = b
+			}
+		}
+		if len(mtlsCert) == 0 && o.DeviceID != "" {
+			base := filepath.Join(off, "clients", o.DeviceID)
+			if b, err := os.ReadFile(filepath.Join(base, "client.crt")); err == nil {
+				mtlsCert = b
+			}
+			if b, err := os.ReadFile(filepath.Join(base, "client.key")); err == nil {
+				mtlsKey = b
+			}
+		}
+		if len(mtlsCert) == 0 {
+			if b, err := os.ReadFile(filepath.Join(off, "mtls-client.crt")); err == nil {
+				mtlsCert = b
+			}
+			if b, err := os.ReadFile(filepath.Join(off, "mtls-client.key")); err == nil {
+				mtlsKey = b
+			}
+		}
+	}
 	// Online: pull bootstrap token from primary over SSH :52222.
 	if token == "" && o.PrimaryHost != "" && o.PrimaryKey != "" {
 		out, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, o.PrimaryUser, o.PrimaryHost,
@@ -159,7 +196,7 @@ func DeployEdge(o EdgeOpts) error {
 		token = strings.TrimSpace(out)
 	}
 	if token == "" {
-		return fmt.Errorf("edge bootstrap token required (SSH to primary or BootstrapToken / --bootstrap-token)")
+		return fmt.Errorf("edge bootstrap token required (run edge offline-prep or SSH to primary; pack dir %s)", OfflineEdgeDir())
 	}
 	// Online: issue client cert on primary unless local mTLS already loaded.
 	if len(mtlsCert) == 0 && o.PrimaryHost != "" && o.PrimaryKey != "" {
