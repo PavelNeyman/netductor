@@ -113,15 +113,16 @@ func DefaultUSBPkgNames() []string {
 
 // validUSBPkgName rejects path separators and globs (N-10 / N-11).
 func validUSBPkgName(name string) bool {
-	if name == "" || len(name) > 128 {
+	if name == "" || len(name) > 200 {
 		return false
 	}
 	if strings.ContainsAny(name, "/\\:*?\"<>|") || strings.Contains(name, "..") {
 		return false
 	}
 	for i, r := range name {
+		// OpenWrt apk versions use '~' (e.g. block-mount-2026.05.23~16718b6e-r1.apk).
 		ok := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
-			r == '+' || r == '.' || r == '_' || r == '-'
+			r == '+' || r == '.' || r == '_' || r == '-' || r == '~'
 		if i == 0 && !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
 			return false
 		}
