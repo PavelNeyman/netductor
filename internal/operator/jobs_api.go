@@ -322,6 +322,21 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 	if s.NewRootPassword == "" {
 		s.NewRootPassword = strParam(j.Params, "new_root_password")
 	}
+	if s.ServerURL == "" {
+		s.ServerURL = strParam(j.Params, "server_url", "server", "ServerURL")
+	}
+	if s.PrimaryHost == "" {
+		s.PrimaryHost = strParam(j.Params, "primary_host", "PrimaryHost", "control_host")
+	}
+	if s.Version == "" {
+		s.Version = strParam(j.Params, "version", "Version")
+	}
+	if s.AgentArch == "" {
+		s.AgentArch = strParam(j.Params, "agent_arch", "AgentArch", "arch")
+	}
+	if s.BootstrapToken == "" {
+		s.BootstrapToken = strParam(j.Params, "bootstrap_token", "BootstrapToken", "token")
+	}
 	done := make(chan error, 1)
 	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeployEdge(s) }) }()
 	select {
