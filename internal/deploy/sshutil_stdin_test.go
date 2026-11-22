@@ -165,3 +165,19 @@ func TestSSHOptsPasswordFailsWhenPinLost(t *testing.T) {
 		t.Fatal("password must not accept-new when pin was lost for known host")
 	}
 }
+
+func TestUsePasswordAuthFactoryEmpty(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("NETDUCTOR_STATE", dir)
+	_ = os.MkdirAll(filepath.Join(dir, "secondary"), 0o700)
+	if !usePasswordAuth("", "192.168.1.1", "22") {
+		t.Fatal("factory empty password without TOFU pin must use password auth")
+	}
+	args, err := sshOpts("", true, false, "192.168.1.1", "22")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(args, " "), "accept-new") {
+		t.Fatalf("expected accept-new got %v", args)
+	}
+}

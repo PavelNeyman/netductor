@@ -95,6 +95,20 @@ func openSSHPinPath(host, port string) (string, error) {
 	return dest, nil
 }
 
+// usePasswordAuth: non-empty password always uses password auth (accept-new on first contact).
+// Empty password + no TOFU pin: factory OpenWrt (docs: leave password empty) — still first-contact
+// password auth, not key-only. Empty password + existing pin: key-only resume after provision.
+func usePasswordAuth(password, host, port string) bool {
+	if strings.TrimSpace(password) != "" {
+		return true
+	}
+	_, err := openSSHPinPath(host, port)
+	if errors.Is(err, errNoPin) {
+		return true
+	}
+	return false
+}
+
 // sshOpts: passwordAuth (first contact) may accept-new; key-only after provision requires TOFU pin (fail-closed).
 func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port string) ([]string, error) {
 	args := []string{
@@ -220,9 +234,9 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 		port = sshPort()
 	}
 	target := user + "@" + host
-	// Prefer password when provided (OpenWrt day-0 after setPass still needs password until harden).
-	// Key-only when password is empty.
-	usePass := password != ""
+	// Prefer password when provided. Empty password + no TOFU pin = factory OpenWrt first contact
+	// (not key-only — operator key is not on the router yet).
+	usePass := usePasswordAuth(password, host, port)
 	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
 	if optsErr != nil {
 		return "", optsErr
@@ -267,7 +281,7 @@ func runSSHOnPortWithStdin(port, password, keyPath, user, host, remoteCmd, keyPa
 		port = sshPort()
 	}
 	target := user + "@" + host
-	usePass := password != ""
+	usePass := usePasswordAuth(password, host, port)
 	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
 	if optsErr != nil {
 		return "", optsErr
@@ -316,7 +330,7 @@ func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPas
 		port = sshPort()
 	}
 	target := user + "@" + host + ":" + remotePath
-	usePass := password != "" // prefer password when set (router pre-harden)
+	usePass := usePasswordAuth(password, host, port) // empty + no pin = factory first contact
 	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
 	if optsErr != nil {
 		return optsErr
