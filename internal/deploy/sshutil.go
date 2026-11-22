@@ -308,10 +308,16 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	}
 	out, err := runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase)
 	usePass := usePasswordAuth(password, host, port)
-	if err != nil && usePass && isHostKeyMismatch(out, err) {
-		// Edge re-flash / new dropbear key: drop TOFU + system lines, one password retry.
-		ClearHostKeys(host)
-		out, err = runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase)
+	// Host key changed (factory OpenWrt reflash / dropbear regen): clear pin and retry once.
+	// Not only password path — empty factory pass + stale pin was treated as key-only and never retried.
+	if err != nil && isHostKeyMismatch(out, err) {
+		edgeLike := port == "" || port == "22"
+		if usePass || edgeLike {
+			fmt.Fprintf(os.Stderr, "==> SSH host key changed for %s:%s — clearing pin, one retry\n", host, port)
+			ClearHostKeys(host)
+			out, err = runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase)
+			usePass = usePasswordAuth(password, host, port)
+		}
 	}
 	if err == nil && usePass {
 		recordTOFUAfterFirstContact(host, port)
