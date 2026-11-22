@@ -37,8 +37,8 @@ func factorySSHPort() string {
 	return "22"
 }
 
-// ClearHostKeys drops known_hosts for host — only for explicit reinstall/host-key rotation.
-// Do NOT call on every SSH hop (that defeats TOFU / MITM detection).
+// ClearHostKeys drops system known_hosts AND netductor TOFU pins for host.
+// Only for explicit reinstall / edge re-flash / host-key rotation — not every hop.
 func ClearHostKeys(host string) {
 	if host == "" {
 		return
@@ -48,6 +48,17 @@ func ClearHostKeys(host string) {
 	_ = exec.Command("ssh-keygen", "-R", "["+host+"]:52222").Run()
 	if p := sshPort(); p != "22" && p != "52222" {
 		_ = exec.Command("ssh-keygen", "-R", "["+host+"]:"+p).Run()
+	}
+	// Netductor TOFU (do not leave stale pin after factory flash).
+	_ = secondary.ForgetSSHHost(host)
+	_ = secondary.ForgetSSHHost(host + "|22")
+	_ = secondary.ForgetSSHHost(host + "|52222")
+	if home, err := os.UserHomeDir(); err == nil {
+		dir := filepath.Join(home, ".cache", "netductor", "ssh-pins")
+		safe := strings.ReplaceAll(host, "/", "_")
+		for _, port := range []string{"22", "52222", sshPort()} {
+			_ = os.Remove(filepath.Join(dir, safe+"_"+port+".known_hosts"))
+		}
 	}
 }
 
@@ -95,6 +106,58 @@ func openSSHPinPath(host, port string) (string, error) {
 	return dest, nil
 }
 
+// isolatedAcceptNewKnownHosts returns a dedicated known_hosts path (empty or prior accept-new).
+// Never points at ~/.ssh/known_hosts so edge re-flash cannot fight system Offending key lines.
+func isolatedAcceptNewKnownHosts(host, port string) (string, error) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return "", fmt.Errorf("empty host")
+	}
+	if port == "" {
+		port = "22"
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(home, ".cache", "netductor", "ssh-pins")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	safe := strings.ReplaceAll(host, "/", "_")
+	dest := filepath.Join(dir, safe+"_"+port+".known_hosts")
+	// Always empty: a stale accept-new line would still trip key-change; TOFU path uses WriteOpenSSHKnownHostsFile.
+	if err := os.WriteFile(dest, nil, 0o600); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
+func isHostKeyMismatch(out string, err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(out + " " + err.Error())
+	return strings.Contains(s, "host key verification failed") ||
+		(strings.Contains(s, "offending") && strings.Contains(s, "known_hosts")) ||
+		strings.Contains(s, "remote host identification has changed")
+}
+
+// recordTOFUAfterFirstContact pins the live host key after successful password SSH.
+func recordTOFUAfterFirstContact(host, port string) {
+	if port == "" {
+		port = "22"
+	}
+	if ok, _ := secondary.HasTOFUPinPort(host, port); ok {
+		return
+	}
+	key, err := secondary.ProbeHostKey(host, port)
+	if err != nil {
+		return
+	}
+	_ = secondary.TrustHostKey(host, port, key)
+}
+
 // usePasswordAuth: non-empty password always uses password auth (accept-new on first contact).
 // Empty password + no TOFU pin: factory OpenWrt (docs: leave password empty) — still first-contact
 // password auth, not key-only. Empty password + existing pin: key-only resume after provision.
@@ -127,8 +190,18 @@ func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port s
 		// Corrupt TOFU / IO — never fall back to accept-new, even with password.
 		return nil, fmt.Errorf("SSH host key pin for %s:%s: %w", host, port, pinErr)
 	case passwordAuth:
-		// Explicit first contact only: no pin entry expected yet.
-		args = append(args, "-o", "StrictHostKeyChecking=accept-new")
+		// First contact: accept-new into netductor cache only — never ~/.ssh/known_hosts.
+		// (Edge factory reflash used to trip Offending key in system known_hosts.)
+		dest, err := isolatedAcceptNewKnownHosts(host, port)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args,
+			"-o", "StrictHostKeyChecking=accept-new",
+			"-o", "UserKnownHostsFile="+dest,
+			"-o", "GlobalKnownHostsFile=/dev/null",
+			"-o", "HashKnownHosts=no",
+		)
 	default:
 		// Key-only and no pin.
 		return nil, fmt.Errorf("SSH host key pin required for %s:%s (key-only) but TOFU missing — provision first or restore pin", host, port)
@@ -233,6 +306,20 @@ func runSSHOnPort(port, password, keyPath, user, host, remoteCmd, keyPassphrase 
 	if port == "" {
 		port = sshPort()
 	}
+	out, err := runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase)
+	usePass := usePasswordAuth(password, host, port)
+	if err != nil && usePass && isHostKeyMismatch(out, err) {
+		// Edge re-flash / new dropbear key: drop TOFU + system lines, one password retry.
+		ClearHostKeys(host)
+		out, err = runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase)
+	}
+	if err == nil && usePass {
+		recordTOFUAfterFirstContact(host, port)
+	}
+	return out, err
+}
+
+func runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {
 	target := user + "@" + host
 	// Prefer password when provided. Empty password + no TOFU pin = factory OpenWrt first contact
 	// (not key-only — operator key is not on the router yet).
