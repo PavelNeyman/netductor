@@ -557,3 +557,27 @@ func waitEdgeSSH(hosts []string, keyPath, user, keyPassphrase string, timeout ti
 	}
 	return ""
 }
+
+// stripSSHNoise removes client-side OpenSSH banners that drown real remote errors.
+func stripSSHNoise(s string) string {
+	var b strings.Builder
+	for _, line := range strings.Split(s, "\n") {
+		l := strings.TrimSpace(line)
+		if l == "" {
+			continue
+		}
+		low := strings.ToLower(l)
+		if strings.Contains(low, "post-quantum") || strings.Contains(low, "store now, decrypt later") {
+			continue
+		}
+		if strings.HasPrefix(l, "** WARNING:") || strings.HasPrefix(l, "** This session") || strings.HasPrefix(l, "** The server") {
+			continue
+		}
+		if strings.Contains(low, "openssh.com/pq") {
+			continue
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	return strings.TrimSpace(b.String())
+}

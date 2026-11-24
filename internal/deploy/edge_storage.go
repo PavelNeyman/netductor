@@ -101,35 +101,39 @@ echo FORMAT_OK part=$PART
 	if s.Extroot {
 		fmt.Fprintln(os.Stderr, "==> storage: configure extroot")
 		script := fmt.Sprintf(`
-set -e
+set +e
 PART=%s
+echo "EXTROOT_BEGIN part=$PART"
 [ -b "$PART" ] || PART=/dev/%s
+[ -b "$PART" ] || { echo "EXTROOT_NO_PART part=$PART"; exit 1; }
 mkdir -p /mnt/netductor
 umount /mnt/netductor 2>/dev/null || true
-mount "$PART" /mnt/netductor
+if ! mount "$PART" /mnt/netductor; then
+  echo "EXTROOT_MOUNT_FAIL part=$PART"
+  dmesg 2>/dev/null | tail -5
+  exit 1
+fi
+echo "EXTROOT_MOUNTED"
 if [ ! -f /mnt/netductor/.nd-extroot ]; then
-  # Prefer file intermediate: ash may lack pipefail; both tar stages must succeed.
   rm -f /tmp/nd-overlay-copy.tar
-  if tar -C /overlay -cf /tmp/nd-overlay-copy.tar .; then
-    if ! tar -C /mnt/netductor -xf /tmp/nd-overlay-copy.tar; then
-      echo "EXTROOT_COPY_FAIL dest_tar"
-      rm -f /tmp/nd-overlay-copy.tar
-      umount /mnt/netductor 2>/dev/null || true
-      exit 1
-    fi
+  if cp -a /overlay/. /mnt/netductor/ 2>/tmp/nd-extroot-cp.err; then
+    echo "EXTROOT_COPY_CP_OK"
+  elif tar -C /overlay -cf /tmp/nd-overlay-copy.tar . && tar -C /mnt/netductor -xf /tmp/nd-overlay-copy.tar; then
     rm -f /tmp/nd-overlay-copy.tar
-  elif cp -a /overlay/. /mnt/netductor/; then
-    :
+    echo "EXTROOT_COPY_TAR_OK"
   else
     echo "EXTROOT_COPY_FAIL"
+    cat /tmp/nd-extroot-cp.err 2>/dev/null || true
+    rm -f /tmp/nd-overlay-copy.tar
     umount /mnt/netductor 2>/dev/null || true
     exit 1
   fi
-  # Require a real overlay layout (upper/etc or etc), not just empty dirs.
+  rm -f /tmp/nd-overlay-copy.tar /tmp/nd-extroot-cp.err
   if [ -d /mnt/netductor/upper/etc ] || [ -d /mnt/netductor/etc ]; then
     :
   else
     n=$(find /mnt/netductor -mindepth 1 -maxdepth 2 ! -name lost+found 2>/dev/null | wc -l)
+    echo "EXTROOT_ENTRIES=$n"
     if [ "$n" -lt 3 ]; then
       echo "EXTROOT_EMPTY_AFTER_COPY"
       umount /mnt/netductor 2>/dev/null || true
@@ -139,21 +143,28 @@ if [ ! -f /mnt/netductor/.nd-extroot ]; then
   touch /mnt/netductor/.nd-extroot
 fi
 UUID=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
-[ -n "$UUID" ] || UUID=$(blkid -s UUID -o value "$PART" 2>/dev/null || true)
-[ -n "$UUID" ] || { echo "no UUID for $PART"; exit 1; }
-opkg install block-mount kmod-fs-ext4 kmod-usb-storage 2>/dev/null || true
+[ -n "$UUID" ] || UUID=$(blkid -s UUID -o value "$PART" 2>/dev/null)
+[ -n "$UUID" ] || UUID=$(tune2fs -l "$PART" 2>/dev/null | awk -F: '/Filesystem UUID/{gsub(/ /,"",$2); print $2; exit}')
+[ -n "$UUID" ] || { echo "EXTROOT_NO_UUID part=$PART"; block info "$PART" 2>&1; blkid "$PART" 2>&1; exit 1; }
+echo "EXTROOT_UUID=$UUID"
+if command -v apk >/dev/null 2>&1; then
+  apk add block-mount 2>/dev/null || true
+elif command -v opkg >/dev/null 2>&1; then
+  opkg install block-mount 2>/dev/null || true
+fi
 uci -q delete fstab.nd_extroot
-uci set fstab.nd_extroot=mount
+uci set fstab.nd_extroot=mount || { echo "EXTROOT_UCI_FAIL need block-mount"; exit 1; }
 uci set fstab.nd_extroot.uuid="$UUID"
 uci set fstab.nd_extroot.target=/overlay
 uci set fstab.nd_extroot.enabled=1
 uci set fstab.nd_extroot.enabled_fsck=1
-uci commit fstab
+uci commit fstab || { echo "EXTROOT_UCI_COMMIT_FAIL"; exit 1; }
 umount /mnt/netductor 2>/dev/null || true
 echo EXTROOT_OK uuid=$UUID
 `, part, dev)
 		out, err = runSSHOnPort(port, pass, key, user, host, script, kp)
 		if err != nil {
+			out = stripSSHNoise(out)
 			return false, fmt.Errorf("storage extroot: %w (%s)", err, out)
 		}
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
