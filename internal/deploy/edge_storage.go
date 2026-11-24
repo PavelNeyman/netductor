@@ -71,30 +71,43 @@ done
 		script := fmt.Sprintf(`
 set -e
 DISK=/dev/%s
-# Always (re)partition so filesystem lives on ${DISK}1 — not whole-disk.
-# Avoids post-reboot /dev/sda vs /dev/sda1 ambiguity on some sticks.
 umount "$DISK" 2>/dev/null || true
 umount ${DISK}1 2>/dev/null || true
 umount ${DISK}2 2>/dev/null || true
+PART=""
 if command -v parted >/dev/null 2>&1; then
   parted -s $DISK -- mklabel gpt mkpart primary ext4 1MiB 100%%
+  sleep 2
+  PART=${DISK}1
 elif command -v fdisk >/dev/null 2>&1; then
   echo -e 'o\nn\np\n1\n\n\nw\n' | fdisk $DISK
+  sleep 2
+  PART=${DISK}1
 else
-  echo "FORMAT_NO_PARTED_OR_FDISK"
-  exit 1
+  # Travel OpenWrt often has neither parted nor fdisk — format whole disk.
+  echo "FORMAT_WHOLE_DISK no parted/fdisk"
+  PART=$DISK
 fi
-sleep 2
-PART=${DISK}1
-[ -b "$PART" ] || { echo "FORMAT_NO_PART after partition"; ls -l $DISK* ; exit 1; }
+if [ -n "$PART" ] && [ "$PART" != "$DISK" ] && [ ! -b "$PART" ]; then
+  echo "FORMAT_PART_MISSING $PART — falling back to whole disk"
+  PART=$DISK
+fi
+[ -b "$PART" ] || { echo "FORMAT_NO_BLOCK part=$PART"; ls -l $DISK* 2>/dev/null; exit 1; }
 mkfs.ext4 -F -L netductor "$PART"
 echo FORMAT_OK part=$PART
 `, dev)
 		out, err = runSSHOnPort(port, pass, key, user, host, script, kp)
 		if err != nil {
-			return false, fmt.Errorf("storage format: %w (%s)", err, out)
+			return false, fmt.Errorf("storage format: %w (%s)", err, stripSSHNoise(out))
 		}
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
+		for _, line := range strings.Split(out, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "FORMAT_OK part=") {
+				part = strings.TrimPrefix(line, "FORMAT_OK part=")
+				fmt.Fprintln(os.Stderr, "==> storage: using part", part)
+			}
+		}
 	}
 
 	if s.PinFallback {
@@ -110,8 +123,22 @@ set +e
 PART=%s
 DISK=/dev/%s
 echo "EXTROOT_BEGIN part=$PART disk=$DISK"
-[ -b "$PART" ] || PART=$DISK
-[ -b "$PART" ] || { echo "EXTROOT_NO_PART"; exit 1; }
+# Prefer the node that already has our ext4 (whole-disk vs partition).
+if [ -b "$PART" ] && block info "$PART" 2>/dev/null | grep -q 'TYPE="ext4"'; then
+  :
+elif [ -b "$DISK" ] && block info "$DISK" 2>/dev/null | grep -q 'TYPE="ext4"'; then
+  PART=$DISK
+  echo "EXTROOT_PART_RESOLVED $PART (whole disk)"
+elif [ -b "${DISK}1" ] && block info "${DISK}1" 2>/dev/null | grep -q 'TYPE="ext4"'; then
+  PART=${DISK}1
+  echo "EXTROOT_PART_RESOLVED $PART"
+elif [ -b "$PART" ]; then
+  :
+elif [ -b "$DISK" ]; then
+  PART=$DISK
+else
+  echo "EXTROOT_NO_PART"; ls -l $DISK* 2>/dev/null; exit 1
+fi
 mkdir -p /mnt/netductor
 umount /mnt/netductor 2>/dev/null || true
 if ! mount "$PART" /mnt/netductor; then
