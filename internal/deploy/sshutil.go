@@ -373,6 +373,23 @@ func runSSHOnPortWithStdin(port, password, keyPath, user, host, remoteCmd, keyPa
 	if port == "" {
 		port = sshPort()
 	}
+	out, err := runSSHOnPortWithStdinOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase, stdin)
+	usePass := usePasswordAuth(password, host, port)
+	if err != nil && isHostKeyMismatch(out, err) {
+		edgeLike := port == "" || port == "22"
+		if usePass || edgeLike {
+			fmt.Fprintf(os.Stderr, "==> SSH host key changed for %s:%s (stdin) — clearing pin, one retry\n", host, port)
+			ClearHostKeys(host)
+			out, err = runSSHOnPortWithStdinOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase, stdin)
+		}
+	}
+	if err == nil && usePasswordAuth(password, host, port) {
+		recordTOFUAfterFirstContact(host, port)
+	}
+	return out, err
+}
+
+func runSSHOnPortWithStdinOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase string, stdin []byte) (string, error) {
 	target := user + "@" + host
 	usePass := usePasswordAuth(password, host, port)
 	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
@@ -419,6 +436,26 @@ func runSCP(password, keyPath, user, host, local, remotePath, keyPassphrase stri
 }
 
 func runSCPOnPort(port, password, keyPath, user, host, local, remotePath, keyPassphrase string) error {
+	if port == "" {
+		port = sshPort()
+	}
+	err := runSCPOnPortOnce(port, password, keyPath, user, host, local, remotePath, keyPassphrase)
+	if err != nil && isHostKeyMismatch(err.Error(), err) {
+		usePass := usePasswordAuth(password, host, port)
+		edgeLike := port == "" || port == "22"
+		if usePass || edgeLike {
+			fmt.Fprintf(os.Stderr, "==> SSH host key changed for %s:%s (scp) — clearing pin, one retry\n", host, port)
+			ClearHostKeys(host)
+			err = runSCPOnPortOnce(port, password, keyPath, user, host, local, remotePath, keyPassphrase)
+		}
+	}
+	if err == nil && usePasswordAuth(password, host, port) {
+		recordTOFUAfterFirstContact(host, port)
+	}
+	return err
+}
+
+func runSCPOnPortOnce(port, password, keyPath, user, host, local, remotePath, keyPassphrase string) error {
 	if port == "" {
 		port = sshPort()
 	}

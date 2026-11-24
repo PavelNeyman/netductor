@@ -45,24 +45,46 @@ func ensureEdgeHostKeyPin(sshTarget string) (hostKeyArgs []string, err error) {
 	write := func() error {
 		return secondary.WriteOpenSSHKnownHostsFile(host, port, dest)
 	}
+	repin := func() error {
+		key, perr := secondary.ProbeHostKey(host, port)
+		if perr != nil {
+			return fmt.Errorf("probe router host key %s:%s: %w", host, port, perr)
+		}
+		_ = secondary.ForgetSSHHost(host)
+		_ = secondary.ForgetSSHHost(host + "|" + port)
+		_ = os.Remove(dest)
+		if terr := secondary.TrustHostKey(host, port, key); terr != nil {
+			return fmt.Errorf("trust router host key %s:%s: %w", host, port, terr)
+		}
+		if err := write(); err != nil {
+			return fmt.Errorf("materialize known_hosts after trust: %w", err)
+		}
+		return nil
+	}
 	if err := write(); err != nil {
 		msg := err.Error()
 		if errors.Is(err, secondary.ErrPinLost) || strings.Contains(msg, "pin lost") {
-			return nil, fmt.Errorf("SSH host key pin lost for %s:%s — reinstall TOFU: netductor-op ssh-hosts forget %s:%s then trust: %w", host, port, host, port, err)
-		}
-		if !strings.Contains(msg, "no TOFU pin") {
+			// Edge reflash after pin-lost: allow re-pin on LAN (port 22).
+			if err := repin(); err != nil {
+				return nil, fmt.Errorf("SSH host key pin lost for %s:%s — recovery failed: %w", host, port, err)
+			}
+		} else if strings.Contains(msg, "no TOFU pin") {
+			if err := repin(); err != nil {
+				return nil, err
+			}
+		} else {
 			return nil, err
 		}
-		// First contact: capture host key and pin (LAN day-0).
-		key, perr := secondary.ProbeHostKey(host, port)
-		if perr != nil {
-			return nil, fmt.Errorf("probe router host key %s:%s: %w", host, port, perr)
-		}
-		if terr := secondary.TrustHostKey(host, port, key); terr != nil {
-			return nil, fmt.Errorf("trust router host key %s:%s: %w", host, port, terr)
-		}
-		if err := write(); err != nil {
-			return nil, fmt.Errorf("materialize known_hosts after trust: %w", err)
+	} else {
+		// Pin present: if live host key differs (factory reset), replace pin for edge LAN.
+		live, perr := secondary.ProbeHostKey(host, port)
+		if perr == nil {
+			if terr := secondary.TrustHostKey(host, port, live); terr != nil && strings.Contains(terr.Error(), "host key mismatch") {
+				fmt.Fprintf(os.Stderr, "==> edge SSH host key changed for %s — re-pin\n", host)
+				if err := repin(); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	return []string{
