@@ -400,6 +400,7 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 
 	rebootOK := !o.Reboot
+	postRebootHost := ""
 	if o.Reboot {
 		fmt.Fprintln(os.Stderr, "==> reboot", o.RouterHost)
 		if o.NetConfigure && o.LANIP != "" {
@@ -434,6 +435,7 @@ echo KEY:$(b64 "$DIR/client.key")
 			if reachable := waitEdgeSSH(hosts, o.PrimaryKey, o.RouterUser, o.PrimaryKeyPassphrase, waitFor); reachable != "" {
 				fmt.Fprintln(os.Stderr, "RESULT: OK — SSH reachable at", reachable, "after reboot (key)")
 				rebootOK = true
+				postRebootHost = reachable
 			} else {
 				fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — reboot sent; SSH not seen within", waitFor, "on:", strings.Join(hosts, ", "))
 				fmt.Fprintln(os.Stderr, "hint: if Mac uses static IP on factory subnet, move Mac to new LAN or use DHCP client on LAN port")
@@ -445,9 +447,26 @@ echo KEY:$(b64 "$DIR/client.key")
 	} else {
 		fmt.Fprintln(os.Stderr, "RESULT: OK — provision finished (no reboot requested)")
 	}
-	_ = keyOK
 	if o.Reboot && !rebootOK {
 		return fmt.Errorf("stages applied but reboot not confirmed — power-cycle the router or SSH and run reboot")
+	}
+	// Auto-continue: extroot needed reboot so vpn_client was deferred; after SSH is back, install it
+	// in the same deploy job — operator should not re-run Deploy manually.
+	if skipVPN && rebootOK && o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient] {
+		fmt.Fprintln(os.Stderr, "==> post-reboot: install vpn_client (extroot should be active)")
+		o2 := o
+		if postRebootHost != "" {
+			o2.RouterHost = postRebootHost
+		}
+		if keyOK {
+			// PasswordAuth off after reboot — key-only.
+			o2.RouterPass = ""
+		}
+		if err := applyVPNClientOnEdge(o2); err != nil {
+			return fmt.Errorf("vpn_client after reboot: %w", err)
+		}
+		skipVPN = false
+		fmt.Fprintln(os.Stderr, "==> post-reboot: vpn_client done")
 	}
 	if skipVPN && (o.Selection.Enabled != nil && o.Selection.Enabled[edge.ModVPNClient]) {
 		fmt.Fprintln(os.Stderr, "RESULT: PARTIAL — extroot/storage staged; vpn_client NOT installed this run")
