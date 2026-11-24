@@ -355,6 +355,104 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 	if s.MTLSKeyFile == "" {
 		s.MTLSKeyFile = strParam(j.Params, "mtls_key", "mtls_key_file", "MTLSKeyFile")
 	}
+
+	// Web wizard sends modules map + snake_case WiFi/LAN — EdgeSpec has no json tags.
+	if mods, ok := j.Params["modules"].(map[string]any); ok && len(mods) > 0 {
+		if s.Selection.Enabled == nil {
+			s.Selection.Enabled = map[string]bool{}
+		}
+		for k, v := range mods {
+			switch x := v.(type) {
+			case bool:
+				s.Selection.Enabled[k] = x
+			case string:
+				s.Selection.Enabled[k] = x == "1" || strings.EqualFold(x, "true") || strings.EqualFold(x, "yes") || strings.EqualFold(x, "on")
+			}
+		}
+		if s.Selection.Enabled[edge.ModOverlay] {
+			s.OverlayExt = true
+		}
+		if s.Selection.Enabled[edge.ModFSExpand] {
+			s.ExpandFS = true
+		}
+		if s.Selection.Enabled[edge.ModGuest] || s.Selection.Enabled["guest"] {
+			s.GuestEnable = true
+		}
+	}
+	if s.WiFiSSID24 == "" {
+		s.WiFiSSID24 = strParam(j.Params, "wifi_ssid_24", "wifi_ssid", "ssid_24")
+	}
+	if s.WiFiKey24 == "" {
+		s.WiFiKey24 = strParam(j.Params, "wifi_key_24", "wifi_key", "key_24")
+	}
+	if s.WiFiSSID5 == "" {
+		s.WiFiSSID5 = strParam(j.Params, "wifi_ssid_5", "ssid_5")
+	}
+	if s.WiFiKey5 == "" {
+		s.WiFiKey5 = strParam(j.Params, "wifi_key_5", "key_5")
+	}
+	if s.WiFiSSID == "" {
+		s.WiFiSSID = firstNonEmptyStr(s.WiFiSSID24, strParam(j.Params, "wifi_ssid"))
+	}
+	if s.WiFiKey == "" {
+		s.WiFiKey = firstNonEmptyStr(s.WiFiKey24, strParam(j.Params, "wifi_key"))
+	}
+	if s.LANIP == "" {
+		s.LANIP = strParam(j.Params, "lan_ip", "LANIP")
+	}
+	if s.LANMask == "" {
+		s.LANMask = strParam(j.Params, "lan_mask", "LANMask")
+	}
+	if s.DHCPStart == "" {
+		s.DHCPStart = strParam(j.Params, "dhcp_start")
+	}
+	if s.DHCPLimit == "" {
+		s.DHCPLimit = strParam(j.Params, "dhcp_limit")
+	}
+	if s.WANProto == "" {
+		s.WANProto = strParam(j.Params, "wan_proto")
+	}
+	if s.WANIP == "" {
+		s.WANIP = strParam(j.Params, "wan_ip")
+	}
+	if s.WANMask == "" {
+		s.WANMask = strParam(j.Params, "wan_mask")
+	}
+	if s.WANGateway == "" {
+		s.WANGateway = strParam(j.Params, "wan_gateway")
+	}
+	if s.WANDNS == "" {
+		s.WANDNS = strParam(j.Params, "wan_dns")
+	}
+	if s.GuestSSID == "" {
+		s.GuestSSID = strParam(j.Params, "guest_ssid")
+	}
+	if s.GuestPIN == "" {
+		s.GuestPIN = strParam(j.Params, "guest_pin")
+	}
+	if s.GuestPSK == "" {
+		s.GuestPSK = strParam(j.Params, "guest_psk")
+	}
+	if s.Preset == "" {
+		s.Preset = strParam(j.Params, "preset")
+	}
+	if truthyParam(j.Params, "guest_enable", "GuestEnable") {
+		s.GuestEnable = true
+	}
+	if truthyParam(j.Params, "overlay_ext", "OverlayExt") {
+		s.OverlayExt = true
+		if s.Selection.Enabled == nil {
+			s.Selection.Enabled = map[string]bool{}
+		}
+		s.Selection.Enabled[edge.ModOverlay] = true
+	}
+	if truthyParam(j.Params, "vpn_enable") || (s.Selection.Enabled != nil && s.Selection.Enabled[edge.ModVPNClient]) {
+		if s.Selection.Enabled == nil {
+			s.Selection.Enabled = map[string]bool{}
+		}
+		s.Selection.Enabled[edge.ModVPNClient] = true
+	}
+
 	// Offline pack defaults when UI did not pass token/mTLS paths.
 	if s.BootstrapToken == "" || s.MTLSCAFile == "" || s.MTLSCertFile == "" {
 		off := deploy.OfflineEdgeDir()
@@ -660,4 +758,13 @@ func fileExistsLocal(p string) bool {
 	}
 	st, err := os.Stat(p)
 	return err == nil && !st.IsDir()
+}
+
+func firstNonEmptyStr(ss ...string) string {
+	for _, s := range ss {
+		if strings.TrimSpace(s) != "" {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
 }
