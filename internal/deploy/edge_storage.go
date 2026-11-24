@@ -71,20 +71,25 @@ done
 		script := fmt.Sprintf(`
 set -e
 DISK=/dev/%s
-if [ ! -b %s ]; then
-  if command -v parted >/dev/null 2>&1; then
-    parted -s $DISK -- mklabel gpt mkpart primary ext4 1MiB 100%%
-  elif command -v fdisk >/dev/null 2>&1; then
-    echo -e 'o\nn\np\n1\n\n\nw\n' | fdisk $DISK
-  fi
-  sleep 2
+# Always (re)partition so filesystem lives on ${DISK}1 — not whole-disk.
+# Avoids post-reboot /dev/sda vs /dev/sda1 ambiguity on some sticks.
+umount "$DISK" 2>/dev/null || true
+umount ${DISK}1 2>/dev/null || true
+umount ${DISK}2 2>/dev/null || true
+if command -v parted >/dev/null 2>&1; then
+  parted -s $DISK -- mklabel gpt mkpart primary ext4 1MiB 100%%
+elif command -v fdisk >/dev/null 2>&1; then
+  echo -e 'o\nn\np\n1\n\n\nw\n' | fdisk $DISK
+else
+  echo "FORMAT_NO_PARTED_OR_FDISK"
+  exit 1
 fi
-PART=%s
-[ -b "$PART" ] || PART=$DISK
-umount "$PART" 2>/dev/null || true
+sleep 2
+PART=${DISK}1
+[ -b "$PART" ] || { echo "FORMAT_NO_PART after partition"; ls -l $DISK* ; exit 1; }
 mkfs.ext4 -F -L netductor "$PART"
 echo FORMAT_OK part=$PART
-`, dev, part, part)
+`, dev)
 		out, err = runSSHOnPort(port, pass, key, user, host, script, kp)
 		if err != nil {
 			return false, fmt.Errorf("storage format: %w (%s)", err, out)
@@ -103,35 +108,32 @@ echo FORMAT_OK part=$PART
 		script := fmt.Sprintf(`
 set +e
 PART=%s
-echo "EXTROOT_BEGIN part=$PART"
-[ -b "$PART" ] || PART=/dev/%s
-[ -b "$PART" ] || { echo "EXTROOT_NO_PART part=$PART"; exit 1; }
+DISK=/dev/%s
+echo "EXTROOT_BEGIN part=$PART disk=$DISK"
+[ -b "$PART" ] || PART=$DISK
+[ -b "$PART" ] || { echo "EXTROOT_NO_PART"; exit 1; }
 mkdir -p /mnt/netductor
 umount /mnt/netductor 2>/dev/null || true
 if ! mount "$PART" /mnt/netductor; then
   echo "EXTROOT_MOUNT_FAIL part=$PART"
-  dmesg 2>/dev/null | tail -5
+  dmesg 2>/dev/null | tail -8
   exit 1
 fi
-echo "EXTROOT_MOUNTED"
+echo "EXTROOT_MOUNTED $(df -h /mnt/netductor | tail -1)"
+
+# Copy current overlay onto USB if not already staged.
 if [ ! -f /mnt/netductor/.nd-extroot ]; then
-  rm -f /tmp/nd-overlay-copy.tar
   if cp -a /overlay/. /mnt/netductor/ 2>/tmp/nd-extroot-cp.err; then
     echo "EXTROOT_COPY_CP_OK"
-  elif tar -C /overlay -cf /tmp/nd-overlay-copy.tar . && tar -C /mnt/netductor -xf /tmp/nd-overlay-copy.tar; then
-    rm -f /tmp/nd-overlay-copy.tar
+  elif tar -C /overlay -cf - . 2>/dev/null | tar -C /mnt/netductor -xf - 2>/tmp/nd-extroot-tar.err; then
     echo "EXTROOT_COPY_TAR_OK"
   else
     echo "EXTROOT_COPY_FAIL"
-    cat /tmp/nd-extroot-cp.err 2>/dev/null || true
-    rm -f /tmp/nd-overlay-copy.tar
+    cat /tmp/nd-extroot-cp.err /tmp/nd-extroot-tar.err 2>/dev/null | tail -20
     umount /mnt/netductor 2>/dev/null || true
     exit 1
   fi
-  rm -f /tmp/nd-overlay-copy.tar /tmp/nd-extroot-cp.err
-  if [ -d /mnt/netductor/upper/etc ] || [ -d /mnt/netductor/etc ]; then
-    :
-  else
+  if [ ! -d /mnt/netductor/upper/etc ] && [ ! -d /mnt/netductor/etc ]; then
     n=$(find /mnt/netductor -mindepth 1 -maxdepth 2 ! -name lost+found 2>/dev/null | wc -l)
     echo "EXTROOT_ENTRIES=$n"
     if [ "$n" -lt 3 ]; then
@@ -142,25 +144,45 @@ if [ ! -f /mnt/netductor/.nd-extroot ]; then
   fi
   touch /mnt/netductor/.nd-extroot
 fi
+
+# UUID: block info only (OpenWrt 24+/apk often has no blkid binary).
 UUID=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
-[ -n "$UUID" ] || UUID=$(blkid -s UUID -o value "$PART" 2>/dev/null)
+[ -n "$UUID" ] || UUID=$(block info | grep -F "$PART" | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
 [ -n "$UUID" ] || UUID=$(tune2fs -l "$PART" 2>/dev/null | awk -F: '/Filesystem UUID/{gsub(/ /,"",$2); print $2; exit}')
-[ -n "$UUID" ] || { echo "EXTROOT_NO_UUID part=$PART"; block info "$PART" 2>&1; blkid "$PART" 2>&1; exit 1; }
-echo "EXTROOT_UUID=$UUID"
+[ -n "$UUID" ] || { echo "EXTROOT_NO_UUID part=$PART"; block info 2>&1 | head -20; exit 1; }
+echo "EXTROOT_UUID=$UUID part=$PART"
+
+# block-mount provides /etc/config/fstab schema (apk or opkg).
 if command -v apk >/dev/null 2>&1; then
   apk add block-mount 2>/dev/null || true
 elif command -v opkg >/dev/null 2>&1; then
   opkg install block-mount 2>/dev/null || true
 fi
+
 uci -q delete fstab.nd_extroot
 uci set fstab.nd_extroot=mount || { echo "EXTROOT_UCI_FAIL need block-mount"; exit 1; }
 uci set fstab.nd_extroot.uuid="$UUID"
+uci set fstab.nd_extroot.device="$PART"
 uci set fstab.nd_extroot.target=/overlay
 uci set fstab.nd_extroot.enabled=1
 uci set fstab.nd_extroot.enabled_fsck=1
 uci commit fstab || { echo "EXTROOT_UCI_COMMIT_FAIL"; exit 1; }
+
+# Critical: live /etc is still INTERNAL overlay. USB copy was taken earlier and
+# does not include this fstab — without this, after pivot uci show fstab.nd_extroot
+# is missing and next boots may not remount extroot reliably.
+for dest in \
+  /mnt/netductor/upper/etc/config \
+  /mnt/netductor/etc/config; do
+  if [ -d "$(dirname "$dest")" ] || mkdir -p "$dest" 2>/dev/null; then
+    if [ -d "$dest" ] || mkdir -p "$dest"; then
+      cp -a /etc/config/fstab "$dest/fstab" 2>/dev/null && echo "EXTROOT_FSTAB_SYNCED $dest/fstab"
+    fi
+  fi
+done
+
 umount /mnt/netductor 2>/dev/null || true
-echo EXTROOT_OK uuid=$UUID
+echo EXTROOT_OK uuid=$UUID part=$PART
 `, part, dev)
 		out, err = runSSHOnPort(port, pass, key, user, host, script, kp)
 		if err != nil {
