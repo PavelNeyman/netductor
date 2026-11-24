@@ -220,26 +220,34 @@ echo EXTROOT_OK uuid=$UUID part=$PART
 		needReboot = true
 	} else if s.UseUSB {
 		script := fmt.Sprintf(`
-set -e
+set +e
 PART=%s
-[ -b "$PART" ] || PART=/dev/%s
+DISK=/dev/%s
+if [ -b "$PART" ] && block info "$PART" 2>/dev/null | grep -q 'TYPE="ext4"'; then
+  :
+elif [ -b "$DISK" ] && block info "$DISK" 2>/dev/null | grep -q 'TYPE="ext4"'; then
+  PART=$DISK
+elif [ -b "${DISK}1" ]; then
+  PART=${DISK}1
+fi
 mkdir -p /mnt/netductor
-mountpoint -q /mnt/netductor || mount "$PART" /mnt/netductor
+mountpoint -q /mnt/netductor || mount "$PART" /mnt/netductor || { echo DATA_MOUNT_FAIL; exit 1; }
 UUID=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
-[ -n "$UUID" ] || UUID=$(blkid -s UUID -o value "$PART" 2>/dev/null || true)
+[ -n "$UUID" ] || UUID=$(tune2fs -l "$PART" 2>/dev/null | awk -F: '/Filesystem UUID/{gsub(/ /,"",$2); print $2; exit}')
 if [ -n "$UUID" ]; then
   uci -q delete fstab.nd_data
   uci set fstab.nd_data=mount
   uci set fstab.nd_data.uuid="$UUID"
+  uci set fstab.nd_data.device="$PART"
   uci set fstab.nd_data.target=/mnt/netductor
   uci set fstab.nd_data.enabled=1
   uci commit fstab
 fi
-echo DATA_MOUNT_OK
+echo DATA_MOUNT_OK part=$PART uuid=$UUID
 `, part, dev)
 		out, err = runSSHOnPort(port, pass, key, user, host, script, kp)
 		if err != nil {
-			return false, fmt.Errorf("storage mount: %w (%s)", err, out)
+			return false, fmt.Errorf("storage mount: %w (%s)", err, stripSSHNoise(out))
 		}
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
 	}
