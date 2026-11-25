@@ -1,3 +1,9 @@
+## Поток job-log оператора (2026-11-25) — открыто
+
+План (EN): [PLAN-OPERATOR-JOB-LOG-STREAM.md](../PLAN-OPERATOR-JOB-LOG-STREAM.md)
+
+Прогресс deploy сейчас в stderr `netductor-op`, не в Web job log. P0: callback `Log` → `appendLog` для `edge.provision`.
+
 ## Бэклог кода после Secondary B
 
 [PLAN-CODE-FIXES-AFTER-B.md](PLAN-CODE-FIXES-AFTER-B.md) · EN [../PLAN-CODE-FIXES-AFTER-B.md](../PLAN-CODE-FIXES-AFTER-B.md)

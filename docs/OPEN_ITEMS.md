@@ -1,3 +1,14 @@
+## Operator job log stream (2026-11-25) — open
+
+Plan: [PLAN-OPERATOR-JOB-LOG-STREAM.md](PLAN-OPERATOR-JOB-LOG-STREAM.md)
+
+Deploy progress (`==> …`, EXTROOT/FORMAT, SSH remote) goes to **`os.Stderr` of netductor-op** only. Web/TUI job log sees `setStep` + explicit `appendLog`, not live deploy stream. v0.9.772 fixed extroot hang + process-stderr stream; **Web still blind**.
+
+- [ ] **P0** `Log` callback on `DeployEdge` / storage / SSH → `appendLog` in `edge.provision`
+- [ ] **P1** live lines for `edge.bootstrap` (not only final `appendLog(raw)`)
+- [ ] **P2** same pattern for primary/secondary/buildhost jobs if still stderr-only
+- [ ] Optional SSE job log poll (thin-UI API already sketched)
+
 ## Fleet mesh (2026-11-17)
 
 Phases 0–4 implemented on `main` (not released). Phase 5 multi-master deferred. Live cutover/R5 operator-owned.
