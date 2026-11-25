@@ -431,9 +431,13 @@ echo KEY:$(b64 "$DIR/client.key")
 			if lip := strings.TrimSpace(o.LANIP); lip != "" && lip != o.RouterHost {
 				hosts = append(hosts, lip)
 			}
-			waitFor := 180 * time.Second
-			if reachable := waitEdgeSSH(hosts, o.PrimaryKey, o.RouterUser, o.PrimaryKeyPassphrase, waitFor); reachable != "" {
-				fmt.Fprintln(os.Stderr, "RESULT: OK — SSH reachable at", reachable, "after reboot (key)")
+			waitFor := 5 * time.Minute
+			// Always offer password during wait when we still have one: key verify may have
+			// failed pre-reboot (password kept on). Key-only wait is why offline DHCP path
+			// timed out with Mac already on 10.120.0.x and router answering password SSH.
+			waitPass := sshPass // key and/or password; key-only wait broke offline DHCP path
+			if reachable := waitEdgeSSH(hosts, o.PrimaryKey, o.RouterUser, o.PrimaryKeyPassphrase, waitPass, waitFor); reachable != "" {
+				fmt.Fprintln(os.Stderr, "RESULT: OK — SSH reachable at", reachable, "after reboot")
 				rebootOK = true
 				postRebootHost = reachable
 			} else {

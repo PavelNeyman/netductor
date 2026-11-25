@@ -609,22 +609,40 @@ func ShellQuote(s string) string {
 
 // scpTo copies localPath to remoteSpec (user@host:/path) using the same port/askpass rules as runSSH.
 
-// waitEdgeSSH polls hosts with key-only SSH until one answers or timeout.
-func waitEdgeSSH(hosts []string, keyPath, user, keyPassphrase string, timeout time.Duration) string {
+// waitEdgeSSH polls hosts until one answers or timeout.
+// Tries key auth first when keyPath is set; if password is non-empty, also tries password.
+// Offline edge deploy often keeps password SSH when key verify failed pre-reboot — key-only
+// wait would timeout even after Mac DHCP lands on the new LAN.
+func waitEdgeSSH(hosts []string, keyPath, user, keyPassphrase, password string, timeout time.Duration) string {
 	if timeout <= 0 {
 		timeout = 180 * time.Second
 	}
 	deadline := time.Now().Add(timeout)
 	port := factorySSHPort()
+	n := 0
 	for time.Now().Before(deadline) {
+		n++
 		for _, h := range hosts {
 			h = strings.TrimSpace(h)
 			if h == "" {
 				continue
 			}
-			if _, err := runSSHOnPort(port, "", keyPath, user, h, "echo nd-up", keyPassphrase); err == nil {
-				return h
+			if keyPath != "" {
+				if _, err := runSSHOnPort(port, "", keyPath, user, h, "echo nd-up", keyPassphrase); err == nil {
+					fmt.Fprintf(os.Stderr, "==> wait SSH: %s key OK (round %d)\n", h, n)
+					return h
+				}
 			}
+			if strings.TrimSpace(password) != "" {
+				if _, err := runSSHOnPort(port, password, keyPath, user, h, "echo nd-up", ""); err == nil {
+					fmt.Fprintf(os.Stderr, "==> wait SSH: %s password OK (round %d)\n", h, n)
+					return h
+				}
+			}
+		}
+		if n == 1 || n%5 == 0 {
+			fmt.Fprintf(os.Stderr, "==> wait SSH: no answer yet on %s (round %d, left ~%s)\n",
+				strings.Join(hosts, ", "), n, time.Until(deadline).Round(time.Second))
 		}
 		time.Sleep(3 * time.Second)
 	}
