@@ -252,7 +252,7 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 	target := o.RouterUser + "@" + o.RouterHost
-	fmt.Fprintln(os.Stderr, "==> edge provision", target, "→", o.ServerURL)
+	o.logLine(fmt.Sprintf("==> edge provision %s → %s", target, o.ServerURL))
 	// Fail-closed: agent plane is mTLS (:8789). Partial or empty material refuses deploy
 	// (except dry-run, which may lack live certs).
 	haveCA, haveCert, haveKey := len(mtlsCA) > 0, len(mtlsCert) > 0, len(mtlsKey) > 0
@@ -268,7 +268,7 @@ echo KEY:$(b64 "$DIR/client.key")
 			return fmt.Errorf("mTLS material missing (need ca+cert+key for agent plane %s) — refuse edge deploy", mtls.AgentTLSPort)
 		}
 	} else {
-		fmt.Fprintln(os.Stderr, "==> mTLS client material will be installed on router")
+		o.logLine("==> mTLS client material will be installed on router")
 	}
 
 	// 1) Agent + config (+ optional new root pass) WITHOUT harden — password still works for network/guest.
@@ -297,14 +297,14 @@ echo KEY:$(b64 "$DIR/client.key")
 		if _, err := runSSHOnPort(factorySSHPort(), sshPass, o.PrimaryKey, o.RouterUser, o.RouterHost, "true", o.PrimaryKeyPassphrase); err != nil {
 			return fmt.Errorf("new root password not accepted over SSH (passwd may have failed): %w", err)
 		}
-		fmt.Fprintln(os.Stderr, "==> new root password verified over SSH")
+		o.logLine("==> new root password verified over SSH")
 	}
 	o.RouterPass = sshPass
 
 	// 2) Stage network/guest while password auth still enabled.
 	if needNet {
 		o.Reboot = true
-		fmt.Fprintln(os.Stderr, "==> network/guest changes staged; reboot forced at end")
+		o.logLine("==> network/guest changes staged; reboot forced at end")
 	}
 	if o.NetConfigure {
 		if err := applyNetworkOnEdge(o); err != nil {
@@ -353,7 +353,7 @@ echo KEY:$(b64 "$DIR/client.key")
 		if needRB {
 			o.Reboot = true
 			skipVPN = true
-			fmt.Fprintln(os.Stderr, "==> storage: extroot staged — reboot required; vpn_client after reboot when overlay is large")
+			o.logLine("==> storage: extroot staged — reboot required; vpn_client after reboot when overlay is large")
 		}
 	}
 

@@ -483,6 +483,12 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 			}
 		}
 	}
+	s.Log = func(line string) {
+		line = strings.TrimRight(line, "\r\n")
+		if line != "" {
+			appendLog(line)
+		}
+	}
 	done := make(chan error, 1)
 	go func() { done <- deploy.WithSSHContext(ctx, func() error { return DeployEdge(s) }) }()
 	select {

@@ -187,6 +187,7 @@ type EdgeSpec struct {
 	Selection                                    edge.ModuleSelection
 	ExpandFS                                     bool
 	OverlayExt                                   bool
+	Log                                          func(string) `json:"-"`
 }
 
 func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
@@ -210,5 +211,6 @@ func (e EdgeSpec) toDeploy() deploy.EdgeOpts {
 		PPPoEUser: e.PPPoEUser, PPPoEPass: e.PPPoEPass, PPPoEService: e.PPPoEService, PPPoEAC: e.PPPoEAC,
 		Reboot: e.Reboot,
 		Preset: e.Preset, DryRun: e.DryRun, DryRunJSON: e.DryRunJSON, Selection: e.Selection, ExpandFS: e.ExpandFS, OverlayExt: e.OverlayExt,
+		Log: e.Log,
 	}
 }

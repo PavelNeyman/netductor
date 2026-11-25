@@ -66,6 +66,20 @@ type EdgeOpts struct {
 	// Set by plan (module gates); empty = legacy NetConfigure behavior.
 	ApplyLAN, ApplyWAN, ApplyWiFi, ApplyExpand, ApplyOverlay bool
 	ExpandFS, OverlayExt                                     bool // operator intent for optional storage modules
+	// Log optional job/UI sink; nil keeps CLI-only stderr. Never put secrets in messages.
+	Log func(string)
+}
+
+// logLine sends progress to job log (if set) and process stderr.
+func (o EdgeOpts) logLine(msg string) {
+	msg = strings.TrimRight(msg, "\r\n")
+	if msg == "" {
+		return
+	}
+	if o.Log != nil {
+		o.Log(msg)
+	}
+	fmt.Fprintln(os.Stderr, msg)
 }
 
 func networkTemplateMap(o EdgeOpts) map[string]any {

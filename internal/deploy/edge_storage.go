@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 // EdgeStorageOpts controls USB/extroot/pin steps (PLAN-EDGE-USB-STORAGE).
@@ -64,11 +65,13 @@ done
 		return false, fmt.Errorf("storage: no USB disk found (sd*)")
 	}
 	part := "/dev/" + dev + "1"
-	fmt.Fprintf(os.Stderr, "==> storage: disk=%s part=%s format=%v extroot=%v\n", dev, part, s.Format, s.Extroot)
+	o.logLine(fmt.Sprintf("==> storage: disk=%s part=%s format=%v extroot=%v", dev, part, s.Format, s.Extroot))
 
 	if s.Format {
-		fmt.Fprintln(os.Stderr, "==> storage: FORMAT USB (destructive)")
-		script := fmt.Sprintf(`
+		o.logLine("==> storage: FORMAT USB (destructive)")
+		// Long mkfs on 4–64GB sticks can break Dropbear/SSH mid-write ("Broken pipe").
+		// Start mkfs under nohup, then poll with short SSH sessions.
+		start := fmt.Sprintf(`
 set -e
 DISK=/dev/%s
 umount "$DISK" 2>/dev/null || true
@@ -84,7 +87,6 @@ elif command -v fdisk >/dev/null 2>&1; then
   sleep 2
   PART=${DISK}1
 else
-  # Travel OpenWrt often has neither parted nor fdisk — format whole disk.
   echo "FORMAT_WHOLE_DISK no parted/fdisk"
   PART=$DISK
 fi
@@ -93,19 +95,81 @@ if [ -n "$PART" ] && [ "$PART" != "$DISK" ] && [ ! -b "$PART" ]; then
   PART=$DISK
 fi
 [ -b "$PART" ] || { echo "FORMAT_NO_BLOCK part=$PART"; ls -l $DISK* 2>/dev/null; exit 1; }
-mkfs.ext4 -F -L netductor "$PART"
-echo FORMAT_OK part=$PART
+rm -f /tmp/nd-mkfs.rc /tmp/nd-mkfs.log /tmp/nd-mkfs.part
+echo "$PART" > /tmp/nd-mkfs.part
+# Background so SSH disconnect does not kill mkfs.
+nohup sh -c 'mkfs.ext4 -F -L netductor "$(cat /tmp/nd-mkfs.part)" > /tmp/nd-mkfs.log 2>&1; echo $? > /tmp/nd-mkfs.rc' >/dev/null 2>&1 &
+echo FORMAT_STARTED part=$PART
 `, dev)
-		out, err = runSSHOnPortLogged(port, pass, key, user, host, script, kp)
-		if err != nil {
-			return false, fmt.Errorf("storage format: %w (%s)", err, stripSSHNoise(out))
+		out, err := runSSHOnPortLogged(port, pass, key, user, host, start, kp)
+		o.logLine(strings.TrimSpace(stripSSHNoise(out)))
+		started := strings.Contains(out, "FORMAT_STARTED")
+		if err != nil && !started {
+			return false, fmt.Errorf("storage format start: %w (%s)", err, stripSSHNoise(out))
 		}
 		for _, line := range strings.Split(out, "\n") {
 			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "FORMAT_OK part=") {
-				part = strings.TrimPrefix(line, "FORMAT_OK part=")
-				fmt.Fprintln(os.Stderr, "==> storage: using part", part)
+			if strings.HasPrefix(line, "FORMAT_STARTED part=") {
+				part = strings.TrimPrefix(line, "FORMAT_STARTED part=")
 			}
+		}
+		// Poll up to ~15 minutes (large USB on slow mips).
+		var done bool
+		for i := 0; i < 180; i++ {
+			poll := fmt.Sprintf(`
+PART=%s
+[ -f /tmp/nd-mkfs.part ] && PART=$(cat /tmp/nd-mkfs.part)
+if [ -f /tmp/nd-mkfs.rc ]; then
+  echo FORMAT_RC=$(cat /tmp/nd-mkfs.rc)
+  echo FORMAT_PART=$PART
+  tail -8 /tmp/nd-mkfs.log 2>/dev/null || true
+  exit 0
+fi
+if block info "$PART" 2>/dev/null | grep -q 'TYPE="ext4"'; then
+  # mkfs may have finished without rc if shell was killed after mkfs.
+  echo FORMAT_RC=0
+  echo FORMAT_PART=$PART
+  echo FORMAT_INFER_EXT4
+  exit 0
+fi
+echo FORMAT_WAIT n=%d part=$PART
+ps w 2>/dev/null | grep -F mkfs.ext4 | grep -v grep || true
+`, part, i)
+			out, err = runSSHOnPortLogged(port, pass, key, user, host, poll, kp)
+			text := stripSSHNoise(out)
+			if strings.TrimSpace(text) != "" {
+				o.logLine(strings.TrimSpace(text))
+			}
+			if strings.Contains(out, "FORMAT_RC=") {
+				rcLine := ""
+				for _, line := range strings.Split(out, "\n") {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "FORMAT_RC=") {
+						rcLine = strings.TrimPrefix(line, "FORMAT_RC=")
+					}
+					if strings.HasPrefix(line, "FORMAT_PART=") {
+						part = strings.TrimPrefix(line, "FORMAT_PART=")
+					}
+				}
+				if rcLine == "0" {
+					o.logLine("==> storage: FORMAT_OK part=" + part)
+					done = true
+					break
+				}
+				return false, fmt.Errorf("storage format mkfs rc=%s (%s)", rcLine, text)
+			}
+			if err != nil {
+				// Transient SSH blip during mkfs — keep polling.
+				o.logLine(fmt.Sprintf("==> storage: format poll SSH blip (will retry): %v", err))
+			}
+			select {
+			case <-time.After(5 * time.Second):
+			case <-currentSSHCtx().Done():
+				return false, fmt.Errorf("storage format: cancelled")
+			}
+		}
+		if !done {
+			return false, fmt.Errorf("storage format: timeout waiting for mkfs on %s", part)
 		}
 	}
 
@@ -113,10 +177,10 @@ echo FORMAT_OK part=$PART
 		if err := installPinSync(port, pass, key, user, host, kp); err != nil {
 			return false, fmt.Errorf("storage pin-sync: %w", err)
 		}
-		fmt.Fprintln(os.Stderr, "==> storage: pin sync installed before extroot")
+		o.logLine("==> storage: pin sync installed before extroot")
 	}
 	if s.Extroot {
-		fmt.Fprintln(os.Stderr, "==> storage: configure extroot")
+		o.logLine("==> storage: configure extroot")
 		script := fmt.Sprintf(`
 set +e
 PART=%s
@@ -210,6 +274,9 @@ umount /mnt/netductor 2>/dev/null || true
 echo EXTROOT_OK uuid=$UUID part=$PART
 `, part, dev)
 		out, err = runSSHOnPortLogged(port, pass, key, user, host, script, kp)
+		if text := strings.TrimSpace(stripSSHNoise(out)); text != "" {
+			o.logLine(text)
+		}
 		if err != nil {
 			out = stripSSHNoise(out)
 			return false, fmt.Errorf("storage extroot: %w (%s)", err, out)

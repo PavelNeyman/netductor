@@ -4,7 +4,7 @@ Plan: [PLAN-OPERATOR-JOB-LOG-STREAM.md](PLAN-OPERATOR-JOB-LOG-STREAM.md)
 
 Deploy progress (`==> …`, EXTROOT/FORMAT, SSH remote) goes to **`os.Stderr` of netductor-op** only. Web/TUI job log sees `setStep` + explicit `appendLog`, not live deploy stream. v0.9.772 fixed extroot hang + process-stderr stream; **Web still blind**.
 
-- [ ] **P0** `Log` callback on `DeployEdge` / storage / SSH → `appendLog` in `edge.provision`
+- [x] **P0** `Log` callback on `DeployEdge` / storage format+extroot (+ key provision lines) → `appendLog` in `edge.provision` (0.9.773)
 - [ ] **P1** live lines for `edge.bootstrap` (not only final `appendLog(raw)`)
 - [ ] **P2** same pattern for primary/secondary/buildhost jobs if still stderr-only
 - [ ] Optional SSE job log poll (thin-UI API already sketched)

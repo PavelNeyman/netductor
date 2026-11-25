@@ -1,6 +1,6 @@
 # Plan: Operator job log stream (deploy → Web / TUI)
 
-**Status:** planned  
+**Status:** P0 implemented (0.9.773); P1–P2 open  
 **Created:** 2026-11-25  
 **Related:** [PLAN-THIN-UI-JOBS.md](PLAN-THIN-UI-JOBS.md), edge provision, `internal/deploy`, `internal/jobs`
 
