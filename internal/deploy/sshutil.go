@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -176,6 +177,8 @@ func usePasswordAuth(password, host, port string) bool {
 func sshOpts(keyPath string, passwordAuth bool, keyPassphrase bool, host, port string) ([]string, error) {
 	args := []string{
 		"-o", "ConnectTimeout=20",
+		"-o", "ServerAliveInterval=15",
+		"-o", "ServerAliveCountMax=4",
 	}
 	pin, pinErr := openSSHPinPath(host, port)
 	switch {
@@ -365,6 +368,76 @@ func runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphr
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+// runSSHOnPortLogged is like runSSHOnPort but streams remote stdout/stderr to the process
+// stderr as it arrives (CombinedOutput hides progress for long edge storage scripts).
+func runSSHOnPortLogged(port, password, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {
+	if port == "" {
+		port = sshPort()
+	}
+	out, err := runSSHOnPortLoggedOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase)
+	usePass := usePasswordAuth(password, host, port)
+	if err != nil && isHostKeyMismatch(out, err) {
+		edgeLike := port == "" || port == "22"
+		if usePass || edgeLike {
+			fmt.Fprintf(os.Stderr, "==> SSH host key changed for %s:%s — clearing pin, one retry\n", host, port)
+			ClearHostKeys(host)
+			out, err = runSSHOnPortLoggedOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase)
+			usePass = usePasswordAuth(password, host, port)
+		}
+	}
+	if err == nil && usePass {
+		recordTOFUAfterFirstContact(host, port)
+	}
+	return out, err
+}
+
+func runSSHOnPortLoggedOnce(port, password, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {
+	target := user + "@" + host
+	usePass := usePasswordAuth(password, host, port)
+	base, optsErr := sshOpts(keyPath, usePass, !usePass && keyPassphrase != "", host, port)
+	if optsErr != nil {
+		return "", optsErr
+	}
+	base = append([]string{"-p", port}, base...)
+	var cmd *exec.Cmd
+	var cleanup func()
+	if usePass {
+		if sp, err := lookSSHPass(); err == nil {
+			args := append([]string{"-e", "ssh"}, base...)
+			args = append(args, "--", target, remoteCmd)
+			cmd = exec.CommandContext(currentSSHCtx(), sp, args...)
+			cmd.Env = append(os.Environ(), "SSHPASS="+password)
+		} else {
+			ask, c, err := writeAskPass(password)
+			if err != nil {
+				return "", fmt.Errorf("sshpass missing and ASKPASS failed: %w", err)
+			}
+			cleanup = c
+			args := append(append([]string{}, base...), "--", target, remoteCmd)
+			cmd = exec.CommandContext(currentSSHCtx(), "setsid", append([]string{"ssh"}, args...)...)
+			cmd.Env = append(os.Environ(), "SSH_ASKPASS="+ask, "SSH_ASKPASS_REQUIRE=force", "DISPLAY=.")
+		}
+	} else {
+		env, c, err := sshEnvWithAskPass(keyPassphrase)
+		if err != nil {
+			return "", err
+		}
+		cleanup = c
+		args := append(base, "--", target, remoteCmd)
+		cmd = exec.CommandContext(currentSSHCtx(), "ssh", args...)
+		cmd.Env = env
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+	var buf bytes.Buffer
+	w := io.MultiWriter(&buf, os.Stderr)
+	cmd.Stdout = w
+	cmd.Stderr = w
+	err := cmd.Run()
+	return buf.String(), err
 }
 
 // runSSHOnPortWithStdin is like runSSHOnPort but feeds stdin to the remote command.

@@ -96,11 +96,10 @@ fi
 mkfs.ext4 -F -L netductor "$PART"
 echo FORMAT_OK part=$PART
 `, dev)
-		out, err = runSSHOnPort(port, pass, key, user, host, script, kp)
+		out, err = runSSHOnPortLogged(port, pass, key, user, host, script, kp)
 		if err != nil {
 			return false, fmt.Errorf("storage format: %w (%s)", err, stripSSHNoise(out))
 		}
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
 		for _, line := range strings.Split(out, "\n") {
 			line = strings.TrimSpace(line)
 			if strings.HasPrefix(line, "FORMAT_OK part=") {
@@ -150,6 +149,7 @@ echo "EXTROOT_MOUNTED $(df -h /mnt/netductor | tail -1)"
 
 # Copy current overlay onto USB if not already staged.
 if [ ! -f /mnt/netductor/.nd-extroot ]; then
+  echo "EXTROOT_COPY_START"
   if cp -a /overlay/. /mnt/netductor/ 2>/tmp/nd-extroot-cp.err; then
     echo "EXTROOT_COPY_CP_OK"
   elif tar -C /overlay -cf - . 2>/dev/null | tar -C /mnt/netductor -xf - 2>/tmp/nd-extroot-tar.err; then
@@ -179,15 +179,13 @@ UUID=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | h
 [ -n "$UUID" ] || { echo "EXTROOT_NO_UUID part=$PART"; block info 2>&1 | head -20; exit 1; }
 echo "EXTROOT_UUID=$UUID part=$PART"
 
-# block-mount provides /etc/config/fstab schema (apk or opkg).
-if command -v apk >/dev/null 2>&1; then
-  apk add block-mount 2>/dev/null || true
-elif command -v opkg >/dev/null 2>&1; then
-  opkg install block-mount 2>/dev/null || true
-fi
-
+# Never apk/opkg here: without WAN, apk can hang for many minutes and CombinedOutput
+# shows nothing until it finishes. block-mount comes from edge.bootstrap usb-storage.
 uci -q delete fstab.nd_extroot
-uci set fstab.nd_extroot=mount || { echo "EXTROOT_UCI_FAIL need block-mount"; exit 1; }
+if ! uci set fstab.nd_extroot=mount; then
+  echo "EXTROOT_UCI_FAIL need block-mount (run edge.bootstrap preset=usb-storage first)"
+  exit 1
+fi
 uci set fstab.nd_extroot.uuid="$UUID"
 uci set fstab.nd_extroot.device="$PART"
 uci set fstab.nd_extroot.target=/overlay
@@ -211,12 +209,11 @@ done
 umount /mnt/netductor 2>/dev/null || true
 echo EXTROOT_OK uuid=$UUID part=$PART
 `, part, dev)
-		out, err = runSSHOnPort(port, pass, key, user, host, script, kp)
+		out, err = runSSHOnPortLogged(port, pass, key, user, host, script, kp)
 		if err != nil {
 			out = stripSSHNoise(out)
 			return false, fmt.Errorf("storage extroot: %w (%s)", err, out)
 		}
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
 		needReboot = true
 	} else if s.UseUSB {
 		script := fmt.Sprintf(`
