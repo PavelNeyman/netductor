@@ -343,6 +343,16 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 
+	// Re-assert operator key immediately before storage copy (network/guest must not drop it;
+	// guarantees authorized_keys are in the tree that EXTROOT_COPY snapshots).
+	if strings.TrimSpace(pub) != "" {
+		if err := edge.InstallOperatorKeys(edge.ProvisionOpts{
+			SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: re-install keys before storage:", err)
+		}
+	}
+
 	// Strict: deploy never installs USB packages. Use edge.bootstrap preset usb-storage first.
 	skipVPN := false
 	st := EdgeStorageOpts{
@@ -493,10 +503,15 @@ echo KEY:$(b64 "$DIR/client.key")
 		return fmt.Errorf("PARTIAL: reboot/extroot required before vpn_client; re-run deploy after router is back")
 	}
 	// Control plane: agent must appear on primary (enrolled), not only SSH to the router.
-	if !o.DryRun && o.PrimaryHost != "" && o.PrimaryKey != "" {
+	// Control-plane enroll needs WAN on the edge device. Offline deploy (USB/LAN only)
+	// must still finish OK — agent heartbeats after operator plugs WAN.
+	if !o.DryRun && o.PrimaryHost != "" && o.PrimaryKey != "" && strings.TrimSpace(o.DeviceID) != "" {
 		fmt.Fprintln(os.Stderr, "==> wait control-plane sighting for", o.DeviceID)
-		if err := waitEdgeOnControlPlane(o, 180*time.Second); err != nil {
-			return err
+		if err := waitEdgeOnControlPlane(o, 90*time.Second); err != nil {
+			fmt.Fprintln(os.Stderr, "warn:", err)
+			fmt.Fprintln(os.Stderr, "RESULT: OK (local stages) — control-plane enroll deferred")
+			fmt.Fprintln(os.Stderr, "hint: without WAN the agent cannot reach primary; plug WAN and wait for heartbeat, or: netductor edge list")
+			// Do not fail the job: factory/offline Cudy path has no uplink by design.
 		}
 	}
 	return nil

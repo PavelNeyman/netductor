@@ -1,3 +1,10 @@
+## 0.9.778
+
+### Fixed
+- OpenWrt edge format: do not treat pre-existing ext4 as mkfs success (UUID-before + mkfs-alive gate); kills FORMAT_INFER race that skipped real wipe.
+- OpenWrt edge: control-plane sighting is soft-OK when agent has no WAN yet — offline deploy no longer fails the job after local stages succeed.
+- OpenWrt edge: re-assert operator pubkey immediately before EXTROOT_COPY.
+
 ## 0.9.777
 
 ### Fixed

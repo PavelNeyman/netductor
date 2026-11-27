@@ -95,11 +95,15 @@ if [ -n "$PART" ] && [ "$PART" != "$DISK" ] && [ ! -b "$PART" ]; then
   PART=$DISK
 fi
 [ -b "$PART" ] || { echo "FORMAT_NO_BLOCK part=$PART"; ls -l $DISK* 2>/dev/null; exit 1; }
-rm -f /tmp/nd-mkfs.rc /tmp/nd-mkfs.log /tmp/nd-mkfs.part
+rm -f /tmp/nd-mkfs.rc /tmp/nd-mkfs.log /tmp/nd-mkfs.part /tmp/nd-mkfs.before_uuid
 echo "$PART" > /tmp/nd-mkfs.part
+# Record pre-mkfs UUID so we never treat the OLD ext4 as format success (FORMAT_INFER race).
+block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1 > /tmp/nd-mkfs.before_uuid || true
 # Background so SSH disconnect does not kill mkfs.
 nohup sh -c 'mkfs.ext4 -F -L netductor "$(cat /tmp/nd-mkfs.part)" > /tmp/nd-mkfs.log 2>&1; echo $? > /tmp/nd-mkfs.rc' >/dev/null 2>&1 &
 echo FORMAT_STARTED part=$PART
+BEFORE_UUID=$(cat /tmp/nd-mkfs.before_uuid 2>/dev/null || true)
+echo FORMAT_BEFORE_UUID=$BEFORE_UUID
 `, dev)
 		out, err := runSSHOnPortLogged(port, pass, key, user, host, start, kp)
 		o.logLine(strings.TrimSpace(stripSSHNoise(out)))
@@ -119,20 +123,29 @@ echo FORMAT_STARTED part=$PART
 			poll := fmt.Sprintf(`
 PART=%s
 [ -f /tmp/nd-mkfs.part ] && PART=$(cat /tmp/nd-mkfs.part)
+BEFORE=$(cat /tmp/nd-mkfs.before_uuid 2>/dev/null || true)
 if [ -f /tmp/nd-mkfs.rc ]; then
   echo FORMAT_RC=$(cat /tmp/nd-mkfs.rc)
   echo FORMAT_PART=$PART
   tail -8 /tmp/nd-mkfs.log 2>/dev/null || true
   exit 0
 fi
-if block info "$PART" 2>/dev/null | grep -q 'TYPE="ext4"'; then
-  # mkfs may have finished without rc if shell was killed after mkfs.
-  echo FORMAT_RC=0
-  echo FORMAT_PART=$PART
-  echo FORMAT_INFER_EXT4
-  exit 0
+# Only infer success if mkfs is no longer running AND UUID changed (or was empty).
+# Never accept pre-existing ext4 while mkfs still running or UUID unchanged — that was the race.
+MKFS_ALIVE=0
+ps w 2>/dev/null | grep -F mkfs.ext4 | grep -v grep >/dev/null && MKFS_ALIVE=1
+if [ "$MKFS_ALIVE" = "0" ]; then
+  CUR=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
+  if block info "$PART" 2>/dev/null | grep -q 'TYPE="ext4"'; then
+    if [ -z "$BEFORE" ] || [ -n "$CUR" -a "$CUR" != "$BEFORE" ]; then
+      echo FORMAT_RC=0
+      echo FORMAT_PART=$PART
+      echo FORMAT_INFER_EXT4_UUID_CHANGED before=$BEFORE after=$CUR
+      exit 0
+    fi
+  fi
 fi
-echo FORMAT_WAIT n=%d part=$PART
+echo FORMAT_WAIT n=%d part=$PART mkfs_alive=$MKFS_ALIVE before=$BEFORE
 ps w 2>/dev/null | grep -F mkfs.ext4 | grep -v grep || true
 `, part, i)
 			out, err = runSSHOnPortLogged(port, pass, key, user, host, poll, kp)
