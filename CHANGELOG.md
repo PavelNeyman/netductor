@@ -1,3 +1,8 @@
+## 0.9.776
+
+### Fixed
+- OpenWrt edge: LuCI/firstboot factory reset with USB extroot — install `nd-factory-reset` and wrap firstboot/factoryreset/jffs2reset; wipe USB + clear fstab.nd_extroot so System→Reset does not hang or leave the old overlay.
+
 ## 0.9.760
 
 ### Fixed
