@@ -698,6 +698,9 @@ func showKaringProfilePicker(token string, chat int64, msgID int, userName strin
 		b.WriteString(`<tg-button type="callback_data" data="u:karingcfg:` + userName + `:` + m.ID + `">📥 ` + esc(label) + `</tg-button>`)
 		b.WriteString(`</tg-button-row>` + nl + nl)
 	}
+	b.WriteString(`<tg-button-row align="left">`)
+	b.WriteString(`<tg-button type="callback_data" data="u:karingsc:` + userName + `">📱 iOS Shortcuts</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
 	kb := userHubKeyboard(userName)
 	if msgID > 0 {
 		reply(token, chat, msgID, b.String(), kb)
@@ -755,6 +758,70 @@ func sendKaringImportLink(token string, chat int64, userName, profile string) {
 	attr := func(s string) string { return strings.ReplaceAll(s, "&", "&amp;") }
 	b.WriteString(`<tg-button type="url" url="` + attr(link) + `">Karing import</tg-button>`)
 	b.WriteString(`<tg-button type="url" url="` + attr(yamlURL) + `">YAML</tg-button>`)
+	b.WriteString(`<tg-button type="callback_data" data="u:karingsc:` + userName + `">📱 Shortcuts</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
+	sendHTML(token, chat, b.String(), backKeyboard())
+}
+
+// sendKaringShortcutsGuide — iOS Shortcuts recipes for Wi‑Fi/LTE + karing:// (no native SSID in Karing).
+func sendKaringShortcutsGuide(token string, chat int64, userName string) {
+	subTok, _ := vpn.EnsureSubToken(userName)
+	base := redirectBase()
+	nl := string([]byte{10})
+	var b strings.Builder
+	b.WriteString("📱 <b>Karing · iOS Shortcuts</b>" + nl)
+	if getLang() != "en" {
+		b.WriteString("<i>Karing не умеет сам LTE/Wi‑Fi как SR. Обход: Shortcuts (iOS 18+) + scheme.</i>" + nl + nl)
+		b.WriteString("<b>0. В Karing</b>" + nl)
+		b.WriteString("Настройки → System Scheme Call → включи <code>karing://</code>" + nl + nl)
+		b.WriteString("<b>1. Импорт профилей</b> (один раз)" + nl)
+		b.WriteString("Кнопки ниже или Karing → профиль → <b>Karing import</b>." + nl + nl)
+		b.WriteString("<b>2. Автоматизация Wi‑Fi</b>" + nl)
+		b.WriteString("Команды → Автоматизация → + → <b>Wi‑Fi</b>" + nl)
+		b.WriteString("• Домашний SSID → <b>подключён</b> → без спроса → Open URL → <code>karing://reconnect</code>" + nl)
+		b.WriteString("• Тот же SSID → <b>отключён</b> (уход в LTE) → <code>karing://reconnect</code>" + nl + nl)
+		b.WriteString("<b>3. Смена «режима» (опционально)</b>" + nl)
+		b.WriteString("На Wi‑Fi: import <code>operator-mobile</code> + reconnect." + nl)
+		b.WriteString("На LTE: import <code>operator-fullproxy</code> + reconnect." + nl)
+		b.WriteString("(Scheme не умеет «выбрать профиль» — только install / connect / reconnect.)" + nl + nl)
+		b.WriteString("<b>4. On Demand</b>" + nl)
+		b.WriteString("Система → VPN → Karing → «По запросу» — держит туннель, профиль не меняет." + nl)
+	} else {
+		b.WriteString("<i>Karing has no built-in LTE/Wi‑Fi profile switch like SR. Use Shortcuts + karing://.</i>" + nl + nl)
+		b.WriteString("<b>0. In Karing</b>" + nl)
+		b.WriteString("Settings → System Scheme Call → enable <code>karing://</code>" + nl + nl)
+		b.WriteString("<b>1. Import profiles once</b> via buttons below / Karing import." + nl + nl)
+		b.WriteString("<b>2. Wi‑Fi automation</b>" + nl)
+		b.WriteString("Shortcuts → Automation → + → <b>Wi‑Fi</b>" + nl)
+		b.WriteString("• Home SSID → <b>Joined</b> → Don’t Ask → Open URL → <code>karing://reconnect</code>" + nl)
+		b.WriteString("• Same SSID → <b>Left</b> (→ cellular) → <code>karing://reconnect</code>" + nl + nl)
+		b.WriteString("<b>3. Optional profile swap</b>" + nl)
+		b.WriteString("Wi‑Fi: install-config operator-mobile + reconnect; LTE: fullproxy + reconnect." + nl)
+		b.WriteString("(No scheme to select an already-imported profile.)" + nl + nl)
+		b.WriteString("<b>4. On Demand</b> — keeps VPN up; does not switch rule profile." + nl)
+	}
+	b.WriteString(nl + "<b>Scheme cheat-sheet</b>" + nl)
+	b.WriteString("<code>karing://connect</code> · <code>disconnect</code> · <code>reconnect</code>" + nl)
+	attr := func(s string) string { return strings.ReplaceAll(s, "&", "&amp;") }
+	b.WriteString(`<tg-button-row align="left">`)
+	if base != "" && subTok != "" {
+		for _, prof := range []string{"operator-mobile", "operator-fullproxy", "family"} {
+			yamlURL := strings.TrimRight(base, "/") + "/sub/" + subTok + "/karing/" + prof + ".yaml"
+			deep := "karing://install-config?url=" + url.QueryEscape(yamlURL) + "&name=" + url.QueryEscape("nd-"+prof)
+			link := importRedirectURL(deep)
+			if link == "" {
+				link = deep
+			}
+			label := "📥 " + prof
+			b.WriteString(`<tg-button type="url" url="` + attr(link) + `">` + esc(label) + `</tg-button>`)
+		}
+	}
+	rec := importRedirectURL("karing://reconnect")
+	if rec == "" {
+		rec = "karing://reconnect"
+	}
+	b.WriteString(`<tg-button type="url" url="` + attr(rec) + `">reconnect</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	b.WriteString(nl + "<i>docs/karing-ios-shortcuts.md in repo</i>")
 	sendHTML(token, chat, b.String(), backKeyboard())
 }

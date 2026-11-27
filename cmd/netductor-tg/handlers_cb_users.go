@@ -32,6 +32,9 @@ func handleCBUsers(token string, chat int64, msgID int, data string) bool {
 					profile = parts[3]
 				}
 				sendKaringImportLink(token, chat, name, profile)
+			case "karingsc":
+				// u:karingsc:name — iOS Shortcuts guide + quick deep links
+				sendKaringShortcutsGuide(token, chat, name)
 			case "open":
 				if tryReplyUserWidget(token, chat, msgID, name) {
 					return true
