@@ -43,7 +43,6 @@ func attachLogs(key, caption string) {
 	}
 }
 
-
 func attachChannelIncident(key, caption string) {
 	if !notify.AlertOnce(key+":incident", caption) {
 		return
@@ -286,11 +285,14 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 			}
 		}
 		for _, s := range ch.Secondaries {
-			// Public :443 face-check (primary→secondary). Secondary signal only — not data-plane.
+			// Public :443 face-check: SampleAndEvaluate (C3) already pages on sustained fail.
+			// Here only warn when uplink is OK (informational) or page when both face+uplink down —
+			// but require fail streak so one flaky dial does not storm Telegram overnight.
 			key := "channel:tcp443:" + s.ID
 			if s.Online && s.PublicIP != "" && !s.TCP443OK {
-				if s.UplinkOK {
-					// Uplink (mux) is the real path; public face may be firewalled or transient.
+				if channels.FailStreakInc(key) < 3 {
+					// wait for sustained
+				} else if s.UplinkOK {
 					notify.AlertOnce(key, fmt.Sprintf("⚠️ Channel <b>%s</b>: public :443 face unreachable (ip %s) — uplink OK, not a data-plane outage", s.Name, s.PublicIP))
 				} else {
 					msg := fmt.Sprintf("🔴 Channel <b>%s</b>: primary→secondary:443 TCP fail (ip %s) and uplink down", s.Name, s.PublicIP)
@@ -299,15 +301,21 @@ func evaluateSimpleAlerts(m map[string]any, live []map[string]any, cfg map[strin
 					}
 				}
 			} else {
+				channels.FailStreakReset(key)
 				notify.ClearAlert(key)
 			}
 			keyU := "channel:uplink:" + s.ID
 			if s.Online && !s.UplinkOK {
-				msg := fmt.Sprintf("🔴 Channel <b>%s</b>: secondary→primary uplink failed (data-plane)", s.Name)
-				if notify.AlertOnce(keyU, msg) {
-					attachChannelIncident(keyU, msg)
+				if channels.FailStreakInc(keyU) < 3 {
+					// sustained uplink down only
+				} else {
+					msg := fmt.Sprintf("🔴 Channel <b>%s</b>: secondary→primary uplink failed (data-plane)", s.Name)
+					if notify.AlertOnce(keyU, msg) {
+						attachChannelIncident(keyU, msg)
+					}
 				}
 			} else {
+				channels.FailStreakReset(keyU)
 				notify.ClearAlert(keyU)
 			}
 		}

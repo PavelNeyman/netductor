@@ -21,6 +21,8 @@ const (
 	faceDialCritMs  = 5000.0
 	// Need this many recent samples (including current) above threshold before alert.
 	rttConsecutive = 3
+	// faceDownConsecutive: single TCP blip must not page (night path flaps).
+	faceDownConsecutive = 3
 )
 
 // EvaluateSampleAlerts checks RTT and rate collapse against plan defaults.
@@ -42,8 +44,8 @@ func EvaluateSampleAlerts(pt SamplePoint, history []SamplePoint) []Alert {
 			if c.RTTMs <= 0 {
 				if !c.OK {
 					out = append(out, Alert{
-						Key: fmt.Sprintf("channel:uplink:%s", c.Peer),
-						Msg: fmt.Sprintf("🔴 Channel C2 peer %s uplink down", c.Peer),
+						Key:      fmt.Sprintf("channel:uplink:%s", c.Peer),
+						Msg:      fmt.Sprintf("🔴 Channel C2 peer %s uplink down", c.Peer),
 						Incident: true,
 					})
 				}
@@ -59,8 +61,8 @@ func EvaluateSampleAlerts(pt SamplePoint, history []SamplePoint) []Alert {
 			key := fmt.Sprintf("channel:rtt:C2:%s", c.Peer)
 			if level >= 2 {
 				out = append(out, Alert{
-					Key: key,
-					Msg: fmt.Sprintf("🔴 Channel C2 peer %s uplink RTT %.0fms sustained (crit ≥%.0f)", c.Peer, c.RTTMs, uplinkRTTCritMs),
+					Key:      key,
+					Msg:      fmt.Sprintf("🔴 Channel C2 peer %s uplink RTT %.0fms sustained (crit ≥%.0f)", c.Peer, c.RTTMs, uplinkRTTCritMs),
 					Incident: true,
 				})
 			} else {
@@ -72,9 +74,12 @@ func EvaluateSampleAlerts(pt SamplePoint, history []SamplePoint) []Alert {
 		case "C3":
 			// primary→secondary public :443 dial — only extreme / fail
 			if !c.OK {
+				if !sustainedDown(history, "C3", c.Peer, faceDownConsecutive) {
+					continue
+				}
 				out = append(out, Alert{
-					Key: fmt.Sprintf("channel:face:%s", c.Peer),
-					Msg: fmt.Sprintf("🔴 Channel C3 peer %s face :443 unreachable", c.Peer),
+					Key:      fmt.Sprintf("channel:face:%s", c.Peer),
+					Msg:      fmt.Sprintf("🔴 Channel C3 peer %s face :443 unreachable (sustained)", c.Peer),
 					Incident: true,
 				})
 				continue
@@ -92,8 +97,8 @@ func EvaluateSampleAlerts(pt SamplePoint, history []SamplePoint) []Alert {
 			key := fmt.Sprintf("channel:rtt:C3:%s", c.Peer)
 			if level >= 2 {
 				out = append(out, Alert{
-					Key: key,
-					Msg: fmt.Sprintf("🔴 Channel C3 peer %s face dial %.0fms sustained (crit ≥%.0f)", c.Peer, c.RTTMs, faceDialCritMs),
+					Key:      key,
+					Msg:      fmt.Sprintf("🔴 Channel C3 peer %s face dial %.0fms sustained (crit ≥%.0f)", c.Peer, c.RTTMs, faceDialCritMs),
 					Incident: true,
 				})
 			} else {
@@ -149,6 +154,35 @@ func rttLevel(ms, warn, crit float64) int {
 		return 1
 	}
 	return 0
+}
+
+// sustainedDown requires `need` consecutive samples where channel id/peer is not OK
+// (or missing = not counted as fail). Current point is assumed already failed.
+func sustainedDown(history []SamplePoint, id, peer string, need int) bool {
+	if need < 1 {
+		need = 1
+	}
+	n := 1 // current sample is down
+	for i := len(history) - 1; i >= 0 && n < need; i-- {
+		found := false
+		for _, c := range history[i].Channels {
+			if c.ID != id || c.Peer != peer {
+				continue
+			}
+			found = true
+			if !c.OK {
+				n++
+			} else {
+				return false
+			}
+			break
+		}
+		if !found {
+			// no sample for this peer — break streak
+			return false
+		}
+	}
+	return n >= need
 }
 
 // sustainedRTT requires rttConsecutive samples (current + recent history) at the same level.

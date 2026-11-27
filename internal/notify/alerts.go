@@ -70,8 +70,9 @@ func AlertOnce(key, msg string) bool {
 	// Channel / mismatch: shorter re-notify while incident is ongoing (still not spam every tick).
 	if strings.HasPrefix(key, "channel:rtt:") || strings.HasPrefix(key, "channel:rate:") {
 		cd = 45 * time.Minute // chronic path noise; sample still records
-	} else if strings.HasPrefix(key, "channel:") || strings.HasPrefix(key, "mismatch:") {
-		cd = 5 * time.Minute
+	} else if strings.HasPrefix(key, "channel:") || strings.HasPrefix(key, "mismatch:") || strings.HasPrefix(key, "path:e2e:") {
+		// Night path flaps recover in 1–3m; 5m cooldown still re-paged after Clear+rearm.
+		cd = 20 * time.Minute
 	}
 	if strings.HasPrefix(key, "git:mac-build") {
 		cd = 2 * time.Minute
@@ -84,7 +85,11 @@ func AlertOnce(key, msg string) bool {
 	if t, ok := lastSent[key]; ok && now.Sub(t) < cd {
 		return false
 	}
-	if t, ok := clearedAt[key]; ok && now.Sub(t) < rearmAfter {
+	rearm := rearmAfter
+	if strings.HasPrefix(key, "channel:") || strings.HasPrefix(key, "path:e2e:") || strings.HasPrefix(key, "mismatch:") {
+		rearm = 15 * time.Minute
+	}
+	if t, ok := clearedAt[key]; ok && now.Sub(t) < rearm {
 		return false
 	}
 	disk := loadSent()

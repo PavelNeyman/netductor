@@ -1,7 +1,6 @@
 package vpn
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -13,8 +12,8 @@ import (
 )
 
 // SNIHealth checks that the VLESS/Reality port accepts TCP.
-// A full TLS handshake with stock crypto/tls almost always fails on Reality
-// (server expects REALITY auth) — that is NOT treated as downtime.
+// Do NOT attempt a stock crypto/tls handshake: Reality rejects it and sing-box
+// logs "REALITY: processed invalid connection" for 127.0.0.1 every collect tick.
 func SNIHealth() (ok bool, ms int64, detail string) {
 	sniName := sni()
 	port := vlessPort()
@@ -22,22 +21,12 @@ func SNIHealth() (ok bool, ms int64, detail string) {
 	t0 := time.Now()
 	d := net.Dialer{Timeout: 3 * time.Second}
 	conn, err := d.Dial("tcp", addr)
-	if err != nil {
-		return false, 0, "dial: " + err.Error()
-	}
-	defer conn.Close()
-	msDial := time.Since(t0).Milliseconds()
-
-	cfg := &tls.Config{ServerName: sniName, InsecureSkipVerify: true, NextProtos: []string{"h2", "http/1.1"}}
-	tconn := tls.Client(conn, cfg)
-	_ = tconn.SetDeadline(time.Now().Add(2 * time.Second))
-	err = tconn.Handshake()
 	ms = time.Since(t0).Milliseconds()
 	if err != nil {
-		// Port is open; Reality rejects vanilla TLS — expected.
-		return true, msDial, fmt.Sprintf("sni=%s port_up dial_ms=%d (reality rejects plain TLS: %v)", sniName, msDial, err)
+		return false, ms, "dial: " + err.Error()
 	}
-	return true, ms, fmt.Sprintf("sni=%s tls_ok", sniName)
+	_ = conn.Close()
+	return true, ms, fmt.Sprintf("sni=%s port_up dial_ms=%d (tcp-only; no plain TLS to Reality)", sniName, ms)
 }
 
 // SNIDialDown reports whether detail from SNIHealth means the port is unreachable.
