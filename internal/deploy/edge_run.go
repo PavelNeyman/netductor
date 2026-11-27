@@ -353,6 +353,27 @@ echo KEY:$(b64 "$DIR/client.key")
 		}
 	}
 
+	// LuCI defaults + password-off MUST run before EXTROOT_COPY so they land on USB overlay.
+	// (Post-copy writes to live internal flash are invisible after pivot.)
+	if err := applyLuCIDefaultsOnEdge(o); err != nil {
+		fmt.Fprintln(os.Stderr, "warn: luci defaults:", err)
+	}
+	if strings.TrimSpace(pub) != "" && o.PrimaryKey != "" {
+		if keyOK {
+			o.logLine("==> commit PasswordAuth=off before storage (applies after reboot; password still works until then)")
+			if err := edge.CommitPasswordOff(edge.ProvisionOpts{
+				SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
+			}); err != nil {
+				fmt.Fprintln(os.Stderr, "warn: password-off commit:", err)
+				keyOK = false
+			}
+		}
+	} else if o.Reboot || needNet {
+		return fmt.Errorf("operator pubkey required for harden before reboot (missing %s.pub or OperatorPubKey) — refuse leave password-only after net changes", o.PrimaryKey)
+	} else if strings.TrimSpace(pub) == "" || o.PrimaryKey == "" {
+		fmt.Fprintln(os.Stderr, "warn: no operator pubkey/key — skip harden (password SSH remains)")
+	}
+
 	// Strict: deploy never installs USB packages. Use edge.bootstrap preset usb-storage first.
 	skipVPN := false
 	st := EdgeStorageOpts{
@@ -401,28 +422,7 @@ echo KEY:$(b64 "$DIR/client.key")
 			return fmt.Errorf("vpn_client: %w", err)
 		}
 	}
-	// Always: no LuCI ASU nag on Status (Close does not save preference).
-	if err := applyLuCIDefaultsOnEdge(o); err != nil {
-		fmt.Fprintln(os.Stderr, "warn: luci defaults:", err)
-	}
-
-	// 3) PasswordAuth off only if key verify succeeded earlier (keys already on live + USB).
-	if strings.TrimSpace(pub) != "" && o.PrimaryKey != "" {
-		if keyOK {
-			o.logLine("==> commit PasswordAuth=off (applies after reboot; password still works now)")
-			if err := edge.CommitPasswordOff(edge.ProvisionOpts{
-				SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
-			}); err != nil {
-				fmt.Fprintln(os.Stderr, "warn: password-off commit:", err)
-				keyOK = false
-			}
-		}
-	} else {
-		if o.Reboot || needNet {
-			return fmt.Errorf("operator pubkey required for harden before reboot (missing %s.pub or OperatorPubKey) — refuse leave password-only after net changes", o.PrimaryKey)
-		}
-		fmt.Fprintln(os.Stderr, "warn: no operator pubkey/key — skip harden (password SSH remains)")
-	}
+	// LuCI defaults + PasswordAuth already committed before storage (see above).
 
 	rebootOK := !o.Reboot
 	postRebootHost := ""

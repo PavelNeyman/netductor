@@ -565,6 +565,15 @@ for ak in /etc/dropbear/authorized_keys /root/.ssh/authorized_keys; do
   touch "$ak"; chmod 600 "$ak"
   grep -qxF '%s' "$ak" 2>/dev/null || echo '%s' >> "$ak"
 done
+# Pivot-critical UCI already on live before copy; re-sync to USB upper in case copy was partial/old.
+for cfg in dropbear system luci; do
+  [ -f /etc/config/$cfg ] || continue
+  for root in /mnt/netductor/upper /mnt/netductor; do
+    [ -d "$root" ] || continue
+    mkdir -p "$root/etc/config"
+    cp -a /etc/config/$cfg "$root/etc/config/" 2>/dev/null && echo STAGE_CFG $cfg $root || true
+  done
+done
 umount /mnt/netductor 2>/dev/null || true
 echo STAGE_KEYS_OK files=$n part=$PART
 `, esc, esc, esc, esc)
