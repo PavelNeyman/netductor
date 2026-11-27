@@ -1,3 +1,9 @@
+## 0.9.779
+
+### Fixed
+- OpenWrt edge: LuCI defaults + PasswordAuth-off **before** EXTROOT_COPY so they survive USB pivot; stage dropbear/system/luci config onto USB with operator keys.
+- (0.9.778) format UUID race; control-plane soft-OK offline; keys before storage.
+
 ## 0.9.778
 
 ### Fixed
