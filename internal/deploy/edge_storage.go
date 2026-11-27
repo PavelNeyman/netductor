@@ -514,3 +514,53 @@ echo WRAP_DONE
 	}
 	return nil
 }
+
+// stageOperatorKeysOntoExtroot writes the operator pubkey into the USB overlay tree
+// so authorized_keys survive pivot (live install alone is on internal flash).
+func stageOperatorKeysOntoExtroot(o EdgeOpts, pub string) error {
+	pub = strings.TrimSpace(pub)
+	if pub == "" {
+		return fmt.Errorf("empty pubkey")
+	}
+	esc := strings.ReplaceAll(pub, "'", `'"'"'`)
+	script := fmt.Sprintf(`
+set +e
+PART=$(uci -q get fstab.nd_extroot.device 2>/dev/null || true)
+[ -n "$PART" ] || PART=$(block info 2>/dev/null | awk -F: '/LABEL="netductor"|MOUNT="\/overlay"/{gsub(/ /,"",$1); print $1; exit}')
+[ -n "$PART" ] || PART=/dev/sda
+mkdir -p /mnt/netductor
+umount /mnt/netductor 2>/dev/null || true
+if ! mount "$PART" /mnt/netductor 2>/dev/null; then
+  echo "STAGE_KEYS_MOUNT_FAIL part=$PART"
+  exit 1
+fi
+n=0
+for root in /mnt/netductor/upper /mnt/netductor; do
+  [ -d "$root" ] || continue
+  mkdir -p "$root/etc/dropbear" "$root/root/.ssh"
+  for ak in "$root/etc/dropbear/authorized_keys" "$root/root/.ssh/authorized_keys"; do
+    touch "$ak"
+    chmod 600 "$ak"
+    grep -qxF '%s' "$ak" 2>/dev/null || echo '%s' >> "$ak"
+    n=$((n+1))
+  done
+  chmod 700 "$root/root/.ssh" 2>/dev/null || true
+done
+mkdir -p /etc/dropbear /root/.ssh
+chmod 700 /root/.ssh
+for ak in /etc/dropbear/authorized_keys /root/.ssh/authorized_keys; do
+  touch "$ak"; chmod 600 "$ak"
+  grep -qxF '%s' "$ak" 2>/dev/null || echo '%s' >> "$ak"
+done
+umount /mnt/netductor 2>/dev/null || true
+echo STAGE_KEYS_OK files=$n part=$PART
+`, esc, esc, esc, esc)
+	out, err := runSSHOnPort(factorySSHPort(), o.RouterPass, o.PrimaryKey, o.RouterUser, o.RouterHost, script, o.PrimaryKeyPassphrase)
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, stripSSHNoise(out))
+	}
+	if !strings.Contains(out, "STAGE_KEYS_OK") {
+		return fmt.Errorf("stage keys incomplete: %s", strings.TrimSpace(stripSSHNoise(out)))
+	}
+	return nil
+}

@@ -301,6 +301,27 @@ echo KEY:$(b64 "$DIR/client.key")
 	}
 	o.RouterPass = sshPass
 
+	// Operator pubkey BEFORE network/storage: must land in overlay copy for extroot.
+	// (Previously keys were installed after EXTROOT_COPY → empty authorized_keys on USB after reboot.)
+	keyOK := false
+	if strings.TrimSpace(pub) != "" && o.PrimaryKey != "" {
+		o.logLine("==> install operator SSH key (before storage; password still enabled)")
+		if err := edge.InstallOperatorKeys(edge.ProvisionOpts{
+			SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: install keys:", err)
+		} else {
+			o.logLine("==> verify key login before storage/reboot")
+			if _, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "echo nd-key-ok", o.PrimaryKeyPassphrase); err != nil {
+				fmt.Fprintln(os.Stderr, "warn: key login failed — password SSH kept on:", err)
+				fmt.Fprintln(os.Stderr, "hint: check PrimaryKey matches .pub; do not disable password until key works")
+			} else {
+				keyOK = true
+				o.logLine("==> key login OK")
+			}
+		}
+	}
+
 	// 2) Stage network/guest while password auth still enabled.
 	if needNet {
 		o.Reboot = true
@@ -354,6 +375,14 @@ echo KEY:$(b64 "$DIR/client.key")
 			o.Reboot = true
 			skipVPN = true
 			o.logLine("==> storage: extroot staged — reboot required; vpn_client after reboot when overlay is large")
+			// Re-inject operator key into USB overlay (copy ran before/without latest keys).
+			if strings.TrimSpace(pub) != "" {
+				if err := stageOperatorKeysOntoExtroot(o, pub); err != nil {
+					fmt.Fprintln(os.Stderr, "warn: stage keys onto extroot:", err)
+				} else {
+					o.logLine("==> storage: operator pubkey staged onto USB overlay")
+				}
+			}
 		}
 	}
 
@@ -367,29 +396,15 @@ echo KEY:$(b64 "$DIR/client.key")
 		fmt.Fprintln(os.Stderr, "warn: luci defaults:", err)
 	}
 
-	// 3) Safe SSH transition: keys → verify key login → password-off (no daemon reload) → reboot → poll.
-	keyOK := false
+	// 3) PasswordAuth off only if key verify succeeded earlier (keys already on live + USB).
 	if strings.TrimSpace(pub) != "" && o.PrimaryKey != "" {
-		fmt.Fprintln(os.Stderr, "==> install operator SSH key (password still enabled)")
-		if err := edge.InstallOperatorKeys(edge.ProvisionOpts{
-			SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
-		}); err != nil {
-			fmt.Fprintln(os.Stderr, "warn: install keys:", err)
-		} else {
-			fmt.Fprintln(os.Stderr, "==> verify key login before disabling password")
-			if _, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "echo nd-key-ok", o.PrimaryKeyPassphrase); err != nil {
-				fmt.Fprintln(os.Stderr, "warn: key login failed — password SSH kept on:", err)
-				fmt.Fprintln(os.Stderr, "hint: check PrimaryKey matches .pub; do not disable password until key works")
-			} else {
-				keyOK = true
-				fmt.Fprintln(os.Stderr, "==> key login OK")
-				fmt.Fprintln(os.Stderr, "==> commit PasswordAuth=off (applies after reboot; password still works now)")
-				if err := edge.CommitPasswordOff(edge.ProvisionOpts{
-					SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
-				}); err != nil {
-					fmt.Fprintln(os.Stderr, "warn: password-off commit:", err)
-					keyOK = false
-				}
+		if keyOK {
+			o.logLine("==> commit PasswordAuth=off (applies after reboot; password still works now)")
+			if err := edge.CommitPasswordOff(edge.ProvisionOpts{
+				SSHTarget: target, Password: sshPass, SSHKey: o.PrimaryKey, OperatorPubKey: pub,
+			}); err != nil {
+				fmt.Fprintln(os.Stderr, "warn: password-off commit:", err)
+				keyOK = false
 			}
 		}
 	} else {

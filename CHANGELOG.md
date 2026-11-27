@@ -1,3 +1,8 @@
+## 0.9.777
+
+### Fixed
+- OpenWrt edge: install operator SSH pubkey **before** extroot copy and re-stage onto USB overlay after pivot prep — authorized_keys no longer empty post-reboot; key verify runs early.
+
 ## 0.9.776
 
 ### Fixed
