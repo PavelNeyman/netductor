@@ -86,9 +86,6 @@ func BuildClashMetaYAML(userName, profile string) (string, error) {
 
 	b.WriteString("\nrules:\n")
 	b.WriteString("  - IP-CIDR,127.0.0.0/8,DIRECT,no-resolve\n")
-	b.WriteString("  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n")
-	b.WriteString("  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve\n")
-	b.WriteString("  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve\n")
 	b.WriteString("  - IP-CIDR,169.254.0.0/16,DIRECT,no-resolve\n")
 	b.WriteString("  - IP-CIDR,224.0.0.0/4,DIRECT,no-resolve\n")
 
