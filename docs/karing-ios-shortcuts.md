@@ -85,3 +85,32 @@ Keeps tunnel up; does **not** switch netductor rule profiles.
 
 User card → **Karing** → profile → **Karing import** (YAML + deep link).  
 **Shortcuts** button opens this setup summary in the bot.
+
+---
+
+## F. `.shortcut` files from Telegram
+
+Bot **📱 iOS Shortcuts** attaches unsigned workflows (XML plist, Open URL only):
+
+| File | Action |
+|------|--------|
+| `nd-karing-reconnect.shortcut` | `karing://reconnect` |
+| `nd-karing-operator-mobile.shortcut` | `install-config` for that profile YAML |
+| `nd-karing-operator-fullproxy.shortcut` | same |
+| `nd-karing-family.shortcut` | same |
+
+### Import on iPhone
+
+1. Open the file from Telegram → Share → Shortcuts (or Files).
+2. If blocked: **Settings → Shortcuts → Allow Untrusted Shortcuts** / Private Sharing.
+3. On **iOS 15+**, Apple often requires a **signed** file. Unsigned may still fail.
+
+### Sign on Mac (recommended)
+
+```bash
+shortcuts sign --mode anyone -i nd-karing-reconnect.shortcut -o nd-karing-reconnect-signed.shortcut
+```
+
+Needs Shortcuts CLI and an iCloud-signed-in Apple ID on that Mac (`anyone` mode still asks for iCloud). AirDrop the signed file to the phone.
+
+There is no supported way for a Linux bot to produce Apple-signed `.shortcut` without a Mac/iCloud signing step.

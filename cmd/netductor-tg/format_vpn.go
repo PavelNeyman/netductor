@@ -822,6 +822,39 @@ func sendKaringShortcutsGuide(token string, chat int64, userName string) {
 	}
 	b.WriteString(`<tg-button type="url" url="` + attr(rec) + `">reconnect</tg-button>`)
 	b.WriteString(`</tg-button-row>` + nl)
-	b.WriteString(nl + "<i>docs/karing-ios-shortcuts.md in repo</i>")
+	if getLang() != "en" {
+		b.WriteString(nl + "<b>.shortcut файлы</b> (ниже)" + nl)
+		b.WriteString("iOS 15+ часто требует подпись. Если импорт отказал:" + nl)
+		b.WriteString("• Настройки → Команды → разрешить недоверенные / Private Sharing" + nl)
+		b.WriteString("• Или на Mac: <code>shortcuts sign --mode anyone -i file.shortcut -o signed.shortcut</code> (нужен iCloud)" + nl)
+	} else {
+		b.WriteString(nl + "<b>.shortcut files</b> (below)" + nl)
+		b.WriteString("iOS 15+ often requires signing. If import fails:" + nl)
+		b.WriteString("• Settings → Shortcuts → Allow Untrusted / Private Sharing" + nl)
+		b.WriteString("• Or on Mac: <code>shortcuts sign --mode anyone -i file.shortcut -o signed.shortcut</code> (iCloud required)" + nl)
+	}
 	sendHTML(token, chat, b.String(), backKeyboard())
+
+	// Attach generated .shortcut documents (Open URL only).
+	dir := filepath.Join(os.TempDir(), "nd-shortcuts")
+	_ = os.MkdirAll(dir, 0o700)
+	sendOne := func(fname string, data []byte, cap string) {
+		path := filepath.Join(dir, fname)
+		if err := os.WriteFile(path, data, 0o600); err != nil {
+			fmt.Fprintln(os.Stderr, "shortcut write:", err)
+			return
+		}
+		if err := sendDocumentFile(token, chat, path, cap, backKeyboard()); err != nil {
+			fmt.Fprintln(os.Stderr, "shortcut send:", err)
+		}
+	}
+	fn, data := vpn.BuildIOSShortcutKaringReconnect()
+	sendOne(fn, data, "📎 nd-karing-reconnect.shortcut · Open URL karing://reconnect")
+	if base != "" && subTok != "" {
+		for _, prof := range []string{"operator-mobile", "operator-fullproxy", "family"} {
+			yamlURL := strings.TrimRight(base, "/") + "/sub/" + subTok + "/karing/" + prof + ".yaml"
+			fn, data := vpn.BuildIOSShortcutKaringImport(prof, yamlURL)
+			sendOne(fn, data, "📎 "+fn+" · install-config "+prof)
+		}
+	}
 }
