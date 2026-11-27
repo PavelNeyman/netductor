@@ -464,6 +464,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 		if mode == "sub" {
 			// Subscription: open HTTPS sub URL; clients refresh profiles from it.
 			b.WriteString(`<tg-button type="url" url="` + attr(uri) + `">` + T("btn_open_sub") + `</tg-button>`)
+			b.WriteString(`<tg-button type="callback_data" data="u:karing:` + name + `">Karing</tg-button>`)
 			// rotate token
 			b.WriteString(`<tg-button type="callback_data" data="u:subrot:` + name + `">` + T("btn_rotate") + `</tg-button>`)
 		} else {
@@ -508,6 +509,7 @@ func formatAccessRichHTML(name, mode, uri string) string {
 	} else {
 		b.WriteString(`<tg-button type="callback_data" data="u:workcfg:` + name + `:family">` + T("btn_sr_family") + `</tg-button>`)
 	}
+	b.WriteString(`<tg-button type="callback_data" data="u:karing:` + name + `">Karing</tg-button>`)
 	b.WriteString(`</tg-button-row>`)
 	return b.String()
 }
@@ -664,4 +666,95 @@ func sendSRProfileDocument(token string, chat int64, profile string) {
 	}
 	// Document may omit inline keys on some clients — follow-up nav message.
 	sendHTML(token, chat, "📥 <b>SR Config</b> · "+esc(profile)+"\n<i>file above · use buttons below</i>", nav)
+}
+
+
+// showKaringProfilePicker lists Clash Meta profiles for Karing one-tap import.
+func showKaringProfilePicker(token string, chat int64, msgID int, userName string) {
+	nl := string([]byte{10})
+	var b strings.Builder
+	b.WriteString("<b>Karing</b> · " + esc(userName) + nl)
+	if getLang() != "en" {
+		b.WriteString("<i>Профили Clash Meta (как SR Config). Кнопка открывает Karing с импортом URL.</i>" + nl + nl)
+	} else {
+		b.WriteString("<i>Clash Meta profiles (same policy as SR Config). Button opens Karing with install-config URL.</i>" + nl + nl)
+	}
+	for _, m := range vpn.KaringProfiles() {
+		if m.Operator && !showWorkProfileButton(userName) {
+			continue
+		}
+		label, help := m.LabelEN, m.HelpEN
+		if getLang() != "en" {
+			if m.LabelRU != "" {
+				label = m.LabelRU
+			}
+			if m.HelpRU != "" {
+				help = m.HelpRU
+			}
+		}
+		b.WriteString("<b>" + esc(label) + "</b>" + nl)
+		b.WriteString("<i>" + esc(help) + "</i>" + nl)
+		b.WriteString(`<tg-button-row align="left">`)
+		b.WriteString(`<tg-button type="callback_data" data="u:karingcfg:` + userName + `:` + m.ID + `">📥 ` + esc(label) + `</tg-button>`)
+		b.WriteString(`</tg-button-row>` + nl + nl)
+	}
+	kb := userHubKeyboard(userName)
+	if msgID > 0 {
+		reply(token, chat, msgID, b.String(), kb)
+	} else {
+		sendHTML(token, chat, b.String(), kb)
+	}
+}
+
+// sendKaringImportLink builds public YAML URL + karing://install-config deep link.
+func sendKaringImportLink(token string, chat int64, userName, profile string) {
+	profile = vpn.NormalizeKaringProfile(profile)
+	subTok, _ := vpn.EnsureSubToken(userName)
+	if subTok == "" {
+		sendHTML(token, chat, T("no_links"), backKeyboard())
+		return
+	}
+	base := redirectBase()
+	if base == "" {
+		msg := `⚠️ <i>REDIRECT_BASE unset — cannot build Karing import URL</i>`
+		if getLang() != "en" {
+			msg = `⚠️ <i>REDIRECT_BASE не задан — нет URL для импорта Karing</i>`
+		}
+		sendHTML(token, chat, msg, backKeyboard())
+		return
+	}
+	yamlURL := strings.TrimRight(base, "/") + "/sub/" + subTok + "/karing/" + profile + ".yaml"
+	name := "nd-" + profile
+	deep := "karing://install-config?url=" + url.QueryEscape(yamlURL) + "&name=" + url.QueryEscape(name)
+	link := importRedirectURL(deep)
+	if link == "" {
+		link = deep
+	}
+	meta := vpn.SRProfileMeta{}
+	for _, m := range vpn.KaringProfiles() {
+		if m.ID == profile {
+			meta = m
+			break
+		}
+	}
+	label := meta.LabelEN
+	if getLang() != "en" && meta.LabelRU != "" {
+		label = meta.LabelRU
+	}
+	nl := string([]byte{10})
+	var b strings.Builder
+	b.WriteString("📥 <b>Karing · " + esc(label) + "</b>" + nl)
+	b.WriteString("<i>profile=" + esc(profile) + "</i>" + nl)
+	if getLang() != "en" {
+		b.WriteString("<i>Открой кнопку — Karing импортирует Clash Meta (ноды + правила как в SR).</i>" + nl)
+	} else {
+		b.WriteString("<i>Open button — Karing imports Clash Meta (nodes + rules like SR Config).</i>" + nl)
+	}
+	b.WriteString("<pre><code>" + esc(yamlURL) + "</code></pre>" + nl)
+	b.WriteString(`<tg-button-row align="left">`)
+	attr := func(s string) string { return strings.ReplaceAll(s, "&", "&amp;") }
+	b.WriteString(`<tg-button type="url" url="` + attr(link) + `">Karing import</tg-button>`)
+	b.WriteString(`<tg-button type="url" url="` + attr(yamlURL) + `">YAML</tg-button>`)
+	b.WriteString(`</tg-button-row>` + nl)
+	sendHTML(token, chat, b.String(), backKeyboard())
 }

@@ -161,7 +161,7 @@ func handleImportRedirect(w http.ResponseWriter, r *http.Request) {
 func allowedDeepLink(s string) bool {
 	low := strings.ToLower(s)
 	for _, p := range []string{
-		"shadowrocket://", "happ://", "incy://",
+		"shadowrocket://", "happ://", "incy://", "karing://", "clash://",
 		"vless://", "hysteria2://", "hy2://", "ss://", "trojan://",
 	} {
 		if strings.HasPrefix(low, p) {
@@ -233,14 +233,35 @@ func handleSubscription(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "rate limited", http.StatusTooManyRequests)
 		return
 	}
-	tok := strings.TrimPrefix(r.URL.Path, "/sub/")
-	tok = strings.Trim(tok, "/")
-	if i := strings.IndexByte(tok, '/'); i >= 0 {
-		tok = tok[:i]
-	}
+	rest := strings.TrimPrefix(r.URL.Path, "/sub/")
+	rest = strings.Trim(rest, "/")
+	parts := strings.Split(rest, "/")
+	tok := parts[0]
 	user := vpn.ResolveSubToken(tok)
 	if user == "" {
 		http.NotFound(w, r)
+		return
+	}
+	// GET /sub/{token}/karing/{profile}[.yaml] — full Clash Meta for Karing import
+	if len(parts) >= 2 && (parts[1] == "karing" || parts[1] == "clash") {
+		profile := "operator-mobile"
+		if len(parts) >= 3 && strings.TrimSpace(parts[2]) != "" {
+			profile = strings.TrimSuffix(parts[2], ".yaml")
+			profile = strings.TrimSuffix(profile, ".yml")
+		}
+		if q := strings.TrimSpace(r.URL.Query().Get("profile")); q != "" {
+			profile = q
+		}
+		yamlBody, err := vpn.BuildClashMetaYAML(user, profile)
+		if err != nil {
+			http.Error(w, "unavailable: "+err.Error(), 503)
+			return
+		}
+		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="nd-karing-`+vpn.NormalizeKaringProfile(profile)+`.yaml"`)
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_, _ = w.Write([]byte(yamlBody))
 		return
 	}
 	b64, err := vpn.SubscriptionBase64(user)

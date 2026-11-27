@@ -22,6 +22,16 @@ func handleCBUsers(token string, chat int64, msgID int, data string) bool {
 				} else {
 					sendSRProfileDocument(token, chat, vpn.SRProfileFamily)
 				}
+			case "karing":
+				// u:karing:name — profile picker for Karing Clash Meta
+				showKaringProfilePicker(token, chat, msgID, name)
+			case "karingcfg":
+				// u:karingcfg:name:profile — deep link + YAML URL
+				profile := vpn.SRProfileFamily
+				if len(parts) >= 4 && parts[3] != "" {
+					profile = parts[3]
+				}
+				sendKaringImportLink(token, chat, name, profile)
 			case "open":
 				if tryReplyUserWidget(token, chat, msgID, name) {
 					return true
