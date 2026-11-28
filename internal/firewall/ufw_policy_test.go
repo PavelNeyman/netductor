@@ -279,3 +279,47 @@ func TestUfwLoopbackSourceIsNarrowlyTrusted(t *testing.T) {
 	}
 }
 
+
+func TestUfwPrimaryPublicMTLSPlaneAnywhere(t *testing.T) {
+	if sshPort() != "52222" {
+		t.Skip("ssh port not 52222 in test env")
+	}
+	// Realistic primary with travel edge plane (IPv4 + IPv6 Anywhere on mTLS).
+	status := `Status: active
+[ 1] 52222/tcp                  ALLOW IN    Anywhere
+[ 2] 52222/tcp (v6)             ALLOW IN    Anywhere (v6)
+[ 3] 22/tcp                     DENY IN     Anywhere
+[ 4] 22/tcp (v6)                DENY IN     Anywhere (v6)
+[ 5] 443/tcp                    ALLOW IN    Anywhere
+[ 6] 443/tcp (v6)               ALLOW IN    Anywhere (v6)
+[ 7] 10050/tcp                  DENY IN     Anywhere
+[ 8] 10050/tcp (v6)             DENY IN     Anywhere (v6)
+[ 9] 10051/tcp                  DENY IN     Anywhere
+[10] 10051/tcp (v6)             DENY IN     Anywhere (v6)
+[11] 8443/tcp                   ALLOW IN    Anywhere
+[12] 8443/tcp (v6)              ALLOW IN    Anywhere (v6)
+[13] 80/tcp                     ALLOW IN    Anywhere
+[14] 80/tcp (v6)                ALLOW IN    Anywhere (v6)
+[15] 8787/tcp                   DENY IN     Anywhere
+[16] 8787/tcp (v6)              DENY IN     Anywhere (v6)
+[17] 8445/tcp                   DENY IN     Anywhere
+[18] 8445/tcp (v6)              DENY IN     Anywhere (v6)
+[19] 8788/tcp                   DENY IN     Anywhere
+[20] 8788/tcp (v6)              DENY IN     Anywhere (v6)
+[21] 9443/tcp                   ALLOW IN    10.87.10.0/30
+[22] 9443/tcp                   ALLOW IN    10.87.11.0/30
+[23] 9443/tcp                   DENY IN     Anywhere
+[24] 9443/tcp (v6)              DENY IN     Anywhere (v6)
+[25] 8789/tcp                   ALLOW IN    10.87.10.0/30
+[26] 8789/tcp                   ALLOW IN    10.87.11.0/30
+[27] 8789/tcp                   ALLOW IN    127.0.0.1
+[28] 8789/tcp                   ALLOW IN    Anywhere                   # netductor-edge-plane-public
+[29] 8789/tcp (v6)              ALLOW IN    Anywhere (v6)              # netductor-edge-plane-public
+[30] 9118/tcp                   DENY IN     Anywhere
+[31] 9118/tcp (v6)              DENY IN     Anywhere (v6)
+`
+	ok, warns := ufwEffectivePolicy(status, "primary")
+	if !ok {
+		t.Fatalf("public mTLS plane (IPv4+IPv6 Anywhere) must pass on primary, warns=%v", warns)
+	}
+}
