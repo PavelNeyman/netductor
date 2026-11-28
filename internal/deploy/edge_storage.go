@@ -402,15 +402,86 @@ grep -q nd-pin-sync /etc/crontabs/root 2>/dev/null || echo '0 */12 * * * /usr/sb
 
 // installFactoryResetWrap makes LuCI System→Reset / firstboot wipe USB extroot.
 // Stock OpenWrt only clears internal jffs2; with fstab.nd_extroot the old overlay
-// comes back on the next boot. Idempotent: keeps *.real once.
+// comes back on the next boot.
+//
+// Critical when already pivoted to USB:
+//   - do NOT rm -rf /overlay while root is the USB overlay (kills live busybox/reboot);
+//   - resolve stock firstboot/jffs2reset (busybox applet or *.real) BEFORE wipe;
+//   - clear fstab, wipe USB, then force reboot so next boot is internal flash.
 func installFactoryResetWrap(port, pass, key, user, host, kp string) error {
 	// Single remote script: body + wrappers. Avoid nested heredoc pitfalls on ash.
 	remote := `
 set -e
 cat > /usr/sbin/nd-factory-reset << 'NDEOF'
 #!/bin/sh
+# netductor: factory reset with USB extroot. Must not destroy the live root mid-run.
 set +e
 echo "nd-factory-reset: begin"
+
+want_yes=0
+for a in "$@"; do
+  [ "$a" = "-y" ] || [ "$a" = "-Y" ] || [ "$a" = "--yes" ] && want_yes=1
+done
+
+# --- locate stock reset BEFORE any destructive work ---
+BB=""
+for b in /bin/busybox /sbin/busybox; do
+  [ -x "$b" ] && BB=$b && break
+done
+
+invoke_stock() {
+  # Prefer renamed real binaries (non-busybox scripts).
+  for c in /sbin/jffs2reset.real /sbin/firstboot.real /sbin/factoryreset.real; do
+    if [ -x "$c" ] && ! grep -q nd-factory-reset "$c" 2>/dev/null; then
+      echo "nd-factory-reset: stock $c"
+      if [ "$want_yes" = "1" ]; then
+        "$c" -y 2>/dev/null || "$c" 2>/dev/null || true
+      else
+        "$c" "$@" 2>/dev/null || true
+      fi
+      return 0
+    fi
+  done
+  # Busybox applets (argv0 matters — call via busybox NAME).
+  if [ -n "$BB" ]; then
+    for applet in jffs2reset firstboot factoryreset; do
+      if "$BB" --list 2>/dev/null | grep -qx "$applet" || "$BB" "$applet" --help >/dev/null 2>&1; then
+        echo "nd-factory-reset: busybox $applet"
+        if [ "$want_yes" = "1" ]; then
+          "$BB" "$applet" -y 2>/dev/null || "$BB" "$applet" 2>/dev/null || true
+        else
+          "$BB" "$applet" "$@" 2>/dev/null || true
+        fi
+        return 0
+      fi
+    done
+  fi
+  # Unwrapped sbin script (not our wrap, not a busybox symlink we already replaced).
+  for c in /sbin/jffs2reset /sbin/firstboot /sbin/factoryreset; do
+    if [ -f "$c" ] && [ ! -L "$c" ] && ! grep -q nd-factory-reset "$c" 2>/dev/null; then
+      echo "nd-factory-reset: stock file $c"
+      if [ "$want_yes" = "1" ]; then
+        "$c" -y 2>/dev/null || "$c" 2>/dev/null || true
+      else
+        "$c" "$@" 2>/dev/null || true
+      fi
+      return 0
+    fi
+  done
+  # Last resort: erase rootfs_data MTD if present (internal overlay).
+  if command -v mtd >/dev/null 2>&1; then
+    for part in rootfs_data overlay; do
+      if grep -q "\"$part\"" /proc/mtd 2>/dev/null; then
+        echo "nd-factory-reset: mtd erase $part"
+        mtd -r erase "$part" 2>/dev/null && return 0
+        mtd erase "$part" 2>/dev/null && return 0
+      fi
+    done
+  fi
+  echo "nd-factory-reset: no stock firstboot/jffs2reset (extroot wipe + reboot only)"
+  return 1
+}
+
 has_ext=0
 [ -f /overlay/.nd-extroot ] && has_ext=1
 [ -f /.nd-extroot ] && has_ext=1
@@ -431,12 +502,18 @@ if [ -z "$PART" ]; then
     [ -n "$PART" ] && break
   done
 fi
+
+# 1) Stock internal reset first (while binaries still intact).
+invoke_stock "$@"
+
+# 2) Detach + wipe USB extroot so next boot cannot remount old overlay.
 if [ "$has_ext" = "1" ] || [ -n "$PART" ]; then
   echo "nd-factory-reset: extroot path part=${PART:-unknown}"
   uci -q delete fstab.nd_extroot
   uci -q delete fstab.nd_data
   uci commit fstab 2>/dev/null || true
-  umount /overlay 2>/dev/null || true
+  # Keep /overlay mounted: wiping the block under a live root is OK for next boot;
+  # deleting files through the mount kills busybox/reboot in this shell.
   umount /mnt/netductor 2>/dev/null || true
   if [ -n "$PART" ]; then
     umount "$PART" 2>/dev/null || true
@@ -456,41 +533,47 @@ if [ "$has_ext" = "1" ] || [ -n "$PART" ]; then
     echo "nd-factory-reset: no PART to wipe (fstab cleared only)"
   fi
 fi
-REAL=""
-for c in /sbin/firstboot.real /sbin/factoryreset.real /sbin/jffs2reset.real; do
-  [ -x "$c" ] && REAL=$c && break
-done
-if [ -z "$REAL" ]; then
-  for c in /sbin/firstboot /sbin/factoryreset /sbin/jffs2reset; do
-    if [ -x "$c" ] && ! grep -q nd-factory-reset "$c" 2>/dev/null; then
-      REAL=$c
-      break
-    fi
-  done
-fi
-if [ -n "$REAL" ]; then
-  echo "nd-factory-reset: invoking $REAL"
-  if "$REAL" -y 2>/dev/null; then :; else "$REAL" 2>/dev/null || true; fi
-else
-  echo "nd-factory-reset: no stock firstboot binary; clearing overlay files"
-  rm -rf /overlay/upper/* /overlay/work/* 2>/dev/null || true
-fi
+
 echo "nd-factory-reset: done"
+# LuCI / firstboot -y expect a reboot; force it (busybox reboot may already be broken after wipe).
+if [ "$want_yes" = "1" ]; then
+  echo "nd-factory-reset: forcing reboot"
+  sync
+  if [ -n "$BB" ]; then
+    "$BB" reboot -f 2>/dev/null &
+  fi
+  reboot -f 2>/dev/null &
+  sleep 2
+  echo b > /proc/sysrq-trigger 2>/dev/null || true
+fi
 exit 0
 NDEOF
 chmod 755 /usr/sbin/nd-factory-reset
 
-# Simple one-line wrappers (no nested heredoc).
+# Wrappers: busybox applets must not be mv'd (argv0 breaks); replace symlink with script.
 for name in firstboot factoryreset jffs2reset; do
   bin=/sbin/$name
   real=/sbin/${name}.real
-  [ -e "$bin" ] || [ -e "$real" ] || continue
-  if [ -x "$bin" ] && grep -q nd-factory-reset "$bin" 2>/dev/null; then
+  [ -e "$bin" ] || [ -e "$real" ] || [ -L "$bin" ] || continue
+  if [ -f "$bin" ] && [ ! -L "$bin" ] && grep -q nd-factory-reset "$bin" 2>/dev/null; then
     echo "WRAP_SKIP $name"
     continue
   fi
+  if [ -L "$bin" ]; then
+    tgt=$(readlink -f "$bin" 2>/dev/null || readlink "$bin" 2>/dev/null || true)
+    case "$tgt" in
+      *busybox*)
+        # Drop applet symlink; stock path is busybox $name (handled in nd-factory-reset).
+        rm -f "$bin"
+        printf '%s\n' '#!/bin/sh' 'exec /usr/sbin/nd-factory-reset "$@"' > "$bin"
+        chmod 755 "$bin"
+        echo "WRAP_OK $name (busybox applet)"
+        continue
+        ;;
+    esac
+  fi
   if [ -e "$bin" ] && [ ! -e "$real" ]; then
-    mv "$bin" "$real" 2>/dev/null || cp -a "$bin" "$real"
+    mv "$bin" "$real" 2>/dev/null || cp -a "$bin" "$real" 2>/dev/null || true
   fi
   printf '%s\n' '#!/bin/sh' 'exec /usr/sbin/nd-factory-reset "$@"' > "$bin"
   chmod 755 "$bin"
@@ -498,7 +581,6 @@ for name in firstboot factoryreset jffs2reset; do
 done
 
 # Stage into USB overlay so post-pivot LuCI reset still hits our wrap.
-# (EXTROOT copy happened before wrap install; remount and inject.)
 PART=$(uci -q get fstab.nd_extroot.device 2>/dev/null || true)
 [ -n "$PART" ] || PART=$(block info 2>/dev/null | awk -F: '/LABEL="netductor"|TYPE="ext4"/{gsub(/ /,"",$1); print $1; exit}')
 mkdir -p /mnt/netductor
