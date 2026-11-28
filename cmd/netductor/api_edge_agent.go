@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
-	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
 )
@@ -78,12 +77,6 @@ func registerEdgeAgent(mux *http.ServeMux) {
 			payload["cert_serial"] = peerSerial
 		}
 		edge.Heartbeat(payload)
-		// Refresh WAN allow when the travel router reports a public IP (ISP change).
-		if wip, _ := payload["wan_ip"].(string); strings.TrimSpace(wip) != "" {
-			_ = install.RestrictAgentMTLSToIP(strings.TrimSpace(wip))
-		} else if wip, _ := payload["public_ip"].(string); strings.TrimSpace(wip) != "" {
-			_ = install.RestrictAgentMTLSToIP(strings.TrimSpace(wip))
-		}
 		if raw, ok := payload["facts"]; ok {
 			if fm, ok := raw.(map[string]any); ok {
 				if sm, ok := fm["storage"].(map[string]any); ok {

@@ -12,17 +12,45 @@ import (
 func runAPIPublic(args []string) {
 	if len(args) < 1 {
 		fmt.Fprint(os.Stderr, `usage:
+  netductor api-public permanent on|off|status
   netductor api-public arm [--ttl 15m]
   netductor api-public disarm
   netductor api-public status
 
-Temporarily open mTLS :8789 from the public Internet (UFW).
-Auto-disarm via systemd timer. Prefer TG Operator buttons.
-Default TTL 15m, min 1m, max 2h.
+permanent on — durable public mTLS :8789 for travel edge (ISP NAT, changing IPs).
+  Security is app-layer: bootstrap enroll → pending only; commands need approve + device token + client cert.
+arm/disarm — temporary TTL window (legacy; not needed when permanent on).
 `)
 		os.Exit(2)
 	}
 	switch strings.ToLower(args[0]) {
+	case "permanent":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor api-public permanent on|off|status")
+			os.Exit(2)
+		}
+		switch strings.ToLower(args[1]) {
+		case "on", "enable", "1":
+			if err := install.SetEdgePlanePublic(true); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("edge-plane-public=on (:8789 open; pending DMZ at app layer)")
+		case "off", "disable", "0":
+			if err := install.SetEdgePlanePublic(false); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			fmt.Println("edge-plane-public=off (:8789 restricted to SP/PS + api-allow)")
+		case "status":
+			fmt.Printf("edge-plane-public=%v armed_ttl=%v\n", install.EdgePlanePublicEnabled(), func() bool {
+				a, _, _ := install.APIPublicStatusChecked()
+				return a
+			}())
+		default:
+			fmt.Fprintln(os.Stderr, "usage: netductor api-public permanent on|off|status")
+			os.Exit(2)
+		}
 	case "arm":
 		ttl := 15 * time.Minute
 		for i := 1; i < len(args); i++ {
@@ -53,6 +81,7 @@ Default TTL 15m, min 1m, max 2h.
 		}
 		fmt.Println("armed=false")
 	case "status":
+		fmt.Printf("edge-plane-public=%v\n", install.EdgePlanePublicEnabled())
 		armed, until, err := install.APIPublicStatusChecked()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)

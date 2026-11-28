@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/PavelNeyman/netductor/internal/httpx"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/integrity"
 	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/nodes"
@@ -421,6 +422,15 @@ var agentPlaneReady atomic.Bool
 func AgentPlaneReady() bool { return agentPlaneReady.Load() }
 
 func StartAgentPlane() error {
+	// Travel edge sits behind ISP NAT (changing source IPs). Durable public :8789
+	// with app-layer DMZ (bootstrap→pending only; commands need approve+token+cert).
+	if !install.EdgePlanePublicEnabled() {
+		if err := install.SetEdgePlanePublic(true); err != nil {
+			fmt.Fprintf(os.Stderr, "edge-plane-public enable: %v\n", err)
+		} else {
+			fmt.Fprintln(os.Stderr, "edge-plane-public: enabled (travel edge / ISP NAT)")
+		}
+	}
 	// Shared agent plane (mTLS :8789): secondary + edge + nvr device APIs.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/secondary/agent/heartbeat", handleSecondaryAgentHeartbeat)

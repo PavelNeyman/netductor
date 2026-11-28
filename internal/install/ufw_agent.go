@@ -48,6 +48,39 @@ func defaultAPIAllowCIDRs() []string {
 	return []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
 }
 
+// EdgePlanePublicPath marks durable public reachability of mTLS :8789 for travel edge
+// agents behind ISP NAT (changing source IPs). Security is application-layer:
+// bootstrap → pending only; commands require approved device token + client cert.
+const EdgePlanePublicPath = "/etc/netductor/edge-plane-public"
+
+func EdgePlanePublicEnabled() bool {
+	_, err := os.Stat(EdgePlanePublicPath)
+	return err == nil
+}
+
+// SetEdgePlanePublic enables/disables the durable flag and re-applies agent UFW rules.
+func SetEdgePlanePublic(on bool) error {
+	if on {
+		if err := os.MkdirAll("/etc/netductor", 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(EdgePlanePublicPath, []byte("1\n# travel edge: public mTLS plane; app-layer pending DMZ\n"), 0o644); err != nil {
+			return err
+		}
+	} else {
+		_ = os.Remove(EdgePlanePublicPath)
+	}
+	return ApplyAgentFirewall()
+}
+
+func edgePlanePublicWanted() bool {
+	if EdgePlanePublicEnabled() {
+		return true
+	}
+	// Legacy env still honored for one release; doctor still warns to migrate to flag file.
+	return os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") == "1"
+}
+
 // ApplyAgentFirewall: deny plain :8788; restrict mTLS :8789.
 func ApplyAgentFirewall() error {
 	unlock, lockErr := acquireNetductorFirewallLock()
@@ -60,7 +93,7 @@ func ApplyAgentFirewall() error {
 		return nil
 	}
 	var cidrs []string
-	if os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") != "1" {
+	if !edgePlanePublicWanted() {
 		var err error
 		cidrs, err = collectAPIAllowCIDRs()
 		if err != nil {
@@ -82,17 +115,22 @@ func ApplyAgentFirewall() error {
 		return fmt.Errorf("remove unrestricted mTLS allow rules: %w", err)
 	}
 
-	if os.Getenv("NETDUCTOR_API_ALLOW_PUBLIC") == "1" {
-		if err := run("ufw", "allow", ndconfig.AgentMTLSPort()+"/tcp", "comment", "netductor-api-public"); err != nil {
-			return fmt.Errorf("ufw allow 8789 public: %w", err)
+	if edgePlanePublicWanted() {
+		if err := run("ufw", "allow", ndconfig.AgentMTLSPort()+"/tcp", "comment", "netductor-edge-plane-public"); err != nil {
+			return fmt.Errorf("ufw allow 8789 edge-plane-public: %w", err)
 		}
-		fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 OPEN (NETDUCTOR_API_ALLOW_PUBLIC=1)")
+		for _, c := range defaultAPIAllowCIDRs() {
+			_ = run("ufw", "allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api")
+		}
+		fmt.Fprintln(os.Stderr, "ufw: :8788 denied, :8789 PUBLIC (edge-plane-public; pending=DMZ at app layer)")
 		return nil
 	}
 
 	seen := map[string]bool{}
 	for _, c := range cidrs {
-		if seen[c] { continue }
+		if seen[c] {
+			continue
+		}
 		seen[c] = true
 		if err := run("ufw", "allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api"); err != nil {
 			return fmt.Errorf("ufw allow mTLS from %s: %w", c, err)
@@ -321,6 +359,15 @@ func applyAgentFirewallQuiet() error {
 	}
 	if err := deleteUFWUnrestrictedPort(ndconfig.AgentMTLSPort()); err != nil {
 		return fmt.Errorf("remove unrestricted mTLS allow rules: %w", err)
+	}
+	if edgePlanePublicWanted() {
+		if err := ufwQuiet("allow", ndconfig.AgentMTLSPort()+"/tcp", "comment", "netductor-edge-plane-public"); err != nil {
+			return fmt.Errorf("ufw allow 8789 edge-plane-public: %w", err)
+		}
+		for _, c := range defaultAPIAllowCIDRs() {
+			_ = ufwQuiet("allow", "from", c, "to", "any", "port", ndconfig.AgentMTLSPort(), "proto", "tcp", "comment", "netductor-api")
+		}
+		return nil
 	}
 	seen := map[string]bool{}
 	for _, c := range cidrs {
