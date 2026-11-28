@@ -102,16 +102,33 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			_ = notify.Telegram(fmt.Sprintf("⏳ Edge pending: <b>%s</b>\nboard=%s wan=%s", did, board, wan))
 		}
 		out := map[string]any{"status": st}
-		// H-1 / R-05: shared bootstrap never yields a personal device token.
-		// Recovery may claim armed TokenPickup only when site checks passed.
+		// H-1 / R-05: shared bootstrap alone never yields a personal device token.
+		// Exceptions (bound identity):
+		// 1) recovery-code path (reserveID) — site-bound one-shot pickup
+		// 2) approved + TokenPickup + client cert CN == netductor-agent-<device_id>
+		//    (provision installs per-device mTLS; this is how travel edge picks up
+		//    the token after TG/CLI approve without offline token paste)
+		did, _ := payload["device_id"].(string)
+		if did == "" {
+			did, _ = out["device_id"].(string)
+		}
 		if reserveID != "" && st == edge.StatusApproved {
-			if did, _ := payload["device_id"].(string); did != "" {
+			if did != "" {
 				if pt := edge.PeekPickupToken(did); pt != "" {
 					out["device_token"] = pt
 				}
 			}
 		} else if dtok != "" && reserveID != "" {
 			out["device_token"] = dtok
+		} else if st == edge.StatusApproved && did != "" {
+			if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 && r.TLS.PeerCertificates[0] != nil {
+				cn := r.TLS.PeerCertificates[0].Subject.CommonName
+				if cn == "netductor-agent-"+did {
+					if pt := edge.PeekPickupToken(did); pt != "" {
+						out["device_token"] = pt
+					}
+				}
+			}
 		}
 		writeJSON(w, 200, out)
 	})

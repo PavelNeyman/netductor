@@ -1028,7 +1028,6 @@ func ufwIPv6Enabled() (bool, error) {
 	return true, nil
 }
 
-
 func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	rules := parseUfwNumbered(status)
 	numberedLines := 0
@@ -1132,6 +1131,10 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		}
 		mtls := ndconfig.AgentMTLSPort()
 		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
+		edgePlanePublic := false
+		if _, err := os.Stat("/etc/netductor/edge-plane-public"); err == nil {
+			edgePlanePublic = true
+		}
 		peerSources, peerErr := registeredPeerAgentSources()
 		if peerErr != nil {
 			conflicts = append(conflicts, "peer mTLS inventory: "+peerErr.Error())
@@ -1171,7 +1174,8 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 					}
 				}
 			}
-			if !trusted {
+			// Anywhere ALLOW is intentional when edge-plane-public is set (travel ISP NAT).
+			if !trusted && !(edgePlanePublic && (rule.From == "" || rule.From == "Anywhere" || rule.From == "0.0.0.0/0" || rule.From == "Anywhere (v6)" || rule.From == "::/0")) {
 				conflicts = append(conflicts, "mtls has an existing untrusted ALLOW from "+rule.From)
 			}
 		}
@@ -1222,7 +1226,6 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 	}
 	return nil
 }
-
 
 // preflightSecondaryRestrictedAllows detects pre-existing administrator ALLOWs
 // before WSS migration can mutate any numbered UFW rules. UFW is first-match;
@@ -1469,6 +1472,12 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 			return err
 		}
 		mtls := ndconfig.AgentMTLSPort()
+		// Travel edge / ISP NAT: durable public mTLS when flag present (app-layer pending DMZ).
+		if _, err := os.Stat("/etc/netductor/edge-plane-public"); err == nil {
+			if err := must("allow", mtls+"/tcp", "comment", "netductor-edge-plane-public"); err != nil {
+				return fmt.Errorf("allow edge-plane-public mTLS: %w", err)
+			}
+		}
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			if err := must("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api"); err != nil {
 				return err
@@ -1730,7 +1739,6 @@ func iptablesHasExactRule(rules, chain string, variants ...[]string) bool {
 	}
 	return false
 }
-
 
 func applyIPTablesMode(role string, bootstrapSSH bool) error {
 	if err := requireIPv6Disabled(); err != nil {
@@ -2315,7 +2323,6 @@ func ufwFromIsWAN(from string) bool {
 	return from == "" || from == "Anywhere" || from == "Anywhere (v6)" || strings.EqualFold(from, "any")
 }
 
-
 // firstTCPActionFromWANFamily returns the first matching WAN action for one
 // address family. Rule order is evaluated independently for IPv4 and IPv6.
 func firstTCPActionFromWANFamily(rules []ufwRule, port string, ipv6 bool) (action string, found bool) {
@@ -2781,7 +2788,6 @@ func ufwLineMentionsPortProto(ln, port, proto string) bool {
 func ufwLineMentionsPort(ln, port string) bool {
 	return ufwLineMentionsPortProto(ln, port, "tcp")
 }
-
 
 func firstLines(s string, n int) string {
 	lines := strings.Split(strings.TrimSpace(s), "\n")
