@@ -1,3 +1,9 @@
+## 0.9.782
+
+### Fixed
+- Factory-reset wrap recursion: stock `firstboot.real` often execs `/sbin/jffs2reset`, which was also wrapped → infinite loop. Guard `ND_FACTORY_RESET_ACTIVE`; call only `jffs2reset.real` / busybox; patch `firstboot.real` → `jffs2reset.real`; wrap jffs2reset before firstboot.
+- Distinguish live USB overlay vs leftover `fstab.nd_extroot` on internal jffs2 (clear stick + safe stock reset).
+
 ## 0.9.781
 
 ### Fixed

@@ -424,6 +424,14 @@ cat > /usr/sbin/nd-factory-reset << 'NDEOF'
 set +e
 echo "nd-factory-reset: begin"
 
+# Stock firstboot.real is often a 1-liner that execs /sbin/jffs2reset — and jffs2reset
+# is also our wrapper → infinite recursion. Refuse re-entry.
+if [ -n "$ND_FACTORY_RESET_ACTIVE" ]; then
+  echo "nd-factory-reset: re-entry ignored (avoid firstboot.real→jffs2reset wrap loop)"
+  exit 0
+fi
+export ND_FACTORY_RESET_ACTIVE=1
+
 want_yes=0
 for a in "$@"; do
   case "$a" in
@@ -442,49 +450,62 @@ force_reboot() {
   if [ -n "$BB" ]; then
     "$BB" reboot -f 2>/dev/null &
   fi
-  # reboot may be a wrapper or missing after partial damage
-  command -v reboot >/dev/null 2>&1 && reboot -f 2>/dev/null &
+  # Prefer busybox reboot: /sbin/reboot may be missing after partial overlay damage
+  if [ -x /bin/busybox ]; then
+    /bin/busybox reboot -f 2>/dev/null &
+  fi
   sleep 1
   echo b > /proc/sysrq-trigger 2>/dev/null || true
 }
 
-# Stock reset tools that clear the *current* /overlay. Unsafe when /overlay is USB.
+# Clear current *internal* overlay without going through our wrappers.
+# Never call /sbin/firstboot or /sbin/jffs2reset — those exec this script again.
+# Prefer jffs2reset.real; skip firstboot.real if it only delegates to jffs2reset.
 invoke_stock_overlay_reset() {
-  for c in /sbin/jffs2reset.real /sbin/firstboot.real /sbin/factoryreset.real; do
-    if [ -x "$c" ] && ! grep -q nd-factory-reset "$c" 2>/dev/null; then
-      echo "nd-factory-reset: stock $c"
-      if [ "$want_yes" = "1" ]; then
-        "$c" -y 2>/dev/null || "$c" 2>/dev/null || true
-      else
-        "$c" "$@" 2>/dev/null || true
-      fi
-      return 0
+  # 1) Real jffs2reset binary/script saved beside the wrapper
+  if [ -x /sbin/jffs2reset.real ] && ! grep -q nd-factory-reset /sbin/jffs2reset.real 2>/dev/null; then
+    echo "nd-factory-reset: stock /sbin/jffs2reset.real"
+    if [ "$want_yes" = "1" ]; then
+      /sbin/jffs2reset.real -y 2>/dev/null || /sbin/jffs2reset.real 2>/dev/null || true
+    else
+      /sbin/jffs2reset.real "$@" 2>/dev/null || true
     fi
-  done
-  if [ -n "$BB" ]; then
-    for applet in jffs2reset firstboot factoryreset; do
-      if "$BB" --list 2>/dev/null | grep -qx "$applet"; then
-        echo "nd-factory-reset: busybox $applet"
-        if [ "$want_yes" = "1" ]; then
-          "$BB" "$applet" -y 2>/dev/null || "$BB" "$applet" 2>/dev/null || true
-        else
-          "$BB" "$applet" "$@" 2>/dev/null || true
-        fi
-        return 0
-      fi
-    done
+    return 0
   fi
-  for c in /sbin/jffs2reset /sbin/firstboot /sbin/factoryreset; do
-    if [ -f "$c" ] && [ ! -L "$c" ] && ! grep -q nd-factory-reset "$c" 2>/dev/null; then
-      echo "nd-factory-reset: stock file $c"
+  # 2) Busybox applet (does not go through /sbin/jffs2reset)
+  if [ -n "$BB" ] && "$BB" --list 2>/dev/null | grep -qx jffs2reset; then
+    echo "nd-factory-reset: busybox jffs2reset"
+    if [ "$want_yes" = "1" ]; then
+      "$BB" jffs2reset -y 2>/dev/null || "$BB" jffs2reset 2>/dev/null || true
+    else
+      "$BB" jffs2reset "$@" 2>/dev/null || true
+    fi
+    return 0
+  fi
+  # 3) firstboot.real only if it does NOT call wrapped /sbin/jffs2reset
+  if [ -x /sbin/firstboot.real ] && ! grep -q nd-factory-reset /sbin/firstboot.real 2>/dev/null; then
+    if grep -E -q '/sbin/jffs2reset([[:space:]]|$)|jffs2reset' /sbin/firstboot.real 2>/dev/null \
+      && ! grep -q jffs2reset.real /sbin/firstboot.real 2>/dev/null; then
+      echo "nd-factory-reset: skip firstboot.real (delegates to wrapped jffs2reset)"
+    else
+      echo "nd-factory-reset: stock /sbin/firstboot.real"
       if [ "$want_yes" = "1" ]; then
-        "$c" -y 2>/dev/null || "$c" 2>/dev/null || true
+        /sbin/firstboot.real -y 2>/dev/null || /sbin/firstboot.real 2>/dev/null || true
       else
-        "$c" "$@" 2>/dev/null || true
+        /sbin/firstboot.real "$@" 2>/dev/null || true
       fi
       return 0
     fi
-  done
+  fi
+  if [ -x /sbin/factoryreset.real ] && ! grep -q nd-factory-reset /sbin/factoryreset.real 2>/dev/null; then
+    echo "nd-factory-reset: stock /sbin/factoryreset.real"
+    if [ "$want_yes" = "1" ]; then
+      /sbin/factoryreset.real -y 2>/dev/null || /sbin/factoryreset.real 2>/dev/null || true
+    else
+      /sbin/factoryreset.real "$@" 2>/dev/null || true
+    fi
+    return 0
+  fi
   return 1
 }
 
@@ -535,19 +556,27 @@ wipe_usb_extroot() {
   sync
 }
 
-has_ext=0
-[ -f /overlay/.nd-extroot ] && has_ext=1
-[ -f /.nd-extroot ] && has_ext=1
-uci -q get fstab.nd_extroot >/dev/null 2>&1 && has_ext=1
-# Overlay on removable sd* ⇒ treat as extroot even without marker.
+# live_on_usb: /overlay is the USB stick right now — stock jffs2reset would rm -rf live root.
+# fstab_ext: leftover nd_extroot even when already booted from internal jffs2 after a failed wipe.
+live_on_usb=0
+fstab_ext=0
+[ -f /overlay/.nd-extroot ] && live_on_usb=1
+[ -f /.nd-extroot ] && live_on_usb=1
+uci -q get fstab.nd_extroot >/dev/null 2>&1 && fstab_ext=1
 OV_DEV=$(mount 2>/dev/null | awk '/ on \/overlay /{print $1; exit}')
 case "$OV_DEV" in
-  /dev/sd*|/dev/mmcblk*p*) has_ext=1 ;;
+  /dev/sd*) live_on_usb=1 ;;
+  /dev/mmcblk*p[0-9]*)
+    # mmc may be eMMC root; only treat as USB-style if fstab targets it as nd_extroot
+    [ "$fstab_ext" = "1" ] && live_on_usb=1
+    ;;
 esac
 
 PART=""
 PART=$(uci -q get fstab.nd_extroot.device 2>/dev/null || true)
-[ -n "$PART" ] || PART=$OV_DEV
+if [ "$live_on_usb" = "1" ]; then
+  [ -n "$PART" ] || PART=$OV_DEV
+fi
 [ -n "$PART" ] || PART=$(block info 2>/dev/null | awk -F: '/MOUNT="\/overlay"/{gsub(/ /,"",$1); print $1; exit}')
 if [ -z "$PART" ]; then
   for d in /sys/block/sd*; do
@@ -562,18 +591,18 @@ if [ -z "$PART" ]; then
   done
 fi
 
-if [ "$has_ext" = "1" ]; then
-  echo "nd-factory-reset: live USB/extroot — skip stock jffs2reset (would kill root)"
+if [ "$live_on_usb" = "1" ]; then
+  echo "nd-factory-reset: live USB overlay — skip stock jffs2reset (would kill root)"
   wipe_usb_extroot "$PART"
   erase_internal_rootfs_data || true
 else
-  # Normal internal overlay: stock tools are safe.
+  # Internal jffs2/overlayfs: stock jffs2reset.real / busybox is safe.
+  # Still drop fstab.nd_extroot + wipe stick so next boot cannot pivot to old USB.
+  if [ "$fstab_ext" = "1" ] || [ -n "$PART" ]; then
+    wipe_usb_extroot "$PART"
+  fi
   if ! invoke_stock_overlay_reset "$@"; then
     erase_internal_rootfs_data || echo "nd-factory-reset: no stock reset tool"
-  fi
-  # Still clear any leftover USB fstab so a stick cannot resurrect an old overlay.
-  if uci -q get fstab.nd_extroot >/dev/null 2>&1 || [ -n "$PART" ]; then
-    wipe_usb_extroot "$PART"
   fi
 fi
 
@@ -586,12 +615,12 @@ exit 0
 NDEOF
 chmod 755 /usr/sbin/nd-factory-reset
 
-# Wrappers: never mv busybox applet symlinks (argv0 breaks). Always ensure LuCI targets exist.
-for name in firstboot factoryreset jffs2reset; do
+# Wrappers: jffs2reset FIRST so firstboot.real can be rewritten to call jffs2reset.real.
+# Never mv busybox applet symlinks (argv0 breaks).
+for name in jffs2reset factoryreset firstboot; do
   bin=/sbin/$name
   real=/sbin/${name}.real
   if [ -f "$bin" ] && [ ! -L "$bin" ] && grep -q nd-factory-reset "$bin" 2>/dev/null; then
-    # Refresh body already written; keep wrapper.
     echo "WRAP_KEEP $name"
     continue
   fi
@@ -614,6 +643,14 @@ for name in firstboot factoryreset jffs2reset; do
   chmod 755 "$bin"
   echo "WRAP_OK $name"
 done
+# Stock firstboot often is: exec /sbin/jffs2reset — point .real at jffs2reset.real to break the loop.
+if [ -f /sbin/firstboot.real ] && grep -E -q '/sbin/jffs2reset([[:space:]]|$)' /sbin/firstboot.real 2>/dev/null; then
+  if [ -x /sbin/jffs2reset.real ]; then
+    printf '%s\n' '#!/bin/sh' 'exec /sbin/jffs2reset.real "$@"' > /sbin/firstboot.real
+    chmod 755 /sbin/firstboot.real
+    echo "WRAP_PATCH firstboot.real -> jffs2reset.real"
+  fi
+fi
 # LuCI always expects firstboot and/or jffs2reset — create even if stock never had them.
 for name in firstboot jffs2reset; do
   if [ ! -x /sbin/$name ]; then
