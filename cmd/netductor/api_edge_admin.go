@@ -11,6 +11,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/install"
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/sites"
 )
@@ -105,6 +106,24 @@ func registerEdgeAdmin(mux *http.ServeMux) {
 			writeJSON(w, 400, map[string]string{"error": err.Error()})
 			return
 		}
+		audit.Log("session", "edge.revoke", did, "")
+		writeJSON(w, 200, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("/api/edge/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || !requireSession(w, r) {
+			return
+		}
+		body := readJSON(r)
+		did, _ := body["device_id"].(string)
+		if err := edge.Delete(did); err != nil {
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := mtls.RemoveClientMaterial(did); err != nil {
+			// device already gone from registry; material is best-effort
+			audit.Log("session", "edge.delete", did, "mtls:"+err.Error())
+		}
+		audit.Log("session", "edge.delete", did, "")
 		writeJSON(w, 200, map[string]any{"ok": true})
 	})
 	mux.HandleFunc("/api/edge/pending", func(w http.ResponseWriter, r *http.Request) {

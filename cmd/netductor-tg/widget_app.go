@@ -97,7 +97,6 @@ const appWidgetBootSpark = `(function(){var W=window.TelegramWidget;var LAB={en:
 
 // Deprecated alias: spark-capable boot (status/channel).
 
-
 func appWidgetCSS() string {
 	return `body{margin:0;padding:8px;font:13px/1.3 system-ui,sans-serif;background:var(--tg-theme-bg-color,#0f1419);color:var(--tg-theme-text-color,#e7ecf3)}#tabs,#seg,#n{display:flex;flex-wrap:wrap;gap:5px}#tabs{margin:0 0 6px}#tabs button{flex:1;min-width:52px;padding:9px 4px;font:600 11px system-ui;border-radius:9px}h1{margin:0 0 4px;font-size:15px}.row{display:flex;justify-content:space-between;gap:6px;margin:3px 0}.k{color:var(--tg-theme-hint-color,#8b98a5)}.v{font-weight:600;text-align:right;word-break:break-word}.bar{height:5px;border-radius:3px;background:var(--tg-theme-secondary-bg-color,#1c2733);margin:1px 0 5px;overflow:hidden}.bar>i{display:block;height:100%;background:var(--tg-theme-button-color,#2a6df4)}.pre{margin:5px 0;padding:8px;background:var(--tg-theme-secondary-bg-color,#1c2733);border-radius:9px;font:12px/1.35 system-ui;white-space:pre-wrap;max-height:200px;overflow:hidden}#seg{margin:0 0 6px}#seg button{flex:1;padding:7px;border-radius:8px;font-weight:600}#n{margin-top:6px}#n button{padding:10px 10px;font:600 12px system-ui;border-radius:9px;min-width:calc(50% - 5px)}button{border:0;background:var(--tg-theme-secondary-bg-color,#1c2733);color:inherit}button.primary{background:var(--tg-theme-button-color,#2a6df4);color:var(--tg-theme-button-text-color,#fff)}button.danger{background:var(--tg-theme-destructive-text-color,#e53935);color:#fff}button.on{outline:2px solid var(--tg-theme-button-color,#2a6df4)}#h{margin-top:6px;color:var(--tg-theme-hint-color,#8b98a5);font-size:11px}`
 }
@@ -132,9 +131,8 @@ func appWidgetHTML() string {
 	return appWidgetHTMLFor(shellSpark)
 }
 
-func appWidgetHTMLHub() string  { return appWidgetHTMLFor(shellHub) }
+func appWidgetHTMLHub() string   { return appWidgetHTMLFor(shellHub) }
 func appWidgetHTMLSpark() string { return appWidgetHTMLFor(shellSpark) }
-
 
 type appState struct {
 	S     string      `json:"s"`
@@ -304,7 +302,6 @@ func sparkCPU(n int) string {
 	}
 	return strings.Join(vals, ",")
 }
-
 
 func formatCmdOut(s string) string {
 	s = strings.TrimSpace(s)
@@ -633,7 +630,7 @@ func buildAppStack() (string, error) {
 	return appMarshal(appState{
 		S: "stack", T: appTitle("Stack", "Стек"),
 		Lines: out,
-		H: appTitle("stack recovery actions", "восстановление стека"),
+		H:     appTitle("stack recovery actions", "восстановление стека"),
 		Btns: [][2]string{
 			{"heal", appTitle("Heal", "Heal")},
 			{"rbk", appTitle("Rollback", "Откат")},
@@ -692,7 +689,6 @@ func buildAppRebootChallenge(target, display string) (string, error) {
 	})
 }
 
-
 func buildAppAlerts() (string, error) {
 	st := notify.GetAlertsRoutingStatus()
 	known := notify.ListKnownChats()
@@ -721,7 +717,7 @@ func buildAppAlerts() (string, error) {
 		Rows:  [][2]string{{"chat", cur}},
 		Lines: strings.Join(lines, "\n"),
 		IDs:   strings.Join(ids, ","),
-		H: appTitle("# pick known chat", "# выбрать известный чат"),
+		H:     appTitle("# pick known chat", "# выбрать известный чат"),
 		Btns: [][2]string{
 			{"al_test", appTitle("Test alert", "Тест алерта")},
 			{"al_clr", appTitle("Clear", "Очистить")},
@@ -767,7 +763,7 @@ func buildAppEdgeLuci() (string, error) {
 	return appMarshal(appState{
 		S: "edgeluci", T: "Edge LuCI",
 		Lines: appLines(out),
-		H: appTitle("temp LuCI access", "временный доступ LuCI"),
+		H:     appTitle("temp LuCI access", "временный доступ LuCI"),
 		Btns: [][2]string{
 			{"el_on", appTitle("LuCI on", "LuCI вкл")},
 			{"el_off", appTitle("LuCI off", "LuCI выкл")},
@@ -786,7 +782,7 @@ func buildAppIncident() (string, error) {
 	}
 	st := appState{
 		S: "incident", T: appTitle("Incident", "Инцидент"),
-		H: appTitle("1h pack → document in chat", "пакет 1ч → документ в чат"),
+		H:    appTitle("1h pack → document in chat", "пакет 1ч → документ в чат"),
 		Btns: [][2]string{{"inc1h", appTitle("Export 1h", "Выгрузить 1ч")}},
 	}
 	if len(lines) == 0 {
@@ -935,11 +931,10 @@ func buildAppUserCard(name string) (string, error) {
 	)
 	return appMarshal(appState{
 		S: "ucard", T: name, Rows: rows,
-		H: appTitle("actions below", "действия ниже"),
+		H:    appTitle("actions below", "действия ниже"),
 		Btns: btns,
 	})
 }
-
 
 // accessWidgetState keeps URI in the widget; client import buttons are a normal TG message.
 func accessWidgetState(name, mode, link string) (string, error) {
@@ -968,7 +963,6 @@ func accessWidgetState(name, mode, link string) (string, error) {
 		Btns:  btns,
 	})
 }
-
 
 func edgeGuestDeviceBtns() [][2]string {
 	return [][2]string{
@@ -1465,7 +1459,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			S: "updates", T: appTitle("Updates", "Обновления"),
 			Lines: strings.Join(lines, "\n"),
 			B:     appTitle("do not re-tap Apply", "не жмите Apply повторно"),
-			Btns: [][2]string{{"v_ref", appTitle("Refresh", "Обновить")}, {"vt_p", appTitle("Primary", "Primary")}, {"vt_s", appTitle("Secondary", "Secondary")}},
+			Btns:  [][2]string{{"v_ref", appTitle("Refresh", "Обновить")}, {"vt_p", appTitle("Primary", "Primary")}, {"vt_s", appTitle("Secondary", "Secondary")}},
 			Nav:   []string{"stack", "tools"},
 		})
 		appPushState(token, q, cd)
@@ -1615,8 +1609,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "backup", T: appTitle("Restore?", "Restore?"),
-				B: id,
-				H: appTitle("confirm restore from backup", "подтвердите восстановление"),
+				B:    id,
+				H:    appTitle("confirm restore from backup", "подтвердите восстановление"),
 				Btns: [][2]string{{"y_rst", appTitle("Confirm restore", "Подтвердить")}},
 			})
 		case "git":
@@ -1625,8 +1619,8 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appMu.Unlock()
 			cd, err = appMarshal(appState{
 				S: "git", T: id,
-				B:   appTitle("project actions", "действия проекта"),
-				H:   id,
+				B: appTitle("project actions", "действия проекта"),
+				H: id,
 				Btns: [][2]string{
 					{"gsync", appTitle("Sync", "Синк")},
 					{"gship", appTitle("Ship", "Ship")},
@@ -1662,6 +1656,28 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			appSessUnlocked().Focus = id
 			appMu.Unlock()
 			cd, err = buildAppTemplateCard(id)
+		case "routers", "pending":
+			appMu.Lock()
+			appSessUnlocked().Focus = id
+			scr := appSessUnlocked().Screen
+			appMu.Unlock()
+			btns := [][2]string{
+				{"edge_rev", appTitle("Revoke", "Отозвать")},
+				{"edge_del", appTitle("Delete", "Удалить")},
+			}
+			if scr == "pending" {
+				btns = [][2]string{
+					{"edge_deny", appTitle("Deny", "Отклонить")},
+					{"edge_del", appTitle("Delete", "Удалить")},
+				}
+			}
+			cd, err = appMarshal(appState{
+				S: scr, T: id,
+				Lines: id,
+				H:     appTitle("confirm action", "подтвердите действие"),
+				Btns:  btns,
+				Nav:   []string{"routers", "pending"},
+			})
 		case "edgepol", "edgelife":
 			appMu.Lock()
 			appSessUnlocked().Focus = id
@@ -1682,7 +1698,7 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 			cd, err = appMarshal(appState{
 				S: "loc", T: id,
 				Lines: strings.Join(lines, "\n"),
-				Btns: [][2]string{{"room_add", appTitle("+ room", "+ комната")}},
+				Btns:  [][2]string{{"room_add", appTitle("+ room", "+ комната")}},
 				H:     id,
 			})
 		case "canary":
@@ -1727,16 +1743,6 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 				st.B = appTitle("no rooms", "no rooms")
 			}
 			cd, err = appMarshal(st)
-		case "pending":
-			appMu.Lock()
-			appSessUnlocked().Focus = id
-			appMu.Unlock()
-			cd, err = appMarshal(appState{
-				S: "pending", T: appTitle("Pending", "Pending"),
-				Lines: widgetTruncate(id, 400),
-				H:     appTitle("selected line", "selected line"),
-				Nav:   []string{"routers", "edge"},
-			})
 		case "ssh":
 			appMu.Lock()
 			appSessUnlocked().Focus = id
@@ -1905,6 +1911,67 @@ func handleAppAct(token string, q *widgetQuery, admin int64, act string) bool {
 	case "el_off":
 		out := runND("edge", "luci", "off")
 		cd, _ := appMarshal(appState{S: "edgeluci", T: "Edge LuCI", Lines: appLines(out), Btns: [][2]string{{"el_on", appTitle("LuCI on", "LuCI вкл")}, {"el_off", appTitle("LuCI off", "LuCI выкл")}}})
+		appPushState(token, q, cd)
+		return true
+
+	case "edge_deny":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := runND("edge", "deny", focus)
+		appMu.Lock()
+		appSessUnlocked().Focus = ""
+		appMu.Unlock()
+		cd, _ := appMarshal(appState{S: "pending", T: "Pending", Lines: appLines(out), Nav: []string{"routers", "edge"}})
+		appPushState(token, q, cd)
+		return true
+	case "edge_rev":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		cd, _ := appMarshal(appState{
+			S: "routers", T: focus, Lines: appTitle("Revoke device?", "Отозвать устройство?"),
+			H: focus, Btns: [][2]string{{"y_edge_rev", appTitle("Confirm revoke", "Подтвердить revoke")}},
+			Nav: []string{"routers", "pending"},
+		})
+		appPushState(token, q, cd)
+		return true
+	case "y_edge_rev":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := runND("edge", "revoke", focus)
+		appMu.Lock()
+		appSessUnlocked().Focus = ""
+		appMu.Unlock()
+		cd, _ := appMarshal(appState{S: "routers", T: "Routers", Lines: appLines(out), Nav: []string{"pending", "edge"}})
+		appPushState(token, q, cd)
+		return true
+	case "edge_del":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		cd, _ := appMarshal(appState{
+			S: "routers", T: focus, Lines: appTitle("DELETE permanently?", "Удалить навсегда?"),
+			H: focus, Btns: [][2]string{{"y_edge_del", appTitle("Confirm delete", "Подтвердить delete")}},
+			Nav: []string{"routers", "pending"},
+		})
+		appPushState(token, q, cd)
+		return true
+	case "y_edge_del":
+		if focus == "" {
+			answerWidgetQuery(token, q.ID, `{"err":"nofocus"}`)
+			return true
+		}
+		out := runND("edge", "delete", focus)
+		appMu.Lock()
+		appSessUnlocked().Focus = ""
+		appMu.Unlock()
+		cd, _ := appMarshal(appState{S: "routers", T: "Routers", Lines: appLines(out), Nav: []string{"pending", "edge"}})
 		appPushState(token, q, cd)
 		return true
 
@@ -2425,7 +2492,7 @@ func tryReplyAppWidget(token string, chat int64, msgID int) bool {
 
 func init() {
 	registerWidget(&widgetScreen{
-		ID:        "app",
+		ID: "app",
 		// Default shell is hub — home/menu live in hub; spark is for metrics screens only.
 		// openAppScreen still picks HTML via appShellForScreen; this is for residual sendWidgetScreen("app").
 		HTML:      appWidgetHTMLHub(),

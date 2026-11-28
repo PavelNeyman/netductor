@@ -14,6 +14,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/edgestorage"
 	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
+	"github.com/PavelNeyman/netductor/internal/mtls"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/sites"
 	ndupdate "github.com/PavelNeyman/netductor/internal/update"
@@ -162,6 +163,24 @@ func runEdgeCLI(args []string) {
 		}
 		audit.Log("cli", "edge.revoke", args[1], "")
 		fmt.Println(cli18n.T("edge.revoked"))
+	case "delete", "rm", "purge":
+		if refuseIfDryRun(o, "edge delete") {
+			return
+		}
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: netductor edge delete <device_id>")
+			os.Exit(2)
+		}
+		id := args[1]
+		if err := edge.Delete(id); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := mtls.RemoveClientMaterial(id); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: mTLS material:", err)
+		}
+		audit.Log("cli", "edge.delete", id, "")
+		fmt.Println(cli18n.T("edge.deleted"), id)
 	case "cmd":
 		if refuseIfDryRun(o, "edge cmd") {
 			return

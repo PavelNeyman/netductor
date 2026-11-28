@@ -328,6 +328,16 @@ func ClientDir(nodeID string) string {
 	return filepath.Join(Dir(), "clients", safe)
 }
 
+// RemoveClientMaterial deletes on-disk client cert/key for nodeID (edge or secondary).
+// Missing directory is not an error.
+func RemoveClientMaterial(nodeID string) error {
+	dir := ClientDir(nodeID)
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("remove mTLS client material %s: %w", nodeID, err)
+	}
+	return nil
+}
+
 // EnsureClientFor issues (or returns existing) client cert for nodeID.
 func EnsureClientFor(nodeID string) (ca, cert, key []byte, err error) {
 	if err := ensureCA(); err != nil {

@@ -291,21 +291,50 @@ func buildAppActions() (string, error) {
 }
 
 func buildAppRouters() (string, error) {
-	out := widgetTruncate(strings.TrimSpace(routersText()), 500)
+	raw := strings.TrimSpace(routersText())
+	out := widgetTruncate(raw, 500)
 	if out == "" {
 		out = appTitle("(empty)", "(пусто)")
 	}
-	return appMarshal(appState{
+	var ids []string
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
+			continue
+		}
+		ids = append(ids, parts[0])
+		if len(ids) >= 12 {
+			break
+		}
+	}
+	st := appState{
 		S: "routers", T: appTitle("Routers", "Роутеры"),
 		Lines: out,
-		H:     appTitle("edge list", "список edge"),
+		H:     appTitle("pick # then revoke/delete", "выберите # → revoke/delete"),
 		Nav:   []string{"pending", "sites", "edge", "edgeguest"},
 		Btns: [][2]string{
 			{"rt_full", appTitle("Full hub", "Полный хаб")},
+			{"edge_rev", appTitle("Revoke", "Отозвать")},
+			{"edge_del", appTitle("Delete", "Удалить")},
 		},
-	})
+	}
+	if len(ids) > 0 {
+		st.IDs = strings.Join(ids, ",")
+		appMu.Lock()
+		appSessUnlocked().ListIDs = append([]string(nil), ids...)
+		appMu.Unlock()
+	}
+	appMu.Lock()
+	if f := appSessUnlocked().Focus; f != "" {
+		st.H = appTitle("focus: ", "фокус: ") + f
+	}
+	appMu.Unlock()
+	return appMarshal(st)
 }
-
 
 // buildAppSecondaryCard opens one secondary from seclist (Focus = device id).
 func buildAppSecondaryCard(id string) (string, error) {
@@ -408,4 +437,3 @@ func handleLegacySPAActs(token string, q *widgetQuery, admin int64, act string) 
 		return false
 	}
 }
-

@@ -893,9 +893,16 @@ function renderTables(payload){
           const nm=r.Name||r.name; const did=r.device_id||r.ID||r.id;
           if(nm){ btns+='<button type="button" class="primary rowact" data-kind="vpn-disable" data-name="'+esc(nm)+'" style="padding:.15rem .35rem;font-size:.7rem">off</button> ';
                   btns+='<button type="button" class="primary rowact" data-kind="vpn-enable" data-name="'+esc(nm)+'" style="padding:.15rem .35rem;font-size:.7rem">on</button>'; }
-          if(did && /pending/i.test(String(t.title))){
-            btns+=' <button type="button" class="primary rowact" data-kind="edge-approve" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">ok</button>';
-            btns+=' <button type="button" class="primary rowact" data-kind="edge-deny" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">no</button>';
+          if(did && (/pending/i.test(String(t.title)) || /edge|device/i.test(String(t.title)))){
+            const st=String(r.status||r.Status||'');
+            if(/pending/i.test(st) || /pending/i.test(String(t.title))){
+              btns+=' <button type="button" class="primary rowact" data-kind="edge-approve" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">ok</button>';
+              btns+=' <button type="button" class="primary rowact" data-kind="edge-deny" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">no</button>';
+            }
+            if(/approved/i.test(st)){
+              btns+=' <button type="button" class="primary rowact" data-kind="edge-revoke" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">revoke</button>';
+            }
+            btns+=' <button type="button" class="primary rowact" data-kind="edge-delete" data-id="'+esc(did)+'" style="padding:.15rem .35rem;font-size:.7rem">delete</button>';
           }
           return '<td style="border-bottom:1px solid var(--border);padding:.35rem;white-space:nowrap">'+btns+'</td>';
         }
@@ -2160,6 +2167,8 @@ document.body.addEventListener('click', async (ev)=>{
     if(t.dataset.kind==='vpn-enable') showControl(await nodeFetch('/vpn/users/'+encodeURIComponent(t.dataset.name)+'/enable',{method:'POST',body:'{}'}));
     if(t.dataset.kind==='edge-approve') showControl(await nodeFetch('/api/edge/approve',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
     if(t.dataset.kind==='edge-deny') showControl(await nodeFetch('/api/edge/deny',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})}));
+    if(t.dataset.kind==='edge-revoke'){ if(!confirm('Revoke edge '+t.dataset.id+'?')) return; showControl(await nodeFetch('/api/edge/revoke',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})})); }
+    if(t.dataset.kind==='edge-delete'){ if(!confirm('DELETE edge '+t.dataset.id+' (registry + mTLS material)?')) return; showControl(await nodeFetch('/api/edge/delete',{method:'POST',body:JSON.stringify({device_id:t.dataset.id})})); }
   }catch(e){ showControl(String(e)); }
 });
 

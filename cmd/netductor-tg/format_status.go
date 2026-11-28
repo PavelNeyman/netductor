@@ -122,7 +122,16 @@ func formatEdgeListHTML(raw string) string {
 		}
 		b.WriteString(fmt.Sprintf("%s <code>%s</code>\n   %s\n", icon, esc(id), esc(rest)))
 		polLabel := T("pol_btn")
-		b.WriteString(fmt.Sprintf(`<tg-button-row align="left"><tg-button type="callback_data" data="e:policy:%s">%s %s</tg-button></tg-button-row>`+"\n", id, polLabel, esc(id)))
+		b.WriteString(`<tg-button-row align="left">`)
+		if strings.Contains(low, "pending") {
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="success" data="e:appr:%s">✅</tg-button>`, id))
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="e:deny:%s">🚫</tg-button>`, id))
+		} else if strings.Contains(low, "approved") {
+			b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="e:rev:%s">🔏</tg-button>`, id))
+		}
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" style="danger" data="e:del:%s">🗑</tg-button>`, id))
+		b.WriteString(fmt.Sprintf(`<tg-button type="callback_data" data="e:policy:%s">%s</tg-button>`, id, polLabel))
+		b.WriteString(`</tg-button-row>` + "\n")
 	}
 	return b.String()
 }

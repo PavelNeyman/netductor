@@ -208,3 +208,24 @@ func TestRotateDeviceToken(t *testing.T) {
 		t.Fatalf("peek after rotate: %q want %q", pt, neu)
 	}
 }
+
+func TestDeleteDevice(t *testing.T) {
+	setup(t)
+	Enroll(map[string]any{"device_id": "del1"})
+	if _, err := Approve("del1"); err != nil {
+		t.Fatal(err)
+	}
+	_ = EnqueueCmd("del1", "status", "")
+	if err := Delete("del1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := GetDevice("del1"); ok {
+		t.Fatal("device must be gone")
+	}
+	if err := Delete("del1"); err == nil {
+		t.Fatal("second delete must fail")
+	}
+	if err := Revoke("del1"); err == nil {
+		t.Fatal("revoke unknown must fail")
+	}
+}

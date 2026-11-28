@@ -13,16 +13,15 @@ import (
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/paths"
-	"github.com/PavelNeyman/netductor/internal/statefile"
 	"github.com/PavelNeyman/netductor/internal/policy"
 	"github.com/PavelNeyman/netductor/internal/secreq"
+	"github.com/PavelNeyman/netductor/internal/statefile"
 )
 
 // completeCmdSaveHook, when set (tests only), is called instead of saving the command queue
 // after filtering out the completed command. Non-nil error simulates a partial failure after
 // the result line was already synced.
 var completeCmdSaveHook func(deviceID, cmdID string, wrap any) error
-
 
 var mu sync.Mutex
 
@@ -217,11 +216,11 @@ func RequireApproved(auth, deviceID string) bool {
 
 // Device is a registered edge host (OpenWrt / MikroTik / …).
 type Device struct {
-	DeviceID    string         `json:"device_id,omitempty"`
-	Status      string         `json:"status,omitempty"`
-	DeviceToken string         `json:"device_token,omitempty"`
+	DeviceID    string `json:"device_id,omitempty"`
+	Status      string `json:"status,omitempty"`
+	DeviceToken string `json:"device_token,omitempty"`
 	// TokenPickup: after Approve, next Enroll may return DeviceToken once (agent onboarding).
-	TokenPickup  bool           `json:"token_pickup,omitempty"`
+	TokenPickup bool           `json:"token_pickup,omitempty"`
 	Board       string         `json:"board,omitempty"`
 	Hostname    string         `json:"hostname,omitempty"`
 	WANIP       string         `json:"wan_ip,omitempty"`
@@ -591,6 +590,7 @@ func Deny(deviceID string) error {
 	}
 	d.Status = StatusDenied
 	d.DeviceToken = ""
+	d.TokenPickup = false
 	d.DeniedAt = time.Now().Unix()
 	m[deviceID] = d
 	return saveDevices(m)
@@ -609,9 +609,52 @@ func Revoke(deviceID string) error {
 	}
 	d.Status = StatusRevoked
 	d.DeviceToken = ""
+	d.TokenPickup = false
 	d.RevokedAt = time.Now().Unix()
 	m[deviceID] = d
 	return saveDevices(m)
+}
+
+// Delete hard-removes the device from the registry and drops queued commands for it.
+// Does not touch mTLS material on disk — caller should RemoveClientMaterial if needed.
+func Delete(deviceID string) error {
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		return fmt.Errorf("device_id required")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	m, err := loadDevices()
+	if err != nil {
+		return err
+	}
+	if _, ok := m[deviceID]; !ok {
+		return fmt.Errorf("unknown device")
+	}
+	delete(m, deviceID)
+	if err := saveDevices(m); err != nil {
+		return err
+	}
+	purgeDeviceCommandsUnlocked(deviceID)
+	return nil
+}
+
+func purgeDeviceCommandsUnlocked(deviceID string) {
+	var wrap struct {
+		Pending []map[string]any `json:"pending"`
+	}
+	if err := statefile.LoadJSON(commandsPath(), &wrap); err != nil && !statefile.IsNotExist(err) {
+		return
+	}
+	out := wrap.Pending[:0]
+	for _, c := range wrap.Pending {
+		if did, _ := c["device_id"].(string); did == deviceID {
+			continue
+		}
+		out = append(out, c)
+	}
+	wrap.Pending = out
+	_ = statefile.SaveJSON(commandsPath(), wrap)
 }
 
 func Heartbeat(payload map[string]any) {
