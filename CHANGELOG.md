@@ -1,3 +1,8 @@
+## 0.9.783
+
+### Fixed
+- Edge USB format: Dropbear killed background `mkfs.ext4` on SSH exit (endless FORMAT_WAIT). Detach via setsid + HUP trap; fail-fast if mkfs missing or dead without rc; foreground fallback.
+
 ## 0.9.782
 
 ### Fixed

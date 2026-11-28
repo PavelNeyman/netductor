@@ -70,9 +70,9 @@ done
 	if s.Format {
 		o.logLine("==> storage: FORMAT USB (destructive)")
 		// Long mkfs on 4–64GB sticks can break Dropbear/SSH mid-write ("Broken pipe").
-		// Start mkfs under nohup, then poll with short SSH sessions.
+		// Detach mkfs from the SSH session (setsid), then poll with short SSH sessions.
 		start := fmt.Sprintf(`
-set -e
+set +e
 DISK=/dev/%s
 umount "$DISK" 2>/dev/null || true
 umount ${DISK}1 2>/dev/null || true
@@ -95,18 +95,60 @@ if [ -n "$PART" ] && [ "$PART" != "$DISK" ] && [ ! -b "$PART" ]; then
   PART=$DISK
 fi
 [ -b "$PART" ] || { echo "FORMAT_NO_BLOCK part=$PART"; ls -l $DISK* 2>/dev/null; exit 1; }
-rm -f /tmp/nd-mkfs.rc /tmp/nd-mkfs.log /tmp/nd-mkfs.part /tmp/nd-mkfs.before_uuid
+MKFS=""
+for c in /usr/sbin/mkfs.ext4 /sbin/mkfs.ext4; do
+  [ -x "$c" ] && MKFS=$c && break
+done
+[ -n "$MKFS" ] || MKFS=$(command -v mkfs.ext4 2>/dev/null || true)
+[ -n "$MKFS" ] || { echo "FORMAT_NO_MKFS need e2fsprogs (edge.bootstrap preset=usb-storage)"; ls /usr/sbin/mkfs* 2>/dev/null; exit 1; }
+echo "FORMAT_MKFS=$MKFS"
+rm -f /tmp/nd-mkfs.rc /tmp/nd-mkfs.log /tmp/nd-mkfs.part /tmp/nd-mkfs.before_uuid /tmp/nd-mkfs.pid /tmp/nd-mkfs.started
 echo "$PART" > /tmp/nd-mkfs.part
-# Record pre-mkfs UUID so we never treat the OLD ext4 as format success (FORMAT_INFER race).
+echo "$MKFS" > /tmp/nd-mkfs.bin
 block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1 > /tmp/nd-mkfs.before_uuid || true
-# Background so SSH disconnect does not kill mkfs.
-nohup sh -c 'mkfs.ext4 -F -L netductor "$(cat /tmp/nd-mkfs.part)" > /tmp/nd-mkfs.log 2>&1; echo $? > /tmp/nd-mkfs.rc' >/dev/null 2>&1 &
+# Dropbear SIGHUPs children when the SSH shell exits; plain nohup is not enough on OpenWrt.
+START_SH=/tmp/nd-mkfs-run.sh
+cat > "$START_SH" << 'EOS'
+#!/bin/sh
+trap '' HUP INT TERM
+PART=$(cat /tmp/nd-mkfs.part)
+MKFS=$(cat /tmp/nd-mkfs.bin 2>/dev/null || echo mkfs.ext4)
+echo "start part=$PART mkfs=$MKFS" > /tmp/nd-mkfs.started
+"$MKFS" -F -L netductor "$PART" > /tmp/nd-mkfs.log 2>&1
+echo $? > /tmp/nd-mkfs.rc
+EOS
+chmod 755 "$START_SH"
+if command -v setsid >/dev/null 2>&1; then
+  setsid "$START_SH" </dev/null >/dev/null 2>&1 &
+else
+  ( trap '' HUP; "$START_SH" </dev/null >/dev/null 2>&1 ) &
+fi
+echo $! > /tmp/nd-mkfs.pid
+sleep 1
+if [ -f /tmp/nd-mkfs.rc ]; then
+  echo "FORMAT_RC_EARLY=$(cat /tmp/nd-mkfs.rc)"
+  tail -5 /tmp/nd-mkfs.log 2>/dev/null || true
+elif [ -f /tmp/nd-mkfs.started ]; then
+  echo "FORMAT_BG_OK pid=$(cat /tmp/nd-mkfs.pid 2>/dev/null)"
+else
+  echo "FORMAT_BG_FAIL trying foreground mkfs"
+  "$MKFS" -F -L netductor "$PART" > /tmp/nd-mkfs.log 2>&1
+  echo $? > /tmp/nd-mkfs.rc
+  echo "FORMAT_RC_FG=$(cat /tmp/nd-mkfs.rc)"
+  tail -8 /tmp/nd-mkfs.log 2>/dev/null || true
+fi
 echo FORMAT_STARTED part=$PART
 BEFORE_UUID=$(cat /tmp/nd-mkfs.before_uuid 2>/dev/null || true)
 echo FORMAT_BEFORE_UUID=$BEFORE_UUID
 `, dev)
 		out, err := runSSHOnPortLogged(port, pass, key, user, host, start, kp)
 		o.logLine(strings.TrimSpace(stripSSHNoise(out)))
+		if strings.Contains(out, "FORMAT_NO_MKFS") {
+			return false, fmt.Errorf("storage format: mkfs.ext4 missing on router — run edge.bootstrap preset=usb-storage (%s)", stripSSHNoise(out))
+		}
+		if strings.Contains(out, "FORMAT_NO_BLOCK") {
+			return false, fmt.Errorf("storage format: no block device (%s)", stripSSHNoise(out))
+		}
 		started := strings.Contains(out, "FORMAT_STARTED")
 		if err != nil && !started {
 			return false, fmt.Errorf("storage format start: %w (%s)", err, stripSSHNoise(out))
@@ -117,22 +159,39 @@ echo FORMAT_BEFORE_UUID=$BEFORE_UUID
 				part = strings.TrimPrefix(line, "FORMAT_STARTED part=")
 			}
 		}
-		// Poll up to ~15 minutes (large USB on slow mips).
-		var done bool
-		for i := 0; i < 180; i++ {
-			poll := fmt.Sprintf(`
+		if strings.Contains(out, "FORMAT_RC_EARLY=") || strings.Contains(out, "FORMAT_RC_FG=") {
+			rcLine := "1"
+			for _, line := range strings.Split(out, "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "FORMAT_RC_EARLY=") {
+					rcLine = strings.TrimPrefix(line, "FORMAT_RC_EARLY=")
+				}
+				if strings.HasPrefix(line, "FORMAT_RC_FG=") {
+					rcLine = strings.TrimPrefix(line, "FORMAT_RC_FG=")
+				}
+			}
+			if rcLine != "0" {
+				return false, fmt.Errorf("storage format mkfs rc=%s (%s)", rcLine, stripSSHNoise(out))
+			}
+			o.logLine("==> storage: FORMAT_OK part=" + part)
+		} else {
+			var done bool
+			for i := 0; i < 180; i++ {
+				poll := fmt.Sprintf(`
 PART=%s
 [ -f /tmp/nd-mkfs.part ] && PART=$(cat /tmp/nd-mkfs.part)
 BEFORE=$(cat /tmp/nd-mkfs.before_uuid 2>/dev/null || true)
 if [ -f /tmp/nd-mkfs.rc ]; then
   echo FORMAT_RC=$(cat /tmp/nd-mkfs.rc)
   echo FORMAT_PART=$PART
-  tail -8 /tmp/nd-mkfs.log 2>/dev/null || true
+  tail -12 /tmp/nd-mkfs.log 2>/dev/null || true
   exit 0
 fi
-# Only infer success if mkfs is no longer running AND UUID changed (or was empty).
-# Never accept pre-existing ext4 while mkfs still running or UUID unchanged — that was the race.
 MKFS_ALIVE=0
+if [ -f /tmp/nd-mkfs.pid ]; then
+  pid=$(cat /tmp/nd-mkfs.pid 2>/dev/null)
+  [ -n "$pid" ] && [ -d /proc/$pid ] && MKFS_ALIVE=1
+fi
 ps w 2>/dev/null | grep -F mkfs.ext4 | grep -v grep >/dev/null && MKFS_ALIVE=1
 if [ "$MKFS_ALIVE" = "0" ]; then
   CUR=$(block info "$PART" 2>/dev/null | sed -n 's/.*UUID="\([^"]*\)".*/\1/p' | head -1)
@@ -144,45 +203,55 @@ if [ "$MKFS_ALIVE" = "0" ]; then
       exit 0
     fi
   fi
+  if [ %d -ge 3 ]; then
+    echo FORMAT_DEAD_NO_RC
+    echo FORMAT_PART=$PART
+    echo "--- log ---"; cat /tmp/nd-mkfs.log 2>/dev/null || echo "(no log)"
+    echo "--- started ---"; cat /tmp/nd-mkfs.started 2>/dev/null || echo "(no started marker)"
+    echo "--- bin ---"; cat /tmp/nd-mkfs.bin 2>/dev/null; ls -l /usr/sbin/mkfs.ext4 /sbin/mkfs.ext4 2>/dev/null
+    exit 0
+  fi
 fi
-echo FORMAT_WAIT n=%d part=$PART mkfs_alive=$MKFS_ALIVE before=$BEFORE
-ps w 2>/dev/null | grep -F mkfs.ext4 | grep -v grep || true
-`, part, i)
-			out, err = runSSHOnPortLogged(port, pass, key, user, host, poll, kp)
-			text := stripSSHNoise(out)
-			if strings.TrimSpace(text) != "" {
-				o.logLine(strings.TrimSpace(text))
-			}
-			if strings.Contains(out, "FORMAT_RC=") {
-				rcLine := ""
-				for _, line := range strings.Split(out, "\n") {
-					line = strings.TrimSpace(line)
-					if strings.HasPrefix(line, "FORMAT_RC=") {
-						rcLine = strings.TrimPrefix(line, "FORMAT_RC=")
-					}
-					if strings.HasPrefix(line, "FORMAT_PART=") {
-						part = strings.TrimPrefix(line, "FORMAT_PART=")
-					}
+echo FORMAT_WAIT n=%d part=$PART mkfs_alive=$MKFS_ALIVE before=$BEFORE pid=$(cat /tmp/nd-mkfs.pid 2>/dev/null)
+`, part, i, i)
+				out, err = runSSHOnPortLogged(port, pass, key, user, host, poll, kp)
+				text := stripSSHNoise(out)
+				if strings.TrimSpace(text) != "" {
+					o.logLine(strings.TrimSpace(text))
 				}
-				if rcLine == "0" {
-					o.logLine("==> storage: FORMAT_OK part=" + part)
-					done = true
-					break
+				if strings.Contains(out, "FORMAT_DEAD_NO_RC") {
+					return false, fmt.Errorf("storage format: mkfs never completed (SSH session killed background job or missing e2fsprogs): %s", text)
 				}
-				return false, fmt.Errorf("storage format mkfs rc=%s (%s)", rcLine, text)
+				if strings.Contains(out, "FORMAT_RC=") {
+					rcLine := ""
+					for _, line := range strings.Split(out, "\n") {
+						line = strings.TrimSpace(line)
+						if strings.HasPrefix(line, "FORMAT_RC=") {
+							rcLine = strings.TrimPrefix(line, "FORMAT_RC=")
+						}
+						if strings.HasPrefix(line, "FORMAT_PART=") {
+							part = strings.TrimPrefix(line, "FORMAT_PART=")
+						}
+					}
+					if rcLine == "0" {
+						o.logLine("==> storage: FORMAT_OK part=" + part)
+						done = true
+						break
+					}
+					return false, fmt.Errorf("storage format mkfs rc=%s (%s)", rcLine, text)
+				}
+				if err != nil {
+					o.logLine(fmt.Sprintf("==> storage: format poll SSH blip (will retry): %v", err))
+				}
+				select {
+				case <-time.After(5 * time.Second):
+				case <-currentSSHCtx().Done():
+					return false, fmt.Errorf("storage format: cancelled")
+				}
 			}
-			if err != nil {
-				// Transient SSH blip during mkfs — keep polling.
-				o.logLine(fmt.Sprintf("==> storage: format poll SSH blip (will retry): %v", err))
+			if !done {
+				return false, fmt.Errorf("storage format: timeout waiting for mkfs on %s", part)
 			}
-			select {
-			case <-time.After(5 * time.Second):
-			case <-currentSSHCtx().Done():
-				return false, fmt.Errorf("storage format: cancelled")
-			}
-		}
-		if !done {
-			return false, fmt.Errorf("storage format: timeout waiting for mkfs on %s", part)
 		}
 	}
 
