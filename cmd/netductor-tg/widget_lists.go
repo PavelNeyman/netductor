@@ -228,8 +228,7 @@ func collectPendingListItems() []listWidgetItem {
 	raw := pendingText()
 	var all []listWidgetItem
 	n := 0
-	for _, line := range strings.Split(raw, "
-") {
+	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -254,7 +253,6 @@ func collectPendingListItems() []listWidgetItem {
 	}
 	return all
 }
-
 
 func collectSSHHostsItems() []listWidgetItem {
 	// best-effort from formatSSHHostsHTML underlying — run edge/ssh list
