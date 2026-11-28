@@ -294,12 +294,6 @@ echo EXTROOT_OK uuid=$UUID part=$PART
 			out = stripSSHNoise(out)
 			return false, fmt.Errorf("storage extroot: %w (%s)", err, out)
 		}
-		// LuCI System→Reset must wipe USB extroot too; stock firstboot only clears jffs2.
-		if err := installFactoryResetWrap(port, pass, key, user, host, kp); err != nil {
-			o.logLine(fmt.Sprintf("warn: factory-reset wrap: %v", err))
-		} else {
-			o.logLine("==> storage: firstboot/factoryreset wrap installed (LuCI reset wipes extroot)")
-		}
 		needReboot = true
 	} else if s.UseUSB {
 		script := fmt.Sprintf(`
@@ -333,6 +327,16 @@ echo DATA_MOUNT_OK part=$PART uuid=$UUID
 			return false, fmt.Errorf("storage mount: %w (%s)", err, stripSSHNoise(out))
 		}
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(out))
+	}
+
+	// Always (re)install factory-reset wrap when USB/extroot is in play so LuCI/firstboot
+	// wipes the stick. Safe to re-run: rewrites nd-factory-reset body and keeps wrappers.
+	if s.UseUSB || s.Extroot {
+		if err := installFactoryResetWrap(port, pass, key, user, host, kp); err != nil {
+			o.logLine(fmt.Sprintf("warn: factory-reset wrap: %v", err))
+		} else {
+			o.logLine("==> storage: firstboot/factoryreset wrap installed (LuCI reset wipes extroot)")
+		}
 	}
 
 	return needReboot, nil
@@ -404,33 +408,48 @@ grep -q nd-pin-sync /etc/crontabs/root 2>/dev/null || echo '0 */12 * * * /usr/sb
 // Stock OpenWrt only clears internal jffs2; with fstab.nd_extroot the old overlay
 // comes back on the next boot.
 //
-// Critical when already pivoted to USB:
-//   - do NOT rm -rf /overlay while root is the USB overlay (kills live busybox/reboot);
-//   - resolve stock firstboot/jffs2reset (busybox applet or *.real) BEFORE wipe;
-//   - clear fstab, wipe USB, then force reboot so next boot is internal flash.
+// When already pivoted to USB (live root = USB overlay):
+//   - never call stock jffs2reset/firstboot (they rm -rf /overlay and kill busybox/reboot);
+//   - never rm -rf /overlay from our script either;
+//   - clear fstab, wipe the USB block device, mtd-erase internal rootfs_data if any,
+//     then force reboot so the next boot is internal flash without the old overlay.
+// Without extroot: delegate to stock firstboot/jffs2reset (busybox applet or *.real).
 func installFactoryResetWrap(port, pass, key, user, host, kp string) error {
 	// Single remote script: body + wrappers. Avoid nested heredoc pitfalls on ash.
 	remote := `
 set -e
 cat > /usr/sbin/nd-factory-reset << 'NDEOF'
 #!/bin/sh
-# netductor: factory reset with USB extroot. Must not destroy the live root mid-run.
+# netductor: factory reset safe with USB extroot. Never destroy live root via rm -rf.
 set +e
 echo "nd-factory-reset: begin"
 
 want_yes=0
 for a in "$@"; do
-  [ "$a" = "-y" ] || [ "$a" = "-Y" ] || [ "$a" = "--yes" ] && want_yes=1
+  case "$a" in
+    -y|-Y|--yes) want_yes=1 ;;
+  esac
 done
 
-# --- locate stock reset BEFORE any destructive work ---
 BB=""
 for b in /bin/busybox /sbin/busybox; do
   [ -x "$b" ] && BB=$b && break
 done
 
-invoke_stock() {
-  # Prefer renamed real binaries (non-busybox scripts).
+force_reboot() {
+  echo "nd-factory-reset: forcing reboot"
+  sync
+  if [ -n "$BB" ]; then
+    "$BB" reboot -f 2>/dev/null &
+  fi
+  # reboot may be a wrapper or missing after partial damage
+  command -v reboot >/dev/null 2>&1 && reboot -f 2>/dev/null &
+  sleep 1
+  echo b > /proc/sysrq-trigger 2>/dev/null || true
+}
+
+# Stock reset tools that clear the *current* /overlay. Unsafe when /overlay is USB.
+invoke_stock_overlay_reset() {
   for c in /sbin/jffs2reset.real /sbin/firstboot.real /sbin/factoryreset.real; do
     if [ -x "$c" ] && ! grep -q nd-factory-reset "$c" 2>/dev/null; then
       echo "nd-factory-reset: stock $c"
@@ -442,10 +461,9 @@ invoke_stock() {
       return 0
     fi
   done
-  # Busybox applets (argv0 matters — call via busybox NAME).
   if [ -n "$BB" ]; then
     for applet in jffs2reset firstboot factoryreset; do
-      if "$BB" --list 2>/dev/null | grep -qx "$applet" || "$BB" "$applet" --help >/dev/null 2>&1; then
+      if "$BB" --list 2>/dev/null | grep -qx "$applet"; then
         echo "nd-factory-reset: busybox $applet"
         if [ "$want_yes" = "1" ]; then
           "$BB" "$applet" -y 2>/dev/null || "$BB" "$applet" 2>/dev/null || true
@@ -456,7 +474,6 @@ invoke_stock() {
       fi
     done
   fi
-  # Unwrapped sbin script (not our wrap, not a busybox symlink we already replaced).
   for c in /sbin/jffs2reset /sbin/firstboot /sbin/factoryreset; do
     if [ -f "$c" ] && [ ! -L "$c" ] && ! grep -q nd-factory-reset "$c" 2>/dev/null; then
       echo "nd-factory-reset: stock file $c"
@@ -468,27 +485,69 @@ invoke_stock() {
       return 0
     fi
   done
-  # Last resort: erase rootfs_data MTD if present (internal overlay).
-  if command -v mtd >/dev/null 2>&1; then
-    for part in rootfs_data overlay; do
-      if grep -q "\"$part\"" /proc/mtd 2>/dev/null; then
-        echo "nd-factory-reset: mtd erase $part"
-        mtd -r erase "$part" 2>/dev/null && return 0
-        mtd erase "$part" 2>/dev/null && return 0
-      fi
-    done
-  fi
-  echo "nd-factory-reset: no stock firstboot/jffs2reset (extroot wipe + reboot only)"
   return 1
+}
+
+# Erase internal flash overlay only (not the live USB mount).
+erase_internal_rootfs_data() {
+  if ! command -v mtd >/dev/null 2>&1; then
+    return 1
+  fi
+  for part in rootfs_data overlay; do
+    if grep -q "\"$part\"" /proc/mtd 2>/dev/null; then
+      echo "nd-factory-reset: mtd erase $part"
+      # Do not use mtd -r here: we control reboot after USB wipe.
+      mtd erase "$part" 2>/dev/null && return 0
+    fi
+  done
+  return 1
+}
+
+wipe_usb_extroot() {
+  PART="$1"
+  echo "nd-factory-reset: extroot path part=${PART:-unknown}"
+  uci -q delete fstab.nd_extroot
+  uci -q delete fstab.nd_data
+  uci commit fstab 2>/dev/null || true
+  # Keep /overlay mounted — only wipe the block device; do not rm through the mount.
+  umount /mnt/netductor 2>/dev/null || true
+  if [ -z "$PART" ]; then
+    echo "nd-factory-reset: no PART to wipe (fstab cleared only)"
+    return 0
+  fi
+  # Only umount PART if it is NOT the live root device.
+  ROOT_SRC=$(mount 2>/dev/null | awk '/ on \/ /{print $1; exit}')
+  OV_SRC=$(mount 2>/dev/null | awk '/ on \/overlay /{print $1; exit}')
+  if [ -n "$PART" ] && [ "$PART" != "$ROOT_SRC" ] && [ "$PART" != "$OV_SRC" ]; then
+    umount "$PART" 2>/dev/null || true
+  fi
+  sync
+  if [ -b "$PART" ]; then
+    dd if=/dev/zero of="$PART" bs=1M count=8 conv=notrunc 2>/dev/null \
+      && echo "nd-factory-reset: wiped $PART" \
+      || echo "nd-factory-reset: wipe failed $PART"
+  fi
+  # GPT/MBR header: only if PART is a partition node, not whole-disk live root.
+  DISK=$(echo "$PART" | sed 's/[0-9]*$//')
+  if [ -n "$DISK" ] && [ "$DISK" != "$PART" ] && [ -b "$DISK" ] && [ "$DISK" != "$ROOT_SRC" ]; then
+    dd if=/dev/zero of="$DISK" bs=1M count=1 conv=notrunc 2>/dev/null || true
+  fi
+  sync
 }
 
 has_ext=0
 [ -f /overlay/.nd-extroot ] && has_ext=1
 [ -f /.nd-extroot ] && has_ext=1
 uci -q get fstab.nd_extroot >/dev/null 2>&1 && has_ext=1
+# Overlay on removable sd* ⇒ treat as extroot even without marker.
+OV_DEV=$(mount 2>/dev/null | awk '/ on \/overlay /{print $1; exit}')
+case "$OV_DEV" in
+  /dev/sd*|/dev/mmcblk*p*) has_ext=1 ;;
+esac
+
 PART=""
 PART=$(uci -q get fstab.nd_extroot.device 2>/dev/null || true)
-[ -n "$PART" ] || PART=$(mount 2>/dev/null | awk '/ on \/overlay /{print $1; exit}')
+[ -n "$PART" ] || PART=$OV_DEV
 [ -n "$PART" ] || PART=$(block info 2>/dev/null | awk -F: '/MOUNT="\/overlay"/{gsub(/ /,"",$1); print $1; exit}')
 if [ -z "$PART" ]; then
   for d in /sys/block/sd*; do
@@ -503,67 +562,43 @@ if [ -z "$PART" ]; then
   done
 fi
 
-# 1) Stock internal reset first (while binaries still intact).
-invoke_stock "$@"
-
-# 2) Detach + wipe USB extroot so next boot cannot remount old overlay.
-if [ "$has_ext" = "1" ] || [ -n "$PART" ]; then
-  echo "nd-factory-reset: extroot path part=${PART:-unknown}"
-  uci -q delete fstab.nd_extroot
-  uci -q delete fstab.nd_data
-  uci commit fstab 2>/dev/null || true
-  # Keep /overlay mounted: wiping the block under a live root is OK for next boot;
-  # deleting files through the mount kills busybox/reboot in this shell.
-  umount /mnt/netductor 2>/dev/null || true
-  if [ -n "$PART" ]; then
-    umount "$PART" 2>/dev/null || true
-    case "$PART" in
-      /dev/sd*[0-9]) umount "${PART%%[0-9]*}" 2>/dev/null || true ;;
-    esac
-    sync
-    if [ -b "$PART" ]; then
-      dd if=/dev/zero of="$PART" bs=1M count=8 2>/dev/null && echo "nd-factory-reset: wiped $PART" || echo "nd-factory-reset: wipe failed $PART"
-    fi
-    DISK=$(echo "$PART" | sed 's/[0-9]*$//')
-    if [ -n "$DISK" ] && [ "$DISK" != "$PART" ] && [ -b "$DISK" ]; then
-      dd if=/dev/zero of="$DISK" bs=1M count=2 2>/dev/null || true
-    fi
-    sync
-  else
-    echo "nd-factory-reset: no PART to wipe (fstab cleared only)"
+if [ "$has_ext" = "1" ]; then
+  echo "nd-factory-reset: live USB/extroot — skip stock jffs2reset (would kill root)"
+  wipe_usb_extroot "$PART"
+  erase_internal_rootfs_data || true
+else
+  # Normal internal overlay: stock tools are safe.
+  if ! invoke_stock_overlay_reset "$@"; then
+    erase_internal_rootfs_data || echo "nd-factory-reset: no stock reset tool"
+  fi
+  # Still clear any leftover USB fstab so a stick cannot resurrect an old overlay.
+  if uci -q get fstab.nd_extroot >/dev/null 2>&1 || [ -n "$PART" ]; then
+    wipe_usb_extroot "$PART"
   fi
 fi
 
 echo "nd-factory-reset: done"
-# LuCI / firstboot -y expect a reboot; force it (busybox reboot may already be broken after wipe).
+# LuCI runs firstboot -y && reboot; we always force reboot on -y so a wiped USB cannot hang the box.
 if [ "$want_yes" = "1" ]; then
-  echo "nd-factory-reset: forcing reboot"
-  sync
-  if [ -n "$BB" ]; then
-    "$BB" reboot -f 2>/dev/null &
-  fi
-  reboot -f 2>/dev/null &
-  sleep 2
-  echo b > /proc/sysrq-trigger 2>/dev/null || true
+  force_reboot
 fi
 exit 0
 NDEOF
 chmod 755 /usr/sbin/nd-factory-reset
 
-# Wrappers: busybox applets must not be mv'd (argv0 breaks); replace symlink with script.
+# Wrappers: never mv busybox applet symlinks (argv0 breaks). Always ensure LuCI targets exist.
 for name in firstboot factoryreset jffs2reset; do
   bin=/sbin/$name
   real=/sbin/${name}.real
-  [ -e "$bin" ] || [ -e "$real" ] || [ -L "$bin" ] || continue
   if [ -f "$bin" ] && [ ! -L "$bin" ] && grep -q nd-factory-reset "$bin" 2>/dev/null; then
-    echo "WRAP_SKIP $name"
+    # Refresh body already written; keep wrapper.
+    echo "WRAP_KEEP $name"
     continue
   fi
   if [ -L "$bin" ]; then
     tgt=$(readlink -f "$bin" 2>/dev/null || readlink "$bin" 2>/dev/null || true)
     case "$tgt" in
       *busybox*)
-        # Drop applet symlink; stock path is busybox $name (handled in nd-factory-reset).
         rm -f "$bin"
         printf '%s\n' '#!/bin/sh' 'exec /usr/sbin/nd-factory-reset "$@"' > "$bin"
         chmod 755 "$bin"
@@ -579,14 +614,27 @@ for name in firstboot factoryreset jffs2reset; do
   chmod 755 "$bin"
   echo "WRAP_OK $name"
 done
+# LuCI always expects firstboot and/or jffs2reset — create even if stock never had them.
+for name in firstboot jffs2reset; do
+  if [ ! -x /sbin/$name ]; then
+    printf '%s\n' '#!/bin/sh' 'exec /usr/sbin/nd-factory-reset "$@"' > /sbin/$name
+    chmod 755 /sbin/$name
+    echo "WRAP_OK $name (created)"
+  fi
+done
 
 # Stage into USB overlay so post-pivot LuCI reset still hits our wrap.
+# If we are already pivoted, live /sbin is the USB upper — still try mount for whole-disk copies.
 PART=$(uci -q get fstab.nd_extroot.device 2>/dev/null || true)
 [ -n "$PART" ] || PART=$(block info 2>/dev/null | awk -F: '/LABEL="netductor"|TYPE="ext4"/{gsub(/ /,"",$1); print $1; exit}')
 mkdir -p /mnt/netductor
 if [ -n "$PART" ] && [ -b "$PART" ]; then
-  umount /mnt/netductor 2>/dev/null || true
-  mount "$PART" /mnt/netductor 2>/dev/null || true
+  # Avoid mounting the live overlay device onto itself.
+  OV_SRC=$(mount 2>/dev/null | awk '/ on \/overlay /{print $1; exit}')
+  if [ "$PART" != "$OV_SRC" ]; then
+    umount /mnt/netductor 2>/dev/null || true
+    mount "$PART" /mnt/netductor 2>/dev/null || true
+  fi
 fi
 for root in /mnt/netductor/upper /mnt/netductor; do
   [ -d "$root" ] || continue
@@ -622,11 +670,22 @@ func stageOperatorKeysOntoExtroot(o EdgeOpts, pub string) error {
 set +e
 PART=$(uci -q get fstab.nd_extroot.device 2>/dev/null || true)
 [ -n "$PART" ] || PART=$(block info 2>/dev/null | awk -F: '/LABEL="netductor"|MOUNT="\/overlay"/{gsub(/ /,"",$1); print $1; exit}')
-[ -n "$PART" ] || PART=/dev/sda
+if [ -z "$PART" ]; then
+  for d in /sys/block/sd*; do
+    [ -d "$d" ] || continue
+    rem=$(cat "$d/removable" 2>/dev/null || echo 0)
+    [ "$rem" = "1" ] || continue
+    b=$(basename "$d")
+    if [ -b "/dev/${b}1" ]; then PART=/dev/${b}1
+    elif [ -b "/dev/$b" ]; then PART=/dev/$b
+    fi
+    [ -n "$PART" ] && break
+  done
+fi
 mkdir -p /mnt/netductor
 umount /mnt/netductor 2>/dev/null || true
-if ! mount "$PART" /mnt/netductor 2>/dev/null; then
-  echo "STAGE_KEYS_MOUNT_FAIL part=$PART"
+if [ -z "$PART" ] || ! mount "$PART" /mnt/netductor 2>/dev/null; then
+  echo "STAGE_KEYS_MOUNT_FAIL part=${PART:-none}"
   exit 1
 fi
 n=0

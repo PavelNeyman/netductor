@@ -1,3 +1,11 @@
+## 0.9.781
+
+### Fixed
+- OpenWrt edge factory-reset wrap: on live USB extroot do **not** call stock jffs2reset/firstboot (they `rm -rf /overlay` and kill busybox/reboot). Clear fstab, wipe USB block, optional `mtd erase rootfs_data`, then `reboot -f` / sysrq.
+- Busybox applet symlinks for firstboot/jffs2reset replaced with wrappers (not `mv` — argv0).
+- Always reinstall wrap on any USB/extroot storage apply so LuCI gets the fixed script.
+- stageOperatorKeysOntoExtroot: no blind `/dev/sda` fallback; only removable sd*.
+
 ## 0.9.780
 
 ### Added
