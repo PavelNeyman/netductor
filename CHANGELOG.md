@@ -1,3 +1,12 @@
+## 0.9.780
+
+### Added
+- Karing Clash Meta YAML profiles (`operator-mobile` / `operator-fullproxy` / `family`) with SR-parity split/ads/DIRECT/RU rules; TG import + `karing://install-config` deep links.
+- iOS Shortcuts guide in TG next to Karing profiles; unsigned `.shortcut` Open-URL attachments (reconnect + per-profile install-config). Sub path `/sub/{token}/karing/{profile}.yaml`.
+
+### Fixed
+- Karing rules: drop blanket private CIDR DIRECT so service-net can PROXY (narrow localhost/link-local only).
+
 ## 0.9.779
 
 ### Fixed
