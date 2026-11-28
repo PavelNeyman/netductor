@@ -228,23 +228,33 @@ func collectPendingListItems() []listWidgetItem {
 	raw := pendingText()
 	var all []listWidgetItem
 	n := 0
-	for _, line := range strings.Split(raw, "\n") {
+	for _, line := range strings.Split(raw, "
+") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		n++
-		name := line
-		if len(name) > 40 {
-			name = name[:40] + "…"
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
+			continue
 		}
-		all = append(all, listWidgetItem{I: n, N: name})
+		n++
+		id := parts[0]
+		st := ""
+		if len(parts) > 1 {
+			st = strings.Join(parts[1:], " ")
+			if len(st) > 24 {
+				st = st[:24] + "…"
+			}
+		}
+		all = append(all, listWidgetItem{I: n, N: id, S: st})
 		if n >= 40 {
 			break
 		}
 	}
 	return all
 }
+
 
 func collectSSHHostsItems() []listWidgetItem {
 	// best-effort from formatSSHHostsHTML underlying — run edge/ssh list
