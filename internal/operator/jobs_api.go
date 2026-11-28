@@ -439,6 +439,10 @@ func runEdgeProvision(ctx context.Context, j *jobs.Job, appendLog func(string), 
 	if truthyParam(j.Params, "guest_enable", "GuestEnable") {
 		s.GuestEnable = true
 	}
+	// Default visible SSID (GuestVisible=true). Only hide when guest_hidden is explicit yes/1/true.
+	if s.GuestEnable {
+		s.GuestVisible = guestSSIDVisible(strParam(j.Params, "guest_hidden", "GuestHidden"))
+	}
 	if truthyParam(j.Params, "overlay_ext", "OverlayExt") {
 		s.OverlayExt = true
 		if s.Selection.Enabled == nil {

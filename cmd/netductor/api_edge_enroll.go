@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
 )
 
@@ -64,6 +65,11 @@ func registerEdgeEnroll(mux *http.ServeMux) {
 			}
 		}
 		st, dtok, isNew := edge.Enroll(payload)
+		// Pin source IP on first contact so travel edge can keep using :8789 after
+		// temporary api-public window closes (agent plane is mTLS, not open to world).
+		if st != "error" && ip != "" {
+			_ = install.RestrictAgentMTLSToIP(ip)
+		}
 		if st == "error" {
 			if reserveID != "" {
 				edge.AbortRecoveryCode(raw, reserveID)

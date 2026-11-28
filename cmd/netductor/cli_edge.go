@@ -12,6 +12,7 @@ import (
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
 	"github.com/PavelNeyman/netductor/internal/edgestorage"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/mikrotik"
 	"github.com/PavelNeyman/netductor/internal/secondary"
 	"github.com/PavelNeyman/netductor/internal/sites"
@@ -118,6 +119,19 @@ func runEdgeCLI(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		if d, ok := edge.GetDevice(args[1]); ok {
+			if ip := strings.TrimSpace(d.WANIP); ip != "" {
+				if err := install.RestrictAgentMTLSToIP(ip); err != nil {
+					fmt.Fprintln(os.Stderr, "warn: pin mTLS allow:", err)
+				}
+			}
+		}
+		if _, err := edge.EnsureVPNClient(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: vpn-ensure:", err)
+		} else if _, err := edge.TemplateWithVPN(args[1]); err != nil {
+			fmt.Fprintln(os.Stderr, "warn: template vpn:", err)
+		}
+		_ = edge.EnqueueCmd(args[1], "apply_template", "")
 		audit.Log("cli", "edge.approve", args[1], "")
 		fmt.Println(cli18n.T("edge.approved"), args[1], "token="+tok)
 	case "deny":

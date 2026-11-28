@@ -450,12 +450,13 @@ func EnsureAgentBinary(version, goarch, destDir string) (string, error) {
 
 // agentSumsPaths returns candidate local SHA256SUMS paths (versioned first, then generic).
 func agentSumsPaths(destDir, ver string) []string {
+	// Only versioned sums — generic SHA256SUMS may be from an older release and would
+	// incorrectly validate a stale agent binary (seen: mipsle 0.9.401 kept for 0.9.783).
 	out := []string{}
 	if ver != "" {
 		out = append(out, filepath.Join(destDir, "SHA256SUMS-"+ver))
 		out = append(out, filepath.Join(destDir, "SHA256SUMS-v"+ver))
 	}
-	out = append(out, filepath.Join(destDir, "SHA256SUMS"))
 	return out
 }
 

@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/PavelNeyman/netductor/internal/audit"
 	"github.com/PavelNeyman/netductor/internal/edge"
+	"github.com/PavelNeyman/netductor/internal/install"
 	"github.com/PavelNeyman/netductor/internal/notify"
 	"github.com/PavelNeyman/netductor/internal/sites"
 )
@@ -25,6 +27,23 @@ func registerEdgeAdmin(mux *http.ServeMux) {
 			writeJSON(w, 400, map[string]string{"error": err.Error()})
 			return
 		}
+		// Travel edge reaches primary :8789 on ISP WAN (not via VPN). Pin WAN IP so
+		// heartbeats work after api-public disarm without opening the plane to the world.
+		if d, ok := edge.GetDevice(did); ok {
+			if ip := strings.TrimSpace(d.WANIP); ip != "" {
+				if err := install.RestrictAgentMTLSToIP(ip); err != nil {
+					fmt.Fprintf(os.Stderr, "edge approve: pin mTLS allow %s: %v\n", ip, err)
+				}
+			}
+		}
+		// Auto VPN material + template so agent can write sing-box-client.json without
+		// a second manual vpn-ensure (deploy often defers VLESS when primary SSH fails).
+		if _, err := edge.EnsureVPNClient(did); err != nil {
+			fmt.Fprintf(os.Stderr, "edge approve: vpn-ensure %s: %v\n", did, err)
+		} else if _, err := edge.TemplateWithVPN(did); err != nil {
+			fmt.Fprintf(os.Stderr, "edge approve: template vpn %s: %v\n", did, err)
+		}
+		_ = edge.EnqueueCmd(did, "apply_template", "")
 		_ = notify.Telegram(fmt.Sprintf("✅ Edge approved: <b>%s</b>", did))
 		audit.Log("session", "edge.approve", did, "")
 		writeJSON(w, 200, map[string]any{"ok": true, "device_id": did, "device_token": tok})
