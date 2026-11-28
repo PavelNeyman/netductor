@@ -354,7 +354,6 @@ func promotePrevSnapshot() error {
 	return syncDir(root)
 }
 
-
 func recoverPrevSnapshotSwapForOwner(ownerActive bool) error {
 	// An active Apply owns prev.next/prev.old. Startup during its API restart
 	// must not clean up the in-flight directory promotion.
@@ -693,7 +692,6 @@ func Apply(tag string) error {
 	return ApplyOpts(tag, false)
 }
 
-
 // printSecondaryUpgradeHint reminds the operator that egress/secondary binaries
 // are not updated by primary stack apply; agent must pull upgrade:vX explicitly.
 func printSecondaryUpgradeHint(tag string) {
@@ -955,7 +953,7 @@ func ApplyOpts(tag string, noBackup bool) error {
 	notify.AlertOnce("stack:apply-checks:"+tag, "Stack apply health checks passed for <code>"+tag+"</code>; finalizing transaction")
 	fmt.Fprintln(os.Stderr, "stack apply checks passed", tag)
 	// Baseline and last-good snapshot preparation are part of the transaction.
-	if err := install.EnsureHostBaseline(firewall.DetectRole()); err != nil {
+	if err := ensureHostBaselineAfterInstall(firewall.DetectRole()); err != nil {
 		applyFail = rollbackApplyFailure(attemptDir(), fmt.Errorf("host baseline after apply: %w", err))
 		return applyFail
 	}
@@ -1268,4 +1266,22 @@ func ScheduleApply(tag string) error {
 		return fmt.Errorf("systemd-run: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// ensureHostBaselineAfterInstall runs baseline with the on-disk netductor binary.
+// stack apply keeps the pre-upgrade process image in memory after replacing
+// /usr/local/bin/netductor; in-process EnsureHostBaseline would use OLD firewall
+// policy (e.g. rejecting intentional public mTLS plane) and roll back a good release.
+func ensureHostBaselineAfterInstall(role string) error {
+	bin := "/usr/local/bin/netductor"
+	if st, err := os.Stat(bin); err == nil && !st.IsDir() && st.Mode().IsRegular() {
+		cmd := exec.Command(bin, "host-baseline", "apply", role)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("host-baseline apply (installed binary): %w", err)
+		}
+		return nil
+	}
+	return install.EnsureHostBaseline(role)
 }
