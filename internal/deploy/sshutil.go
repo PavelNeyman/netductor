@@ -370,6 +370,62 @@ func runSSHOnPortOnce(port, password, keyPath, user, host, remoteCmd, keyPassphr
 	return string(out), err
 }
 
+// runSSHKeyOnly forces publickey auth (never empty-password factory fallback).
+// Used right after InstallOperatorKeys so a missing TOFU pin cannot silently
+// turn into "ssh with empty password" and fail with opaque exit 255.
+func runSSHKeyOnly(port, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {
+	if port == "" {
+		port = sshPort()
+	}
+	if strings.TrimSpace(keyPath) == "" {
+		return "", fmt.Errorf("SSH private key required for key-only verify")
+	}
+	// Ensure TOFU pin exists (edge install already pinned; recover if deploy path skipped).
+	if _, err := openSSHPinPath(host, port); errors.Is(err, errNoPin) {
+		key, perr := secondary.ProbeHostKey(host, port)
+		if perr != nil {
+			return "", fmt.Errorf("key-only verify: no host pin and probe failed: %w", perr)
+		}
+		if terr := secondary.TrustHostKey(host, port, key); terr != nil {
+			return "", fmt.Errorf("key-only verify: trust host key: %w", terr)
+		}
+	}
+	pin, pinErr := openSSHPinPath(host, port)
+	if pinErr != nil {
+		return "", fmt.Errorf("key-only verify: host pin: %w", pinErr)
+	}
+	args := []string{
+		"-p", port,
+		"-o", "ConnectTimeout=20",
+		"-o", "StrictHostKeyChecking=yes",
+		"-o", "UserKnownHostsFile=" + pin,
+		"-o", "GlobalKnownHostsFile=/dev/null",
+		"-o", "HashKnownHosts=no",
+		"-o", "IdentitiesOnly=yes",
+		"-o", "PreferredAuthentications=publickey",
+		"-o", "PubkeyAuthentication=yes",
+		"-o", "PasswordAuthentication=no",
+		"-o", "KbdInteractiveAuthentication=no",
+		"-i", keyPath,
+	}
+	if strings.TrimSpace(keyPassphrase) != "" {
+		args = append(args, "-o", "BatchMode=no", "-o", "NumberOfPasswordPrompts=1")
+	} else {
+		args = append(args, "-o", "BatchMode=yes")
+	}
+	target := user + "@" + host
+	env, cleanup, err := sshEnvWithAskPass(keyPassphrase)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+	cmdArgs := append(args, "--", target, remoteCmd)
+	cmd := exec.CommandContext(currentSSHCtx(), "ssh", cmdArgs...)
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
 // runSSHOnPortLogged is like runSSHOnPort but streams remote stdout/stderr to the process
 // stderr as it arrives (CombinedOutput hides progress for long edge storage scripts).
 func runSSHOnPortLogged(port, password, keyPath, user, host, remoteCmd, keyPassphrase string) (string, error) {

@@ -62,6 +62,16 @@ func DeployEdge(o EdgeOpts) error {
 		return fmt.Errorf("invalid server URL characters")
 	}
 
+	// Travel edge heartbeats on ISP WAN → primary :8789. Plane is closed to the world by
+	// default; open a short window so first enroll works, then enroll/approve pin the WAN IP.
+	if !o.DryRun && o.PrimaryHost != "" && o.PrimaryKey != "" {
+		if err := armPrimaryAgentPlane(o, "45m"); err != nil {
+			o.logLine("warn: api-public arm on primary: " + err.Error() + " — first enroll may need manual arm")
+		} else {
+			o.logLine("==> primary api-public armed 45m for edge first enroll")
+		}
+	}
+
 	// Hybrid plan: probe facts (SSH), build module plan. Dry-run stops here.
 	{
 		preset := strings.TrimSpace(o.Preset)
@@ -312,9 +322,18 @@ echo KEY:$(b64 "$DIR/client.key")
 			fmt.Fprintln(os.Stderr, "warn: install keys:", err)
 		} else {
 			o.logLine("==> verify key login before storage/reboot")
-			if _, err := runSSHOnPort(factorySSHPort(), "", o.PrimaryKey, o.RouterUser, o.RouterHost, "echo nd-key-ok", o.PrimaryKeyPassphrase); err != nil {
+			out, err := runSSHKeyOnly(factorySSHPort(), o.PrimaryKey, o.RouterUser, o.RouterHost, "echo nd-key-ok", o.PrimaryKeyPassphrase)
+			if err != nil {
 				fmt.Fprintln(os.Stderr, "warn: key login failed — password SSH kept on:", err)
-				fmt.Fprintln(os.Stderr, "hint: check PrimaryKey matches .pub; do not disable password until key works")
+				if s := strings.TrimSpace(out); s != "" {
+					fmt.Fprintln(os.Stderr, "warn: key login ssh out:", s)
+				}
+				// Confirm pubkey landed (password path) — surfaces Dropbear vs wrong .pub
+				if chk, cerr := runSSHOnPort(factorySSHPort(), sshPass, o.PrimaryKey, o.RouterUser, o.RouterHost,
+					"grep -E 'ssh-(ed25519|rsa)|ecdsa' /etc/dropbear/authorized_keys /root/.ssh/authorized_keys 2>/dev/null | head -3", o.PrimaryKeyPassphrase); cerr == nil {
+					fmt.Fprintln(os.Stderr, "warn: authorized_keys sample:", strings.TrimSpace(chk))
+				}
+				fmt.Fprintln(os.Stderr, "hint: PrimaryKey must match OperatorPubKey/.pub; Dropbear needs the same key type")
 			} else {
 				keyOK = true
 				o.logLine("==> key login OK")
@@ -558,4 +577,27 @@ func waitEdgeOnControlPlane(o EdgeOpts, waitFor time.Duration) error {
 		time.Sleep(5 * time.Second)
 	}
 	return fmt.Errorf("control plane: device %s not seen on primary within %s (agent enroll/heartbeat) — check mTLS and SERVER URL", did, waitFor)
+}
+
+// armPrimaryAgentPlane runs `netductor api-public arm` on the control node so a travel
+// router can complete first mTLS enroll from its ISP IP without a permanent open :8789.
+func armPrimaryAgentPlane(o EdgeOpts, ttl string) error {
+	if ttl == "" {
+		ttl = "45m"
+	}
+	user := o.PrimaryUser
+	if user == "" {
+		user = "root"
+	}
+	cmd := "netductor api-public arm --ttl " + ShellQuote(ttl)
+	out, err := runSSHOnPort(day2SSHPort(), "", o.PrimaryKey, user, o.PrimaryHost, cmd, o.PrimaryKeyPassphrase)
+	if err != nil {
+		// Some installs only listen on 52222 for operator SSH.
+		out2, err2 := runSSHOnPort("52222", "", o.PrimaryKey, user, o.PrimaryHost, cmd, o.PrimaryKeyPassphrase)
+		if err2 != nil {
+			return fmt.Errorf("%v / :52222 %v (%s %s)", err, err2, strings.TrimSpace(out), strings.TrimSpace(out2))
+		}
+		return nil
+	}
+	return nil
 }
