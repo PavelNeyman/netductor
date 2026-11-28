@@ -2688,29 +2688,34 @@ func ufwEffectivePolicy(status, role string) (ok bool, warnings []string) {
 				warnings = append(warnings, "mtls: source "+source+" is not covered by an effective IPv4 ALLOW rule on "+mtls+"/tcp")
 			}
 		}
-		// No IPv6 source is trusted for the current mTLS service topology.
-		// Reject every IPv6 ALLOW, including narrow source-specific exceptions.
+		// Travel edge plane: WAN Anywhere on mTLS is intentional (IPv4 + IPv6).
+		// App-layer enroll stays DMZ (pending until operator approve).
 		for _, rule := range rules {
 			if rule.IPv6 && ufwRuleMatchesPortTCP(rule, mtls) && ufwRuleAllowsTraffic(rule.Action) {
+				if ufwFromIsWAN(rule.From) || rule.From == "::/0" || strings.Contains(rule.Raw, "netductor-edge-plane-public") || strings.Contains(rule.Raw, "netductor-api-public") {
+					continue
+				}
 				ok = false
 				warnings = append(warnings, "mtls: unexpected IPv6 ALLOW from "+rule.From+" for "+mtls+"/tcp")
 			}
 		}
-		// IPv4 mTLS must be reachable only from configured service CIDRs,
-		// registered peers, or the exact local loopback host 127.0.0.1.
+		// IPv4 mTLS: service CIDRs, peers, loopback, or intentional WAN public plane.
 		for _, rule := range rules {
 			if rule.IPv6 || !ufwRuleMatchesPortTCP(rule, mtls) || !ufwRuleAllowsTraffic(rule.Action) {
 				continue
 			}
 			trusted := false
+			if ufwFromIsWAN(rule.From) || rule.From == "0.0.0.0/0" ||
+				strings.Contains(rule.Raw, "netductor-edge-plane-public") ||
+				strings.Contains(rule.Raw, "netductor-api-public") {
+				trusted = true
+			}
 			for _, source := range allowedMTLSSources {
 				if ufwSourceContainedBy(rule.From, source) {
 					trusted = true
 					break
 				}
 			}
-			// Accept only the exact IPv4 loopback host as an additional
-			// explicit local exception, without requiring such a rule.
 			if !trusted && ufwSourceContainedBy(rule.From, "127.0.0.1/32") {
 				trusted = true
 			}
