@@ -1131,10 +1131,6 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 		}
 		mtls := ndconfig.AgentMTLSPort()
 		trustedMTLS := []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR(), "127.0.0.1/32"}
-		edgePlanePublic := false
-		if _, err := os.Stat("/etc/netductor/edge-plane-public"); err == nil {
-			edgePlanePublic = true
-		}
 		peerSources, peerErr := registeredPeerAgentSources()
 		if peerErr != nil {
 			conflicts = append(conflicts, "peer mTLS inventory: "+peerErr.Error())
@@ -1166,7 +1162,15 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 				continue
 			}
 			trusted := false
-			if !rule.IPv6 {
+			// Primary agent plane may be intentionally public (travel edge / ISP NAT).
+			// Accept WAN "Anywhere" and our netductor comments; do not require the flag file
+			// (flag may lag one restart behind an already-applied UFW allow).
+			if ufwFromIsWAN(rule.From) || rule.From == "0.0.0.0/0" || rule.From == "::/0" ||
+				strings.Contains(rule.Raw, "netductor-edge-plane-public") ||
+				strings.Contains(rule.Raw, "netductor-api-public") {
+				trusted = true
+			}
+			if !trusted && !rule.IPv6 {
 				for _, source := range trustedMTLS {
 					if ufwSourceContainedBy(rule.From, source) {
 						trusted = true
@@ -1174,8 +1178,7 @@ func ufwPreflightPolicyMode(status, role string, bootstrapSSH bool) error {
 					}
 				}
 			}
-			// Anywhere ALLOW is intentional when edge-plane-public is set (travel ISP NAT).
-			if !trusted && !(edgePlanePublic && (rule.From == "" || rule.From == "Anywhere" || rule.From == "0.0.0.0/0" || rule.From == "Anywhere (v6)" || rule.From == "::/0")) {
+			if !trusted {
 				conflicts = append(conflicts, "mtls has an existing untrusted ALLOW from "+rule.From)
 			}
 		}
@@ -1472,11 +1475,13 @@ func applyUFWMode(role string, bootstrapSSH bool) error {
 			return err
 		}
 		mtls := ndconfig.AgentMTLSPort()
-		// Travel edge / ISP NAT: durable public mTLS when flag present (app-layer pending DMZ).
-		if _, err := os.Stat("/etc/netductor/edge-plane-public"); err == nil {
-			if err := must("allow", mtls+"/tcp", "comment", "netductor-edge-plane-public"); err != nil {
-				return fmt.Errorf("allow edge-plane-public mTLS: %w", err)
-			}
+		// Travel edge / ISP NAT: durable public mTLS plane (app-layer pending DMZ).
+		// Always ensure flag + ALLOW on primary so stack apply / baseline cannot flap.
+		if err := os.MkdirAll("/etc/netductor", 0o755); err == nil {
+			_ = os.WriteFile("/etc/netductor/edge-plane-public", []byte("1\n"), 0o644)
+		}
+		if err := must("allow", mtls+"/tcp", "comment", "netductor-edge-plane-public"); err != nil {
+			return fmt.Errorf("allow edge-plane-public mTLS: %w", err)
 		}
 		for _, c := range []string{ndconfig.SvcSPCIDR(), ndconfig.SvcPSCIDR()} {
 			if err := must("allow", "from", c, "to", "any", "port", mtls, "proto", "tcp", "comment", "netductor-api"); err != nil {
